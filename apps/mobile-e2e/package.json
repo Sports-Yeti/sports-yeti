@@ -1,0 +1,10 @@
+{
+  "name": "@sports-yeti/mobile-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "implicitDependencies": [
+      "@sports-yeti/mobile"
+    ]
+  }
+}
