@@ -712,11 +712,21 @@ dispute_messages (id, dispute_id, user_id, message, created_at)
 
 -- Data Export Tables
 data_exports (id, user_id, export_type, status, file_url, created_at, completed_at)
+
+-- AI Chat Tables
+ai_conversations (id, user_id, conversation_id, title, created_at, updated_at)
+ai_messages (id, conversation_id, user_id, message, response, message_type, created_at)
+ai_suggestions (id, conversation_id, suggestion, created_at)
+
+-- MCP Integration Tables
+mcp_tools (id, name, description, input_schema, enabled, created_at)
+mcp_tool_calls (id, tool_id, user_id, arguments, result, created_at)
+mcp_api_keys (id, user_id, key_hash, permissions, expires_at, created_at)
 ```
 
 ### **Frontend Applications**
 
-#### **Web App (Next.js) - League Management**
+#### **Web App (React Native Web) - League Management**
 - **League Dashboard**: Overview, analytics, facility management
 - **Division Management**: Create and manage divisions
 - **Team Management**: Approve teams, manage rosters
@@ -730,6 +740,8 @@ data_exports (id, user_id, export_type, status, file_url, created_at, completed_
 - **Financial Dashboard**: Revenue tracking, payout management
 - **Analytics & Reporting**: Performance metrics and reports
 - **Dispute Management**: Handle league disputes and issues
+- **AI Assistant Integration**: MCP-compatible API for AI platforms
+- **General Chat Assistant**: AI-powered chat for customer support and resource discovery
 
 #### **Mobile App (React Native) - Player Experience**
 - **Social Feed**: Instagram-like feed with sports content
@@ -745,6 +757,7 @@ data_exports (id, user_id, export_type, status, file_url, created_at, completed_
 - **Highlight Viewer**: View and share highlights
 - **Social Media Sharing**: Share highlights to social platforms
 - **Chat System**: Game and team communication with polls
+- **General Chat Assistant**: AI-powered chat for finding players, camps, leagues
 - **QR Code Scanner**: Check-in at facilities and games
 - **Data Export**: Export personal data and statistics
 
@@ -1067,6 +1080,116 @@ WhatsApp integration option → Post-game chat archive
 - **Primary**: Social sports community platform
 - **Secondary**: League management and organization
 - **Tertiary**: Facility booking, equipment rental, and referee services
+
+---
+
+## 🤖 AI Integration & MCP Compatibility
+
+### **Model Context Protocol (MCP) Integration**
+
+#### **MCP Server Implementation**
+- **Sports Yeti MCP Server**: Custom MCP server exposing platform data
+- **Resource Discovery**: AI platforms can discover available resources
+- **Data Access**: Secure access to leagues, teams, players, camps, facilities
+- **Real-time Updates**: Live data synchronization with AI platforms
+- **Privacy Controls**: Granular privacy settings for AI data access
+
+#### **MCP Tools & Resources**
+```json
+{
+  "tools": [
+    {
+      "name": "search_players",
+      "description": "Search for players by criteria",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "league_id": {"type": "integer"},
+          "experience_level": {"type": "string"},
+          "availability": {"type": "string"},
+          "location": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "find_camps",
+      "description": "Find training camps",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sport_type": {"type": "string"},
+          "location": {"type": "string"},
+          "date_range": {"type": "object"}
+        }
+      }
+    },
+    {
+      "name": "get_league_info",
+      "description": "Get league information and statistics",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "league_id": {"type": "integer"}
+        }
+      }
+    },
+    {
+      "name": "book_facility",
+      "description": "Book facility space",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "facility_id": {"type": "integer"},
+          "space_id": {"type": "integer"},
+          "start_time": {"type": "string"},
+          "end_time": {"type": "string"}
+        }
+      }
+    }
+  ]
+}
+```
+
+### **General Chat Assistant**
+
+#### **AI-Powered Customer Support**
+- **Natural Language Processing**: Understand user queries in natural language
+- **Context Awareness**: Remember conversation history and user preferences
+- **Resource Discovery**: Help users find players, teams, camps, leagues
+- **Booking Assistance**: Guide users through facility and equipment booking
+- **Problem Resolution**: Handle common issues and direct to human support
+
+#### **Chat Assistant Features**
+- **Multi-platform Integration**: Available on web and mobile apps
+- **Real-time Responses**: Instant answers to user questions
+- **Personalized Recommendations**: Suggest relevant resources based on user profile
+- **Booking Integration**: Direct booking through chat interface
+- **Language Support**: Multi-language chat support
+- **Escalation System**: Seamless handoff to human support when needed
+
+#### **Chat Assistant Capabilities**
+- **Player Discovery**: "Find me basketball players in downtown area"
+- **Camp Information**: "What basketball camps are available next month?"
+- **League Details**: "Tell me about the Downtown Basketball League"
+- **Booking Help**: "I want to book a court for tomorrow evening"
+- **Equipment Rental**: "Do you have basketball equipment for rent?"
+- **Game Scheduling**: "Help me find a team to play against this weekend"
+
+### **AI Platform Integration Benefits**
+
+#### **For AI Platforms (ChatGPT, Claude, etc.)**
+- **Real-time Sports Data**: Access to live league and player information
+- **Booking Capabilities**: Direct facility and equipment booking
+- **User Engagement**: Enhanced user experience with sports-specific assistance
+- **Revenue Sharing**: Commission on bookings made through AI platforms
+- **Data Analytics**: Insights into user behavior and preferences
+
+#### **For Sports Yeti Users**
+- **Seamless Experience**: Get sports information from their preferred AI platform
+- **Convenient Booking**: Book facilities and equipment through AI chat
+- **Personalized Recommendations**: AI-powered suggestions based on preferences
+- **24/7 Support**: Always-available AI assistant for questions and help
+- **Cross-platform Access**: Access Sports Yeti features from any AI platform
 
 ---
 

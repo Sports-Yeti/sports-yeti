@@ -259,13 +259,14 @@ waiver_signatures (id, waiver_id, user_id, signed_at, ip_address)
 
 ### **Frontend Applications**
 
-#### **Web App (Next.js) - League Management**
+#### **Web App (React Native Web) - League Management**
 - **League Dashboard**: Overview, team management, game scheduling, camp management
 - **Camp Management**: Create camps, schedule sessions, manage registrations
 - **Facility Management**: Space registration, booking management, QR code generation
 - **Payment Processing**: Handle all payments and invoicing
 - **Analytics & Reporting**: Basic revenue and participation reports
 - **Chat Management**: Basic chat moderation and management
+- **AI Assistant**: Basic AI chat for customer support and resource discovery
 
 #### **Mobile App (React Native) - Player Experience**
 - **Player Dashboard**: Profile management, team discovery, camp discovery
@@ -275,6 +276,7 @@ waiver_signatures (id, waiver_id, user_id, signed_at, ip_address)
 - **Social Feed**: Basic news feed and player interaction
 - **Notifications**: Push notifications for games, camps, and updates
 - **Chat System**: Game and team communication with attendance polls
+- **General Chat Assistant**: AI-powered chat for finding players, camps, leagues
 - **Game Schedule**: View upcoming games and team schedule
 - **Camp Schedule**: View camp sessions and training schedule
 
@@ -337,6 +339,14 @@ Players vote on attendance → Game coordination →
 Post-game chat archive
 ```
 
+### **8. AI Chat Assistant Journey**
+```
+User opens chat assistant → Asks natural language question → 
+AI processes query → Searches platform data → 
+Returns relevant information → Suggests actions → 
+User can book facilities, find players, or get help
+```
+
 ---
 
 ## 📊 MVP Success Metrics
@@ -368,6 +378,8 @@ Post-game chat archive
 - **Error Rate**: <1% error rate
 - **Mobile App Performance**: <3 seconds app launch time
 - **QR Code Generation**: <1 second QR code generation time
+- **AI Chat Response Time**: <3 seconds for chat responses
+- **MCP API Response Time**: <1 second for tool calls
 
 ---
 
@@ -393,10 +405,11 @@ Post-game chat archive
 - **Week 15**: Game scheduling, camp management, and waiver system
 - **Week 16**: Chat system implementation with attendance polls
 
-### **Phase 5: Testing & Launch (Weeks 17-20)**
+### **Phase 5: Testing & Launch (Weeks 17-21)**
 - **Week 17-18**: User testing and feedback collection
-- **Week 19**: Bug fixes and performance optimization
-- **Week 20**: MVP launch with basketball league
+- **Week 19**: AI integration and MCP setup
+- **Week 20**: Bug fixes and performance optimization
+- **Week 21**: MVP launch with basketball league
 
 ---
 
@@ -492,6 +505,7 @@ Post-game chat archive
 - **No Mock Games**: No casual game creation system
 - **Basic Chat**: Limited chat features (vs. advanced chat with WhatsApp integration)
 - **No Point Wagering**: No competitive point wagering system
+- **Basic AI Chat**: Simple AI assistant (vs. advanced MCP integration and AI platform partnerships)
 
 ### **Future Considerations**
 - **Scalability**: Architecture designed to support full platform features
@@ -502,6 +516,8 @@ Post-game chat archive
 - **Mobile Foundation**: Mobile app ready for additional features
 - **QR Code System**: Foundation for advanced check-in and tracking features
 - **Chat Foundation**: Basic chat system ready for advanced features
+- **AI Foundation**: Basic AI chat ready for advanced MCP integration and AI platform partnerships
+- **Cross-Platform**: React Native Web foundation for unified web and mobile experience
 
 ---
 
