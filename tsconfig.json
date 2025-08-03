@@ -8,6 +8,18 @@
     },
     {
       "path": "./apps/mobile"
+    },
+    {
+      "path": "./ui"
+    },
+    {
+      "path": "./data-access"
+    },
+    {
+      "path": "./util"
+    },
+    {
+      "path": "./shared-types"
     }
   ]
 }
