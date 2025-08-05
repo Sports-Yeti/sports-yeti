@@ -1,0 +1,123 @@
+{
+  "name": "mobile",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/mobile/src",
+  "projectType": "application",
+  "tags": ["type:app", "platform:mobile"],
+  "targets": {
+    "start": {
+      "executor": "@nx/expo:start",
+      "options": {
+        "port": 8081
+      }
+    },
+    "serve": {
+      "executor": "@nx/expo:start",
+      "options": {
+        "port": 8081
+      }
+    },
+    "run-ios": {
+      "executor": "@nx/expo:run",
+      "options": {
+        "platform": "ios"
+      }
+    },
+    "run-android": {
+      "executor": "@nx/expo:run",
+      "options": {
+        "platform": "android"
+      }
+    },
+    "build": {
+      "executor": "@nx/expo:build",
+      "options": {
+        "platform": "all"
+      },
+      "configurations": {
+        "development": {
+          "developmentClient": true,
+          "distribution": "internal"
+        },
+        "preview": {
+          "distribution": "internal"
+        },
+        "production": {
+          "autoIncrement": true
+        }
+      }
+    },
+    "build-ios": {
+      "executor": "@nx/expo:build",
+      "options": {
+        "platform": "ios"
+      },
+      "configurations": {
+        "development": {
+          "developmentClient": true,
+          "distribution": "internal"
+        },
+        "preview": {
+          "distribution": "internal"
+        },
+        "production": {
+          "autoIncrement": true
+        }
+      }
+    },
+    "build-android": {
+      "executor": "@nx/expo:build",
+      "options": {
+        "platform": "android"
+      },
+      "configurations": {
+        "development": {
+          "developmentClient": true,
+          "distribution": "internal"
+        },
+        "preview": {
+          "distribution": "internal"
+        },
+        "production": {
+          "autoIncrement": true
+        }
+      }
+    },
+    "build-web": {
+      "executor": "@nx/expo:export",
+      "options": {
+        "platform": "web",
+        "outputDir": "dist/apps/mobile"
+      }
+    },
+    "export": {
+      "executor": "@nx/expo:export",
+      "options": {
+        "platform": "web",
+        "outputDir": "dist/apps/mobile"
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "apps/mobile/jest.config.ts"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "sync-deps": {
+      "executor": "@nx/expo:sync-deps"
+    },
+    "prebuild": {
+      "executor": "@nx/expo:prebuild"
+    },
+    "install": {
+      "executor": "@nx/expo:install"
+    },
+    "ensure-symlink": {
+      "executor": "@nx/expo:ensure-symlink"
+    }
+  }
+}
