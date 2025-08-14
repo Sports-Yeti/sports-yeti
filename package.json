@@ -7,12 +7,16 @@
   "dependencies": {
     "@expo/metro-config": "~0.19.4",
     "@expo/metro-runtime": "~4.0.0",
+    "@react-navigation/native-stack": "^7.3.25",
     "expo": "~52.0.11",
     "expo-splash-screen": "~0.29.13",
     "expo-status-bar": "~2.0.0",
     "react": "~18.3.1",
     "react-dom": "~18.3.1",
     "react-native": "0.76.3",
+    "react-native-paper": "^5.14.5",
+    "react-native-safe-area-context": "^5.6.0",
+    "react-native-screens": "^4.13.1",
     "react-native-svg": "~15.8.0",
     "react-native-svg-transformer": "~1.5.0",
     "react-native-web": "~0.19.13"
@@ -60,6 +64,7 @@
     "typescript-eslint": "^8.29.0"
   },
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "ui"
   ]
 }
