@@ -186,6 +186,23 @@ Design QR code scanner interface:
 
 ---
 
+## 🔴 Live Streaming & Connection States
+```
+Design SSE-powered live updates:
+
+Connection Indicator:
+- Status dot (green/yellow/red) with tooltip text
+- Reconnect banner when stream drops; auto retries
+
+Streaming Messages:
+- Chat shows token streaming animation for AI replies
+- "Receiving updates…" skeleton in schedule widgets
+
+Rate Limiting UX:
+- 429-friendly message with countdown to retry
+- Keep action buttons visible but disabled with timer
+```
+
 ## 💻 Web App Design Prompts
 
 ### **1. Web App Landing Page**
@@ -329,6 +346,23 @@ Design MCP integration dashboard:
 ```
 
 ---
+
+## 🧾 Admin Audit & Diagnostics
+```
+Create admin-facing diagnostics aligned with observability:
+
+Audit Log Table:
+- Columns: Time, Actor, Action, Target, League, Trace ID
+- Filters and export (CSV)
+
+Error & Support Dialog:
+- Always show a copyable Trace ID for incidents
+- "Report with diagnostics" action that bundles client logs
+
+Webhook Status Panel (Payments):
+- Timeline: event received → verified → processed → reconciled
+- Badges: success/warning/failure with retry hints
+```
 
 ## 🎯 Component Design Prompts
 

@@ -57,6 +57,7 @@ This document follows **spec-driven development** principles, providing detailed
 - **Web App**: React Native Web (React 19)
 - **Mobile App**: React Native with Expo
 - **State Management**: Zustand (unified across platforms)
+- **NX and Expo**: Monorepo manager & Application development tool
 - **UI Framework**: React Native Paper + NativeBase
 - **Real-time**: Socket.io client
 - **AI Chat**: OpenAI GPT-4 integration
@@ -123,6 +124,16 @@ This document follows **spec-driven development** principles, providing detailed
     ├── resources
     └── capabilities
 ```
+
+### **API Standards (Mandatory)**
+
+- Versioning: All routes under `/api/v1`; breaking changes require new version.
+- Idempotency: Payments and bookings accept `Idempotency-Key`. Server deduplicates and returns original response on repeats for 24h.
+- Pagination: Cursor-based with `limit`, `next_cursor`, `prev_cursor`.
+- Errors: RFC 7807 Problem+JSON. Include `trace_id` for correlation.
+- Concurrency: `ETag`/`If-Match` on mutable resources to prevent lost updates.
+- Rate limits: Per-IP and per-identity with soft limits; return `429` and `Retry-After`.
+- Webhooks: Signed (HMAC), timestamped, replay-protected; 2xx-only acks; exponential backoff retries.
 
 ### **Authentication & Authorization**
 
@@ -662,6 +673,17 @@ class PlayerRepository
 }
 ```
 
+### **Secrets, Keys, and Token Management**
+
+- Secrets stored in cloud Secrets Manager/KMS; rotated automatically (90 days) or on compromise.
+- JWT signing keys rotated; refresh tokens are rotating and device-bound; immediate revocation on suspicious activity.
+- Stripe and webhook secrets rotated and scoped per environment.
+
+### **Audit Logging**
+
+- Emit immutable audit events for: admin actions, role changes, payouts/refunds, login anomalies.
+- Include `who`, `what`, `when`, `where (ip, ua)`, `trace_id`; store in append-only storage.
+
 ---
 
 ## 📊 Database Design
@@ -760,9 +782,19 @@ CREATE TABLE payments_2024_02 PARTITION OF payments
 FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
 ```
 
+### **Multi-Tenancy Strategy**
+
+- All tenant-scoped tables contain `league_id` (nullable only when truly global).
+- Application-layer enforcement: every request derives `allowed_league_ids` and scoping is applied in repositories.
+- High-sensitivity tables (payments, payouts, audit) include `league_id` and are protected via database policies where supported.
+
 ---
 
 ## 🔄 Real-time Communication
+
+### **Real-time Transport**
+
+- Prefer Server-Sent Events (SSE) for MVP for simplicity; upgrade hotspots to WebSockets as needed based on metrics.
 
 ### **WebSocket Events**
 
@@ -962,6 +994,11 @@ class GameApiTest extends TestCase
 }
 ```
 
+### **Resilience and Chaos Testing**
+
+- Fault injection (timeouts, 5xx) for Stripe and DB in staging; verify retries/backoff and user-facing error behavior.
+- Induce queue backlogs in staging to validate autoscaling and DLQ processing.
+
 ---
 
 ## 📈 Performance & Scalability
@@ -1050,6 +1087,23 @@ class ProcessGameHighlights implements ShouldQueue
     }
 }
 ```
+
+### **Queues and Backpressure**
+
+- All jobs are idempotent; include idempotency keys on payloads.
+- Configure DLQs; set bounded retries with exponential backoff and jitter.
+- Autoscale workers based on queue depth and SLA targets; alert on backlog thresholds.
+
+### **Caching and Consistency**
+
+- Use Cache-Aside pattern with explicit invalidation on writes for hot keys (league stats, availability).
+- Stale-While-Revalidate for non-critical aggregates.
+
+### **Observability**
+
+- OpenTelemetry tracing across HTTP and queue workers; propagate `traceparent` to frontend.
+- Structured JSON logs with PII redaction; attach `trace_id`, `league_id`, and auth subject.
+- Metrics: RED per endpoint and custom business metrics (payments_success_rate, booking_conflicts, chat_delivery_latency).
 
 ---
 

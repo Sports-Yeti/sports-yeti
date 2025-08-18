@@ -1227,4 +1227,64 @@ WhatsApp integration option → Post-game chat archive
 
 ---
 
-This comprehensive scope document outlines a complete sports community platform that combines social networking, league management, facility booking, equipment rental, referee services, tournament organization, camp management, video processing, gamification, point wagering, QR code check-ins, and advanced chat systems into a cohesive ecosystem. The platform is designed to scale from local pilot to international platform while maintaining strong community engagement and user satisfaction. 
+## 🧭 Non-Functional Requirements (NFRs) and SLOs
+
+- **Availability**: API 99.9% monthly; payment-critical paths 99.95%.
+- **Latency (p95)**: Auth < 300ms; Bookings/Payments < 600ms; Reads < 400ms.
+- **Error budget**: API 5xx < 1%; payment failures (non-user-error) < 0.1%.
+- **Capacity**: Sustain 50 RPS steady on API with 3x burst for 10 minutes without degradation.
+- **Data durability**: RPO ≤ 15 minutes, RTO ≤ 2 hours (database backup/restore).
+- **Privacy**: GDPR/CCPA alignment; default 12-month retention for PII unless contractual obligations require longer.
+- **Security baseline**: OWASP ASVS Level 2, secrets in KMS/SM, audit logging for admin/payment events.
+- **Observability**: Structured logs, RED/USE metrics, distributed tracing, dashboards with SLO burn alerts.
+- **Cost guardrails**: Media egress <$X/month MVP; AI/video compute <$Y/month; S3 lifecycle to IA/Glacier after 30/90 days.
+
+## 📐 API Standards and Conventions
+
+- **Versioning**: Prefix all endpoints with `/api/v1`; additive changes only within v1.
+- **Idempotency**: All mutating POSTs for payments/bookings must accept `Idempotency-Key` and be idempotent for 24 hours.
+- **Pagination**: Cursor-based with `limit`, `next_cursor`, `prev_cursor`.
+- **Error model**: RFC 7807 Problem+JSON with stable `type`, `code`, `detail`, `trace_id`.
+- **Concurrency control**: `ETag` + `If-Match` for resource updates where conflicting edits are possible.
+- **Rate limiting**: Tiered per-IP and per-user limits; global safeties with graceful 429 and `Retry-After`.
+- **Webhooks**: Signed with rotating secrets, timestamped, replay protection; 2xx-only ack; exponential backoff retries.
+- **Retries**: Clients may retry safe operations; server implements idempotent handlers for duplicate deliveries.
+
+## 🔐 Security, Privacy, and Compliance Baseline
+
+- **Secrets management**: Centralized KMS/Secrets Manager; no secrets in repo or images; automated rotation for webhooks/JWT signing.
+- **Auth**: Short-lived access tokens, rotating refresh tokens; device-bound refresh where applicable.
+- **RBAC/ABAC**: Enforce role and attribute checks in middleware/policies; deny-by-default.
+- **Audit logging**: Immutable audit events for admin actions, auth changes, payouts, refunds; tamper-evident storage.
+- **Bot and abuse protection**: Rate limiting, CAPTCHA where needed, WAF rules for common attacks.
+- **Privacy**: Data inventory, DSR flows (export/delete) within 30 days, data minimization in logs/metrics.
+- **Incident response**: On-call rotation, severity matrix, runbooks, comms templates.
+
+## 🏢 Multi-Tenancy and Data Isolation
+
+- **Tenant boundary**: `league_id` required on tenant-scoped entities; queries must enforce tenant filter.
+- **Isolation**: Application-layer authorization gates; optional DB-level row security for high-sensitivity tables.
+- **Cross-tenant operations**: Explicitly designed admin flows with elevated scopes and auditing.
+
+## 🩺 Observability and Operations
+
+- **Logs**: JSON logs with `trace_id`, `user_id` (hashed), `league_id`, request metadata; PII redaction.
+- **Metrics**: RED (Rate, Errors, Duration) per endpoint; USE for infrastructure; custom business metrics (payment_success_rate, booking_conflict_rate).
+- **Tracing**: OpenTelemetry across API, jobs, and external calls; propagate `traceparent` to clients when possible.
+- **Dashboards & alerts**: SLO dashboards; alert on SLO burn, elevated latency, webhook failures, queue backlog, 429 spikes.
+
+## 🧱 Resiliency and Reliability Patterns
+
+- **Timeouts**: Enforce service-level timeouts for DB, cache, HTTP clients; budget < total request timeout.
+- **Retries & backoff**: Exponential backoff with jitter for transient errors; max retry caps.
+- **Circuit breaking**: Trip on upstream failures; shed load gracefully.
+- **Queues**: DLQs for failed jobs; replay tools; idempotent handlers.
+- **Backpressure**: Rate-limit producers; apply queue size alerts and autoscaling policies.
+
+## 💸 Cost and Capacity Guardrails
+
+- **Storage**: S3 lifecycle to IA/Glacier; object compression where feasible; thumbnails for media previews.
+- **CDN**: Cache static/media with appropriate TTLs; signed URLs for private media.
+- **AI/Video**: Concurrency caps; per-tenant quotas; usage metering and budgets with alerting.
+
+This comprehensive scope document outlines a complete sports community platform that combines social networking, league management, facility booking, equipment rental, referee services, tournament organization, camp management, video processing, gamification, point wagering, QR code check-ins, and advanced chat systems into a cohesive ecosystem. The platform is designed to scale from local pilot to international platform while maintaining strong community engagement and user satisfaction and meeting the NFRs, API standards, and operational guardrails defined above.

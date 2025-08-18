@@ -290,6 +290,61 @@ Filter Chips:
 
 ---
 
+## 🔴 Live Data & Streaming UI
+
+### **Live Indicators and Streaming States**
+```
+Design live data affordances that reflect SSE-based updates:
+
+Live Badge:
+- Small pill label "LIVE" with pulsing dot (blue #3B82F6)
+- Used on chat headers and schedule widgets when stream connected
+
+Streaming Response:
+- Token-by-token message rendering state in chat/AI replies
+- Ghost text style for incoming tokens; switch to solid on completion
+- Reconnect banner: "Reconnecting…" with spinner; auto-dismiss on success
+
+Heartbeat/Keep-alive:
+- Subtle connection dot in status bar: green (connected), yellow (reconnecting), red (offline)
+- Tooltip explains status with friendly yeti tone
+
+Rate Limit (429) State:
+- Non-blocking toast: "You're sending requests too fast"
+- Include countdown to retry and a "Got it" action
+```
+
+### **Error & Diagnostics (Support-Friendly)**
+```
+Design error patterns that include a copyable Trace ID for support:
+
+Error Dialog:
+- Title: "Something went wrong"
+- Body: Friendly message + small details expander
+- Trace ID: Monospace token with "Copy" button
+- Actions: "Try again" (primary), "Contact support" (secondary)
+
+Empty/Error States:
+- 429 Rate limited: Yeti catching breath illustration
+- 503 Degraded: Yeti fixing cables illustration
+- Include helpful next steps and retry timers
+```
+
+### **Admin Audit Log Views**
+```
+Create admin audit UI components:
+
+Audit Table:
+- Columns: Time, Actor, Action, Target, League, Trace ID
+- Filters: Date range, action type, actor, league
+- Row expand: JSON diff of before/after (monospace)
+
+Audit Details Drawer:
+- Header: Action summary + status badge
+- Sections: Context (IP, UA), Linked resources, Related payments
+- Action: "Copy Trace ID"
+```
+
 ## 📱 Mobile App Screens
 
 ### **11. Authentication Screens**
@@ -452,6 +507,17 @@ Game Details Modal:
 ```
 
 ---
+
+## 🧭 Observability Touchpoints (UX for Developers/Support)
+```
+Diagnostic Panel (Dev builds only):
+- Shows current trace ID, last request latency, status of SSE connection
+- Toggle to copy logs for the last 30 seconds
+
+Support Mode (Prod, guarded):
+- Error toasts include small "Ref: TRACE-XXXXX" footer
+- Settings screen: "Send diagnostic report" action
+```
 
 ## 💻 Web App Components
 
