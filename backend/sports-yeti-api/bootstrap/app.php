@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(App\Http\Middleware\RequestMetricsMiddleware::class);
         // Enforce league scope when leagueId is present
         $middleware->append(App\Http\Middleware\MultiTenancyMiddleware::class);
+        // Audit mutations
+        $middleware->append(App\Http\Middleware\AuditLogMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Render RFC7807 problem+json for API requests

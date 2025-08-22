@@ -21,7 +21,7 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    Route::middleware('auth:api')->group(function () {
+    Route::middleware(['auth:api', 'throttle:120,1'])->group(function () {
         Route::get('/leagues', [App\Http\Controllers\LeagueController::class, 'index']);
         Route::post('/leagues', [App\Http\Controllers\LeagueController::class, 'store']);
 
@@ -36,6 +36,16 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/leagues/{leagueId}/bookings', [App\Http\Controllers\BookingController::class, 'index']);
         Route::post('/leagues/{leagueId}/bookings', [App\Http\Controllers\BookingController::class, 'store']);
+
+        Route::post('/leagues/{leagueId}/payments/charges', [App\Http\Controllers\PaymentController::class, 'createCharge']);
+        Route::post('/leagues/{leagueId}/payments/charges/{chargeId}/refunds', [App\Http\Controllers\PaymentController::class, 'refund']);
+    });
+
+    Route::post('/payments/webhook', [App\Http\Controllers\PaymentController::class, 'webhook']);
+
+    Route::middleware(['auth:api', 'throttle:120,1'])->group(function () {
+        Route::get('/leagues/{leagueId}/chat/stream', [App\Http\Controllers\SseChatController::class, 'stream']);
+        Route::post('/leagues/{leagueId}/chat/publish', [App\Http\Controllers\SseChatController::class, 'publish']);
     });
 });
 

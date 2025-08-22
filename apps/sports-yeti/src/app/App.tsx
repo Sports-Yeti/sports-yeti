@@ -1,5 +1,7 @@
 /* eslint-disable jsx-a11y/accessible-emoji */
 import React, { useRef, useState } from 'react';
+import { AuthProvider, useAuth } from './auth-context';
+import { LoginScreen, DashboardScreen, FacilitiesScreen, BookingScreen, ChatScreen } from './screens';
 import {
   SafeAreaView,
   StyleSheet,
@@ -11,6 +13,16 @@ import {
   Linking,
 } from 'react-native';
 import Svg, { G, Path } from 'react-native-svg';
+
+function Root() {
+  const { token } = useAuth();
+  const [screen, setScreen] = useState<'dashboard' | 'facilities' | 'booking' | 'chat'>('dashboard');
+  if (!token) return <LoginScreen onLoggedIn={() => setScreen('dashboard')} />;
+  if (screen === 'facilities') return <FacilitiesScreen />;
+  if (screen === 'booking') return <BookingScreen />;
+  if (screen === 'chat') return <ChatScreen />;
+  return <DashboardScreen goToFacilities={() => setScreen('facilities')} goToChat={() => setScreen('chat')} />;
+}
 
 export const App = () => {
   const [whatsNextYCoord, setWhatsNextYCoord] = useState<number>(0);
@@ -76,6 +88,9 @@ export const App = () => {
                 </Text>
               </TouchableOpacity>
             </View>
+            <AuthProvider>
+              <Root />
+            </AuthProvider>
           </View>
           <View style={styles.section}>
             <View style={[styles.shadowBox]}>
