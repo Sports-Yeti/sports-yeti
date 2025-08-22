@@ -30,6 +30,12 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/leagues/{leagueId}/players', [App\Http\Controllers\PlayerController::class, 'index']);
         Route::post('/leagues/{leagueId}/players', [App\Http\Controllers\PlayerController::class, 'store']);
+
+        Route::get('/leagues/{leagueId}/facilities', [App\Http\Controllers\FacilityController::class, 'index']);
+        Route::post('/leagues/{leagueId}/facilities', [App\Http\Controllers\FacilityController::class, 'store']);
+
+        Route::get('/leagues/{leagueId}/bookings', [App\Http\Controllers\BookingController::class, 'index']);
+        Route::post('/leagues/{leagueId}/bookings', [App\Http\Controllers\BookingController::class, 'store']);
     });
 });
 
