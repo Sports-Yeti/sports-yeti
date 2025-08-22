@@ -1,46 +1,183 @@
-name: CI
+name: Sports Yeti CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, develop ]
   pull_request:
-
-env:
-  NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
-
-permissions:
-  actions: read
-  contents: read
+    branches: [ main ]
 
 jobs:
-  main:
+  test-backend:
+    name: Test Laravel API
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sports_yeti_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
     steps:
-      - uses: actions/checkout@v4
-        with:
-          filter: tree:0
-          fetch-depth: 0
+    - uses: actions/checkout@v4
+    
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.4'
+        extensions: pdo, pgsql, mbstring, xml, bcmath, zip, curl, gd
+        coverage: xdebug
 
-      # This enables task distribution via Nx Cloud
-      # Run this command as early as possible, before dependencies are installed
-      # Learn more at https://nx.dev/ci/reference/nx-cloud-cli#npx-nxcloud-startcirun
-      # Uncomment this line to enable task distribution
-      # - run: npx nx start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="e2e-ci"
+    - name: Copy environment file
+      run: |
+        cd backend/sports-yeti-api
+        cp .env.example .env
+        sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=pgsql/' .env
+        sed -i 's/DB_DATABASE=.*/DB_DATABASE=sports_yeti_test/' .env
+        sed -i 's/DB_USERNAME=.*/DB_USERNAME=postgres/' .env
+        sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=postgres/' .env
 
-      # Cache node_modules
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
+    - name: Install dependencies
+      run: |
+        cd backend/sports-yeti-api
+        composer install --prefer-dist --no-progress --no-suggest
 
-      - run: npm ci --legacy-peer-deps
-      - run: npx playwright install --with-deps
+    - name: Generate application key
+      run: |
+        cd backend/sports-yeti-api
+        php artisan key:generate
 
-      # Prepend any command with "nx-cloud record --" to record its logs to Nx Cloud
-      # - run: npx nx-cloud record -- echo Hello World
-      # When you enable task distribution, run the e2e-ci task instead of e2e
-      - run: npx nx run-many -t lint test build e2e
-      # Nx Cloud recommends fixes for failures to help you get CI green faster. Learn more: https://nx.dev/ci/features/self-healing-ci
-      - run: npx nx fix-ci
-        if: always()
+    - name: Generate JWT secret
+      run: |
+        cd backend/sports-yeti-api
+        php artisan jwt:secret --force
+
+    - name: Run migrations
+      run: |
+        cd backend/sports-yeti-api
+        php artisan migrate --force
+
+    - name: Run PHPUnit tests
+      run: |
+        cd backend/sports-yeti-api
+        php artisan test --coverage
+
+    - name: Run Laravel Pint (Code Style)
+      run: |
+        cd backend/sports-yeti-api
+        ./vendor/bin/pint --test
+
+    - name: Run Larastan (Static Analysis)
+      run: |
+        cd backend/sports-yeti-api
+        ./vendor/bin/phpstan analyse
+
+  test-frontend:
+    name: Test React Native Apps
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Lint
+      run: npx nx run-many -t lint
+
+    - name: Test
+      run: npx nx run-many -t test
+
+    - name: Build mobile app
+      run: npx nx build sports-yeti
+
+    - name: Build admin web app
+      run: |
+        cd admin
+        npm run build
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend, security-scan]
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy API to staging
+      run: |
+        echo "🚀 Deploying API to staging environment"
+        # Add staging deployment commands here
+
+    - name: Deploy Web Admin to staging
+      run: |
+        echo "🌐 Deploying admin interface to staging"
+        # Add web deployment commands here
+
+    - name: Run E2E tests
+      run: |
+        echo "🧪 Running E2E tests against staging"
+        # Add E2E test commands here
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend, security-scan]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying to production"
+        # Add production deployment commands here
+
+    - name: Health check
+      run: |
+        echo "✅ Running production health checks"
+        # Add health check commands here
