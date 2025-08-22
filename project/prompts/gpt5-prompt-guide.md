@@ -18,6 +18,7 @@ Before responding, please:
 2. Identify any ambiguities that need clarification
 3. Create a structured approach to address each component
 4. Validate your understanding before proceeding
+
 Structured Prompting Techniques
 The Spec Format
 Define clear specifications for any behavior you want GPT-5 to follow:

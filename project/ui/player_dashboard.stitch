@@ -1,0 +1,265 @@
+<html>
+  <head>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link
+      rel="stylesheet"
+      as="style"
+      onload="this.rel='stylesheet'"
+      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Lexend%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
+    />
+
+    <title>Stitch Design</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  </head>
+  <body>
+    <div
+      class="relative flex size-full min-h-screen flex-col bg-[#f8fafb] justify-between group/design-root overflow-x-hidden"
+      style='font-family: Lexend, "Noto Sans", sans-serif;'
+    >
+      <div>
+        <div class="flex items-center bg-[#f8fafb] p-4 pb-2 justify-between">
+          <div class="text-[#0e131b] flex size-12 shrink-0 items-center" data-icon="List" data-size="24px" data-weight="regular">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+              <path
+                d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"
+              ></path>
+            </svg>
+          </div>
+          <h2 class="text-[#0e131b] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Player Dashboard</h2>
+        </div>
+        <div class="flex p-4 @container">
+          <div class="flex w-full flex-col gap-4 items-center">
+            <div class="flex gap-4 flex-col items-center">
+              <div
+                class="bg-center bg-no-repeat aspect-square bg-cover rounded-full min-h-32 w-32"
+                style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDVqj73Eqy1RKZw4GGtnf9u_x3GJ6IF4YkEeUnaGPeSp2Ptt-Rac-5FeOmMBxKFXWBq08zEcE8VTbWn0xe10zwrLVIJ1DP1TL4TMv86-e3u5ud2cR3zahoiS0Zavr-lHTi1IAj5pwrvZKuKEZ6TqqElJH0rQHgpts88wyCTC3yMFNnezFzk_56ZgXZleqL4AL2iSPT4koBovXWJfaoceV4IxlzCDsNBoHjeXr_EUpHE7SBfwKMnGdYYaNbHnOxu67p3Kw6DMKjswD5Q");'
+              ></div>
+              <div class="flex flex-col items-center justify-center justify-center">
+                <p class="text-[#0e131b] text-[22px] font-bold leading-tight tracking-[-0.015em] text-center">Ethan Frost</p>
+                <p class="text-[#506b95] text-base font-normal leading-normal text-center">@ethan_frost</p>
+                <p class="text-[#506b95] text-base font-normal leading-normal text-center">Level 12</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-4 p-4">
+          <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl p-6 bg-[#e8ecf3]">
+            <p class="text-[#0e131b] text-base font-medium leading-normal">Games Played</p>
+            <p class="text-[#0e131b] tracking-light text-2xl font-bold leading-tight">25</p>
+          </div>
+          <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl p-6 bg-[#e8ecf3]">
+            <p class="text-[#0e131b] text-base font-medium leading-normal">Points Earned</p>
+            <p class="text-[#0e131b] tracking-light text-2xl font-bold leading-tight">1500</p>
+          </div>
+          <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl p-6 bg-[#e8ecf3]">
+            <p class="text-[#0e131b] text-base font-medium leading-normal">Teams Joined</p>
+            <p class="text-[#0e131b] tracking-light text-2xl font-bold leading-tight">3</p>
+          </div>
+        </div>
+        <h2 class="text-[#0e131b] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Upcoming Games</h2>
+        <div class="p-4">
+          <div class="flex items-stretch justify-between gap-4 rounded-xl">
+            <div class="flex flex-[2_2_0px] flex-col gap-4">
+              <div class="flex flex-col gap-1">
+                <p class="text-[#506b95] text-sm font-normal leading-normal">Basketball</p>
+                <p class="text-[#0e131b] text-base font-bold leading-tight">Yeti Hoops League</p>
+                <p class="text-[#506b95] text-sm font-normal leading-normal">Court 3, 7:00 PM</p>
+              </div>
+              <button
+                class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-8 px-4 flex-row-reverse bg-[#e8ecf3] text-[#0e131b] pr-2 gap-1 text-sm font-medium leading-normal w-fit"
+              >
+                <div class="text-[#0e131b]" data-icon="ArrowRight" data-size="18px" data-weight="regular">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18px" height="18px" fill="currentColor" viewBox="0 0 256 256">
+                    <path
+                      d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"
+                    ></path>
+                  </svg>
+                </div>
+                <span class="truncate">View Details</span>
+              </button>
+            </div>
+            <div
+              class="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex-1"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAYEDCBoOZD2oPuVdJmZn5FfYD4-mb-1xvkPgPvZtWyhvDvLahSFGYNZcUHemgIo3YVnk2F0ZXRPiT5IM89eld2BbZ53j7gnswp-QekBrnRUA7fS5gK5Z2g6umuOtsjarof2R3YXRQMI_OoF8dmuRi5keve0451Hyz3qReKBwXXzreAVsuiQzAJs6TndU6PfZl0fZSzJuw_8g91rXv9ALGPml8xfBOPzbGM3-VykGJDR5h2oZpNJA5hO7-0CUo-_Ep-KJcYFARsBI3T");'
+            ></div>
+          </div>
+        </div>
+        <div class="flex gap-4 py-6 px-4">
+          <div class="flex grow basis-0 flex-col items-stretch gap-4">
+            <div class="flex h-14 grow items-center justify-center rounded-xl px-3 bg-[#e8ecf3]">
+              <p class="text-[#0e131b] text-lg font-bold leading-tight tracking-[-0.015em]">2</p>
+            </div>
+            <div class="flex items-center justify-center"><p class="text-[#0e131b] text-sm font-normal leading-normal">Days</p></div>
+          </div>
+          <div class="flex grow basis-0 flex-col items-stretch gap-4">
+            <div class="flex h-14 grow items-center justify-center rounded-xl px-3 bg-[#e8ecf3]">
+              <p class="text-[#0e131b] text-lg font-bold leading-tight tracking-[-0.015em]">14</p>
+            </div>
+            <div class="flex items-center justify-center"><p class="text-[#0e131b] text-sm font-normal leading-normal">Hours</p></div>
+          </div>
+          <div class="flex grow basis-0 flex-col items-stretch gap-4">
+            <div class="flex h-14 grow items-center justify-center rounded-xl px-3 bg-[#e8ecf3]">
+              <p class="text-[#0e131b] text-lg font-bold leading-tight tracking-[-0.015em]">30</p>
+            </div>
+            <div class="flex items-center justify-center"><p class="text-[#0e131b] text-sm font-normal leading-normal">Minutes</p></div>
+          </div>
+          <div class="flex grow basis-0 flex-col items-stretch gap-4">
+            <div class="flex h-14 grow items-center justify-center rounded-xl px-3 bg-[#e8ecf3]">
+              <p class="text-[#0e131b] text-lg font-bold leading-tight tracking-[-0.015em]">15</p>
+            </div>
+            <div class="flex items-center justify-center"><p class="text-[#0e131b] text-sm font-normal leading-normal">Seconds</p></div>
+          </div>
+        </div>
+        <h2 class="text-[#0e131b] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Recent Activity</h2>
+        <div class="flex w-full flex-row items-start justify-start gap-3 p-4">
+          <div
+            class="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-10 shrink-0"
+            style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDjzp0HY1KAwANSqbDjU3CK1hTzpQJIZL5_SWoGDuiqebyfGmRa5f76h8t6qeYmsQna2Ht4d2_tShI7oRaUHLXz8V9Oj-c4qRdNEBkkXRK7JzCRAeHGIS2pDarwfPgoy63uAmoDJvHSjugQ9vKu-XYZkkcxofR109IwYwYmEOe41LJjGAncu5M0Gq7Biqtgw1XNB6Cyk9HpcPHl05Pds-1YFO5libqNA8ODRlIWXNQ_4dBOlPNxRYzNp3ZoNaRnv2IOsCDWoO1Js6-u");'
+          ></div>
+          <div class="flex h-full flex-1 flex-col items-start justify-start">
+            <div class="flex w-full flex-row items-start justify-start gap-x-3">
+              <p class="text-[#0e131b] text-sm font-bold leading-normal tracking-[0.015em]">Liam Stone</p>
+              <p class="text-[#506b95] text-sm font-normal leading-normal">2h</p>
+            </div>
+            <p class="text-[#0e131b] text-sm font-normal leading-normal">Great game today, Ethan! Your defense was on point.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-4 px-4 py-2 py-2">
+          <div class="flex items-center justify-center gap-2 px-3 py-2">
+            <div class="text-[#506b95]" data-icon="ThumbsUp" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M234,80.12A24,24,0,0,0,216,72H160V56a40,40,0,0,0-40-40,8,8,0,0,0-7.16,4.42L75.06,96H32a16,16,0,0,0-16,16v88a16,16,0,0,0,16,16H204a24,24,0,0,0,23.82-21l12-96A24,24,0,0,0,234,80.12ZM32,112H72v88H32ZM223.94,97l-12,96a8,8,0,0,1-7.94,7H88V105.89l36.71-73.43A24,24,0,0,1,144,56V80a8,8,0,0,0,8,8h64a8,8,0,0,1,7.94,9Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-[13px] font-bold leading-normal tracking-[0.015em]">12</p>
+          </div>
+          <div class="flex items-center justify-center gap-2 px-3 py-2">
+            <div class="text-[#506b95]" data-icon="ChatCircleDots" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM84,116a12,12,0,1,0,12,12A12,12,0,0,0,84,116Zm88,0a12,12,0,1,0,12,12A12,12,0,0,0,172,116Zm60,12A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Zm-16,0A88,88,0,1,0,51.81,172.06a8,8,0,0,1,.66,6.54L40,216,77.4,203.53a7.85,7.85,0,0,1,2.53-.42,8,8,0,0,1,4,1.08A88,88,0,0,0,216,128Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-[13px] font-bold leading-normal tracking-[0.015em]">3</p>
+          </div>
+        </div>
+        <div class="flex w-full flex-row items-start justify-start gap-3 p-4">
+          <div
+            class="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-10 shrink-0"
+            style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBHMNYz6iFnTP2DhYLISO0OLLHOPg0mngqAky004ZTC6RYhmob8CX1v9df0_Zm_UPDU2hb04YqpSR050LovJHCi0eJqkcytOvgznKP6txWZWE_kbqmLFjUbzg1cJl8xzJ0_3o8j8m-foGv5plOVXht-COX9U_6flpWPRfCtBniyonbHapRvxLFmk1RWoIQ7FOTteP5dRpta91Aq9eV5qFFpgHuSP7eG3vVPvinO2mrGTqzeuYoDdkmZLfzkg7Kx8aUNRiA0cljqQ1DG");'
+          ></div>
+          <div class="flex h-full flex-1 flex-col items-start justify-start">
+            <div class="flex w-full flex-row items-start justify-start gap-x-3">
+              <p class="text-[#0e131b] text-sm font-bold leading-normal tracking-[0.015em]">Ava Snow</p>
+              <p class="text-[#506b95] text-sm font-normal leading-normal">4h</p>
+            </div>
+            <p class="text-[#0e131b] text-sm font-normal leading-normal">Congrats on the win! You were unstoppable.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-4 px-4 py-2 py-2">
+          <div class="flex items-center justify-center gap-2 px-3 py-2">
+            <div class="text-[#506b95]" data-icon="ThumbsUp" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M234,80.12A24,24,0,0,0,216,72H160V56a40,40,0,0,0-40-40,8,8,0,0,0-7.16,4.42L75.06,96H32a16,16,0,0,0-16,16v88a16,16,0,0,0,16,16H204a24,24,0,0,0,23.82-21l12-96A24,24,0,0,0,234,80.12ZM32,112H72v88H32ZM223.94,97l-12,96a8,8,0,0,1-7.94,7H88V105.89l36.71-73.43A24,24,0,0,1,144,56V80a8,8,0,0,0,8,8h64a8,8,0,0,1,7.94,9Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-[13px] font-bold leading-normal tracking-[0.015em]">8</p>
+          </div>
+          <div class="flex items-center justify-center gap-2 px-3 py-2">
+            <div class="text-[#506b95]" data-icon="ChatCircleDots" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM84,116a12,12,0,1,0,12,12A12,12,0,0,0,84,116Zm88,0a12,12,0,1,0,12,12A12,12,0,0,0,172,116Zm60,12A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Zm-16,0A88,88,0,1,0,51.81,172.06a8,8,0,0,1,.66,6.54L40,216,77.4,203.53a7.85,7.85,0,0,1,2.53-.42,8,8,0,0,1,4,1.08A88,88,0,0,0,216,128Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-[13px] font-bold leading-normal tracking-[0.015em]">1</p>
+          </div>
+        </div>
+        <div class="flex justify-stretch">
+          <div class="flex flex-1 gap-3 flex-wrap px-4 py-3 justify-between">
+            <button
+              class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-[#1954b2] text-[#f8fafb] text-sm font-bold leading-normal tracking-[0.015em]"
+            >
+              <span class="truncate">Join Game</span>
+            </button>
+            <button
+              class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-[#e8ecf3] text-[#0e131b] text-sm font-bold leading-normal tracking-[0.015em]"
+            >
+              <span class="truncate">Book Facility</span>
+            </button>
+          </div>
+        </div>
+        <div class="flex px-4 py-3">
+          <button
+            class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 flex-1 bg-[#1954b2] text-[#f8fafb] text-sm font-bold leading-normal tracking-[0.015em]"
+          >
+            <span class="truncate">Find Team</span>
+          </button>
+        </div>
+      </div>
+      <div>
+        <div class="flex gap-2 border-t border-[#e8ecf3] bg-[#f8fafb] px-4 pb-3 pt-2">
+          <a class="just flex flex-1 flex-col items-center justify-end gap-1 rounded-full text-[#0e131b]" href="#">
+            <div class="text-[#0e131b] flex h-8 items-center justify-center" data-icon="House" data-size="24px" data-weight="fill">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M224,115.55V208a16,16,0,0,1-16,16H168a16,16,0,0,1-16-16V168a8,8,0,0,0-8-8H112a8,8,0,0,0-8,8v40a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V115.55a16,16,0,0,1,5.17-11.78l80-75.48.11-.11a16,16,0,0,1,21.53,0,1.14,1.14,0,0,0,.11.11l80,75.48A16,16,0,0,1,224,115.55Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#0e131b] text-xs font-medium leading-normal tracking-[0.015em]">Home</p>
+          </a>
+          <a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#506b95]" href="#">
+            <div class="text-[#506b95] flex h-8 items-center justify-center" data-icon="Trophy" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M232,64H208V56a16,16,0,0,0-16-16H64A16,16,0,0,0,48,56v8H24A16,16,0,0,0,8,80V96a40,40,0,0,0,40,40h3.65A80.13,80.13,0,0,0,120,191.61V216H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V191.58c31.94-3.23,58.44-25.64,68.08-55.58H208a40,40,0,0,0,40-40V80A16,16,0,0,0,232,64ZM48,120A24,24,0,0,1,24,96V80H48v32q0,4,.39,8Zm144-8.9c0,35.52-28.49,64.64-63.51,64.9H128a64,64,0,0,1-64-64V56H192ZM232,96a24,24,0,0,1-24,24h-.5a81.81,81.81,0,0,0,.5-8.9V80h24Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-xs font-medium leading-normal tracking-[0.015em]">Leagues</p>
+          </a>
+          <a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#506b95]" href="#">
+            <div class="text-[#506b95] flex h-8 items-center justify-center" data-icon="Users" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-xs font-medium leading-normal tracking-[0.015em]">Social</p>
+          </a>
+          <a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#506b95]" href="#">
+            <div class="text-[#506b95] flex h-8 items-center justify-center" data-icon="ChatCircleDots" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM84,116a12,12,0,1,0,12,12A12,12,0,0,0,84,116Zm88,0a12,12,0,1,0,12,12A12,12,0,0,0,172,116Zm60,12A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Zm-16,0A88,88,0,1,0,51.81,172.06a8,8,0,0,1,.66,6.54L40,216,77.4,203.53a7.85,7.85,0,0,1,2.53-.42,8,8,0,0,1,4,1.08A88,88,0,0,0,216,128Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-xs font-medium leading-normal tracking-[0.015em]">Chat</p>
+          </a>
+          <a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#506b95]" href="#">
+            <div class="text-[#506b95] flex h-8 items-center justify-center" data-icon="User" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-xs font-medium leading-normal tracking-[0.015em]">Profile</p>
+          </a>
+        </div>
+        <div class="h-5 bg-[#f8fafb]"></div>
+      </div>
+    </div>
+  </body>
+</html>

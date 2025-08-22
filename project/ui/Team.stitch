@@ -1,0 +1,235 @@
+<html>
+  <head>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link
+      rel="stylesheet"
+      as="style"
+      onload="this.rel='stylesheet'"
+      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Lexend%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
+    />
+
+    <title>Stitch Design</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  </head>
+  <body>
+    <div
+      class="relative flex size-full min-h-screen flex-col bg-[#f8fafb] justify-between group/design-root overflow-x-hidden"
+      style='font-family: Lexend, "Noto Sans", sans-serif;'
+    >
+      <div>
+        <div class="flex items-center bg-[#f8fafb] p-4 pb-2 justify-between">
+          <div class="text-[#0e131b] flex size-12 shrink-0 items-center" data-icon="ArrowLeft" data-size="24px" data-weight="regular">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+              <path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path>
+            </svg>
+          </div>
+          <h2 class="text-[#0e131b] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Team Yeti</h2>
+        </div>
+        <div class="flex p-4 @container">
+          <div class="flex w-full flex-col gap-4 items-center">
+            <div class="flex gap-4 flex-col items-center">
+              <div
+                class="bg-center bg-no-repeat aspect-square bg-cover rounded-full min-h-32 w-32"
+                style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDjXHFlyg7JbzvcF_zVJwGKGH5golLsrainO3qog_aQg9BtK7yTLTprle7VIrSFvHBDeTJ7jqAmCBULdqexPYdr4HAtHPqPk9cTgzF0zwM0Jk7uKAGd27cLvP0HNWnpfefErFLsYsIBCsST8LOpoItFWbLhVkDXTqIbUK4Whn2kNn8kFBSNd35SmpeONhErsry2L6Ks_2Gw_KSMGXBpguq73E-SAu9ZxJWRO7tYLisvD93RqNXz6ueKXSHEVLXr65sX-g3C9JVbGFPJ");'
+              ></div>
+              <div class="flex flex-col items-center justify-center justify-center">
+                <p class="text-[#0e131b] text-[22px] font-bold leading-tight tracking-[-0.015em] text-center">Team Yeti</p>
+                <p class="text-[#506b95] text-base font-normal leading-normal text-center">Ice Hockey</p>
+                <p class="text-[#506b95] text-base font-normal leading-normal text-center">Division 1</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="pb-3">
+          <div class="flex border-b border-[#d1d9e6] px-4 gap-8">
+            <a class="flex flex-col items-center justify-center border-b-[3px] border-b-[#1954b2] text-[#0e131b] pb-[13px] pt-4" href="#">
+              <p class="text-[#0e131b] text-sm font-bold leading-normal tracking-[0.015em]">Roster</p>
+            </a>
+            <a class="flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-[#506b95] pb-[13px] pt-4" href="#">
+              <p class="text-[#506b95] text-sm font-bold leading-normal tracking-[0.015em]">Stats</p>
+            </a>
+            <a class="flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-[#506b95] pb-[13px] pt-4" href="#">
+              <p class="text-[#506b95] text-sm font-bold leading-normal tracking-[0.015em]">Chat</p>
+            </a>
+            <a class="flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-[#506b95] pb-[13px] pt-4" href="#">
+              <p class="text-[#506b95] text-sm font-bold leading-normal tracking-[0.015em]">Calendar</p>
+            </a>
+          </div>
+        </div>
+        <h3 class="text-[#0e131b] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Captain</h3>
+        <div class="flex items-center gap-4 bg-[#f8fafb] px-4 min-h-[72px] py-2 justify-between">
+          <div class="flex items-center gap-4">
+            <div
+              class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-fit"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBdxUrQqT8eYhmyq0XJs67_wFw_zpQpWFAsLauNAgj8gyvMHXW3dUKxh79oXohZ85AKsdGcUoo_EPZGHOgodHOVfLYO9zOKkK-MR0wFJlot0AcSc99OltO3rNVnddYqul8TCNDyF2hVSwPeqGcbt5gAdJYXffeuiqDGyZ9wL4b7t6_8HxT1RvFOi1vBaTx8dEJTxrgzKMfHUA5ea7yGu1wgXs43L3BhY4D4UxMR3gC6wTOqN54pb1aFiy396CrIhq5_llc53V05WG1V");'
+            ></div>
+            <div class="flex flex-col justify-center">
+              <p class="text-[#0e131b] text-base font-medium leading-normal line-clamp-1">Ethan Frost</p>
+              <p class="text-[#506b95] text-sm font-normal leading-normal line-clamp-2">Captain</p>
+            </div>
+          </div>
+          <div class="shrink-0">
+            <div class="text-[#0e131b] flex size-7 items-center justify-center" data-icon="DotsThree" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <h3 class="text-[#0e131b] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Players</h3>
+        <div class="flex items-center gap-4 bg-[#f8fafb] px-4 min-h-[72px] py-2 justify-between">
+          <div class="flex items-center gap-4">
+            <div
+              class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-fit"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB1J3Z8lh1DFwUX4VR7X7UPQ9Wqfps5No3fqfyLMPgoP3qdxb3VRLq4I7P24ZQLsV5xhOg08HAAbQ2QvDsBRbxnjhtSNAYAjiqFadQ5_Ws64MNHUdz9d0s5E4bPYhh8t-bQjCKNooNimOL6VjbSjKxgNtO-QlOS1nStLynCdCWPR2NN5QfV0oEwOBHJRiX_2bL37RFm4uVj0KxR9Gx1JAUmHcL2TucZhYAA5IbMIkqb3UB-v7gKMfhd-tCoA7_J3mSxLK9wk217TjBS");'
+            ></div>
+            <div class="flex flex-col justify-center">
+              <p class="text-[#0e131b] text-base font-medium leading-normal line-clamp-1">Liam Stone</p>
+              <p class="text-[#506b95] text-sm font-normal leading-normal line-clamp-2">Forward</p>
+            </div>
+          </div>
+          <div class="shrink-0">
+            <div class="text-[#0e131b] flex size-7 items-center justify-center" data-icon="DotsThree" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 bg-[#f8fafb] px-4 min-h-[72px] py-2 justify-between">
+          <div class="flex items-center gap-4">
+            <div
+              class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-fit"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBPOBUlLQ9f8RzlPtWJ7YqPkOYe6v-4UbnBqOIMkhRim-yhPvIyVqzVXNnCkZ1srfyH1iOEt7qgT9YqFcOXhwgZNmLvMnEa1B2pSuHD0ksRtYauWX_1N3-eH1rQ_qvfIjJJ4hqwSVJDtAIPJcPVmbDt2a8FcAO3KXWFoY2CHXRcPcLuMgvlHkNIl7Rx5_6Y6mf1Y9so6yg_WL2T8u0HXrLn6NwOv8qWqfq4qPuSQbz3fr-tixna3OpWQZYS93ZRTzRmH5CyBENh3AQw");'
+            ></div>
+            <div class="flex flex-col justify-center">
+              <p class="text-[#0e131b] text-base font-medium leading-normal line-clamp-1">Noah River</p>
+              <p class="text-[#506b95] text-sm font-normal leading-normal line-clamp-2">Defense</p>
+            </div>
+          </div>
+          <div class="shrink-0">
+            <div class="text-[#0e131b] flex size-7 items-center justify-center" data-icon="DotsThree" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 bg-[#f8fafb] px-4 min-h-[72px] py-2 justify-between">
+          <div class="flex items-center gap-4">
+            <div
+              class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-fit"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD1IastDOKvSI9D-jo6XYOR_ktDAsmBRTM-x0yzjJIaJup0563ZQ1Q64ZQ2HAF8plMafar1WtmfSO28sTwySAFRZmGIufUR6QzYy2Z4UxHHTOJPwwfdSk52r5-i3xUSucxIVO9cL49qiIMiK5uKZHFsNEEqXRfHEXrigOV-mtJKsI8ScfVjrekxN6VtENLAn-ePmkmJOt4Cn5wvDTCq5ACuAeUxSlnX46WmEYfXPxkI0hOj5SRUopL-jt6kn6-XMMo2UTDFHniktODr");'
+            ></div>
+            <div class="flex flex-col justify-center">
+              <p class="text-[#0e131b] text-base font-medium leading-normal line-clamp-1">Oliver Peak</p>
+              <p class="text-[#506b95] text-sm font-normal leading-normal line-clamp-2">Goalie</p>
+            </div>
+          </div>
+          <div class="shrink-0">
+            <div class="text-[#0e131b] flex size-7 items-center justify-center" data-icon="DotsThree" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 bg-[#f8fafb] px-4 min-h-[72px] py-2 justify-between">
+          <div class="flex items-center gap-4">
+            <div
+              class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-fit"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB2Pp3RNdBZVpQgZ4sYtWCfXTroMAy6ZXYW1h4r1-JD5saX5oDuo3f1Bf_-h05Q2J0SZyKwzMO_9fWxROaNJCFyWhdVaKkvIhIcvkT3kCVjB9pWm3SOO-2BNf-JWclejsipt9S1HhbLmjKefvc5FQBQ2dCUbydwsDMhafwWd86JmDYQGLEK70s9NilwuFw-sZPVdzPAiDKj3751t_w7MV2VAMOURpRbeWK1_ZKTvD6mmkcgpq_Re5mKFPqsLkMrMfhcCrl_9rvkK4O-");'
+            ></div>
+            <div class="flex flex-col justify-center">
+              <p class="text-[#0e131b] text-base font-medium leading-normal line-clamp-1">Elijah Ridge</p>
+              <p class="text-[#506b95] text-sm font-normal leading-normal line-clamp-2">Forward</p>
+            </div>
+          </div>
+          <div class="shrink-0">
+            <div class="text-[#0e131b] flex size-7 items-center justify-center" data-icon="DotsThree" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 bg-[#f8fafb] px-4 min-h-[72px] py-2 justify-between">
+          <div class="flex items-center gap-4">
+            <div
+              class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-fit"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBTVTgRoL3xHhCeV_BG1rv4n3Wew26r0_zAwXSFNAlw7sfo3DLQaFRhvTm48OxuaKE79UZF3Zz_KVfddyAWnhSzWWeEDwmIcuYumEAK8cKIzkl1X7QadAohHuaAsg1psFCZg7G51UU9B6mpKj_S__G_SLMkoo6wzt4uaESyeCTSl0MKC2Y85BctJtoya7-M71On5__JHqXVPF2S7sKmQdYgesdZRS4XpXtSZPD5E1hg2tChwRGzuSQ2yjLDOou9g0ioV-FlE3_dr3l7");'
+            ></div>
+            <div class="flex flex-col justify-center">
+              <p class="text-[#0e131b] text-base font-medium leading-normal line-clamp-1">James Cliff</p>
+              <p class="text-[#506b95] text-sm font-normal leading-normal line-clamp-2">Defense</p>
+            </div>
+          </div>
+          <div class="shrink-0">
+            <div class="text-[#0e131b] flex size-7 items-center justify-center" data-icon="DotsThree" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="flex gap-2 border-t border-[#e8ecf3] bg-[#f8fafb] px-4 pb-3 pt-2">
+          <a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#506b95]" href="#">
+            <div class="text-[#506b95] flex h-8 items-center justify-center" data-icon="House" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M218.83,103.77l-80-75.48a1.14,1.14,0,0,1-.11-.11,16,16,0,0,0-21.53,0l-.11.11L37.17,103.77A16,16,0,0,0,32,115.55V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V160h32v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V115.55A16,16,0,0,0,218.83,103.77ZM208,208H160V160a16,16,0,0,0-16-16H112a16,16,0,0,0-16,16v48H48V115.55l.11-.1L128,40l79.9,75.43.11.1Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-xs font-medium leading-normal tracking-[0.015em]">Home</p>
+          </a>
+          <a class="just flex flex-1 flex-col items-center justify-end gap-1 rounded-full text-[#0e131b]" href="#">
+            <div class="text-[#0e131b] flex h-8 items-center justify-center" data-icon="Trophy" data-size="24px" data-weight="fill">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M232,64H208V56a16,16,0,0,0-16-16H64A16,16,0,0,0,48,56v8H24A16,16,0,0,0,8,80V96a40,40,0,0,0,40,40h3.65A80.13,80.13,0,0,0,120,191.61V216H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V191.58c31.94-3.23,58.44-25.64,68.08-55.58H208a40,40,0,0,0,40-40V80A16,16,0,0,0,232,64ZM48,120A24,24,0,0,1,24,96V80H48v32q0,4,.39,8ZM232,96a24,24,0,0,1-24,24h-.5a81.81,81.81,0,0,0,.5-8.9V80h24Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#0e131b] text-xs font-medium leading-normal tracking-[0.015em]">Leagues</p>
+          </a>
+          <a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#506b95]" href="#">
+            <div class="text-[#506b95] flex h-8 items-center justify-center" data-icon="Users" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-xs font-medium leading-normal tracking-[0.015em]">Social</p>
+          </a>
+          <a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#506b95]" href="#">
+            <div class="text-[#506b95] flex h-8 items-center justify-center" data-icon="ChatCircleDots" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM84,116a12,12,0,1,0,12,12A12,12,0,0,0,84,116Zm88,0a12,12,0,1,0,12,12A12,12,0,0,0,172,116Zm60,12A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Zm-16,0A88,88,0,1,0,51.81,172.06a8,8,0,0,1,.66,6.54L40,216,77.4,203.53a7.85,7.85,0,0,1,2.53-.42,8,8,0,0,1,4,1.08A88,88,0,0,0,216,128Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-xs font-medium leading-normal tracking-[0.015em]">Chat</p>
+          </a>
+          <a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#506b95]" href="#">
+            <div class="text-[#506b95] flex h-8 items-center justify-center" data-icon="User" data-size="24px" data-weight="regular">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                <path
+                  d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-[#506b95] text-xs font-medium leading-normal tracking-[0.015em]">Profile</p>
+          </a>
+        </div>
+        <div class="h-5 bg-[#f8fafb]"></div>
+      </div>
+    </div>
+  </body>
+</html>
