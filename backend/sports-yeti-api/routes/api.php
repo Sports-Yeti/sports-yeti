@@ -36,6 +36,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/leagues/{leagueId}/bookings', [App\Http\Controllers\BookingController::class, 'index']);
         Route::post('/leagues/{leagueId}/bookings', [App\Http\Controllers\BookingController::class, 'store']);
+        Route::post('/leagues/{leagueId}/bookings/{bookingId}/checkin', [App\Http\Controllers\BookingController::class, 'checkIn']);
 
         Route::post('/leagues/{leagueId}/payments/charges', [App\Http\Controllers\PaymentController::class, 'createCharge']);
         Route::post('/leagues/{leagueId}/payments/charges/{chargeId}/refunds', [App\Http\Controllers\PaymentController::class, 'refund']);

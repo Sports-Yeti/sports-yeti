@@ -78,6 +78,41 @@ class BookingController extends Controller
             return response()->json($booking, 201);
         });
     }
+
+    public function checkIn(Request $request, int $leagueId, int $bookingId)
+    {
+        $data = $request->validate([
+            'qr_code' => ['required', 'string'],
+        ]);
+
+        $booking = Booking::query()
+            ->where('league_id', $leagueId)
+            ->where('id', $bookingId)
+            ->first();
+
+        if (! $booking) {
+            return response()->json([
+                'type' => 'about:blank',
+                'title' => 'Not Found',
+                'status' => 404,
+                'detail' => 'Booking not found',
+            ], 404, ['Content-Type' => 'application/problem+json']);
+        }
+
+        if ($booking->qr_code !== $data['qr_code']) {
+            return response()->json([
+                'type' => 'about:blank',
+                'title' => 'Unauthorized',
+                'status' => 401,
+                'detail' => 'Invalid QR code',
+            ], 401, ['Content-Type' => 'application/problem+json']);
+        }
+
+        $booking->status = 'checked_in';
+        $booking->save();
+
+        return response()->json($booking);
+    }
 }
 
 
