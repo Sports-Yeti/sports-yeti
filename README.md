@@ -1,3 +1,46 @@
+# Sports Yeti MVP
+
+Monorepo (Nx) with Expo app and Laravel API.
+
+## Quickstart
+
+Backend:
+
+```
+cd backend/sports-yeti-api
+cp .env.example .env
+php artisan key:generate
+touch database/database.sqlite
+php artisan migrate
+php artisan serve
+```
+
+Mobile (Expo):
+
+```
+npm install
+npx nx start @sports-yeti/sports-yeti
+```
+
+Set `EXPO_PUBLIC_API_URL` to your API origin if not localhost:8000.
+
+## API
+
+- Base: `/api/v1`
+- RFC7807 errors with `trace_id`
+- Idempotency-Key header for bookings/payments
+- Cursor pagination: `{ data, next_cursor, prev_cursor }`
+- Rate limits: throttled groups for auth and chat
+
+## Observability
+
+- JSON logs with Trace-Id header propagation
+- RED metrics middleware logs per request
+
+## CI
+
+GitHub Actions runs Nx lint/tests and backend PHPUnit.
+
 # SportsYeti
 
 <a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
