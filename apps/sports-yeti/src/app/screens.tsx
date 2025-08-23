@@ -36,18 +36,24 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
   );
 }
 
-export function DashboardScreen({ goToFacilities, goToChat }: { goToFacilities: () => void; goToChat: () => void }) {
+export function DashboardScreen({ goToFacilities, goToChat, goToBooking, goToProfile }: { goToFacilities: () => void; goToChat: () => void; goToBooking: () => void; goToProfile: () => void }) {
   const { user, logout, leagueId, setLeagueId } = useAuth();
   return (
     <SafeAreaView style={{ flex: 1, padding: 16 }}>
       <Text style={{ fontSize: 24, marginBottom: 8 }}>Welcome {user?.name || ''}</Text>
       <TextInput value={leagueId || ''} onChangeText={setLeagueId} placeholder="League ID" style={{ borderWidth: 1, padding: 8, marginBottom: 12 }} />
-      <View style={{ flexDirection: 'row', gap: 12 }}>
+      <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
         <TouchableOpacity onPress={goToFacilities} style={{ backgroundColor: '#143055', padding: 12, marginRight: 12 }}>
           <Text style={{ color: 'white' }}>Facilities</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={goToChat} style={{ backgroundColor: '#143055', padding: 12 }}>
           <Text style={{ color: 'white' }}>Chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={goToBooking} style={{ backgroundColor: '#143055', padding: 12, marginLeft: 12, marginTop: 12 }}>
+          <Text style={{ color: 'white' }}>Booking</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={goToProfile} style={{ backgroundColor: '#143055', padding: 12, marginLeft: 12, marginTop: 12 }}>
+          <Text style={{ color: 'white' }}>Profile</Text>
         </TouchableOpacity>
       </View>
       <TouchableOpacity onPress={logout} style={{ marginTop: 16 }}>
@@ -108,6 +114,7 @@ export function BookingScreen() {
   const [startAt, setStartAt] = useState('2025-01-01T10:00:00Z');
   const [endAt, setEndAt] = useState('2025-01-01T11:00:00Z');
   const [result, setResult] = useState<any | null>(null);
+  const qr = result?.qr_code as string | undefined;
 
   const book = useCallback(async () => {
     const res = await apiFetch(`/api/v1/leagues/${leagueId}/bookings`, {
@@ -127,7 +134,17 @@ export function BookingScreen() {
       <TouchableOpacity onPress={book} style={{ backgroundColor: 'black', padding: 12 }}>
         <Text style={{ color: 'white' }}>Create Booking</Text>
       </TouchableOpacity>
-      {result ? <Text selectable>{JSON.stringify(result)}</Text> : null}
+      {result ? (
+        <View style={{ marginTop: 12 }}>
+          <Text selectable>{JSON.stringify(result)}</Text>
+          {qr ? (
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontWeight: '600' }}>Booking QR:</Text>
+              <Text selectable style={{ fontFamily: 'Courier', marginTop: 4 }}>{qr}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -152,6 +169,29 @@ export function ChatScreen() {
         </TouchableOpacity>
       </View>
       <ScrollView>{messages.map((m, i) => (<Text key={i}>{m}</Text>))}</ScrollView>
+    </SafeAreaView>
+  );
+}
+
+export function ProfileScreen() {
+  const { token } = useAuth();
+  const [me, setMe] = useState<any | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch<any>('/api/v1/auth/me', {}, token || undefined);
+        setMe(res);
+      } catch (e: any) {
+        setError(e.message);
+      }
+    })();
+  }, [token]);
+  return (
+    <SafeAreaView style={{ flex: 1, padding: 16 }}>
+      <Text style={{ fontSize: 24, marginBottom: 8 }}>Profile</Text>
+      {error ? <Text style={{ color: 'red' }}>{error}</Text> : null}
+      {me ? <Text selectable>{JSON.stringify(me)}</Text> : <Text>Loading...</Text>}
     </SafeAreaView>
   );
 }

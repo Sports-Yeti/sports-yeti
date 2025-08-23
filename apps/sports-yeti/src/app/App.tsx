@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/accessible-emoji */
 import React, { useRef, useState } from 'react';
 import { AuthProvider, useAuth } from './auth-context';
-import { LoginScreen, DashboardScreen, FacilitiesScreen, BookingScreen, ChatScreen } from './screens';
+import { LoginScreen, DashboardScreen, FacilitiesScreen, BookingScreen, ChatScreen, ProfileScreen } from './screens';
 import {
   SafeAreaView,
   StyleSheet,
@@ -16,12 +16,20 @@ import Svg, { G, Path } from 'react-native-svg';
 
 function Root() {
   const { token } = useAuth();
-  const [screen, setScreen] = useState<'dashboard' | 'facilities' | 'booking' | 'chat'>('dashboard');
+  const [screen, setScreen] = useState<'dashboard' | 'facilities' | 'booking' | 'chat' | 'profile'>('dashboard');
   if (!token) return <LoginScreen onLoggedIn={() => setScreen('dashboard')} />;
   if (screen === 'facilities') return <FacilitiesScreen />;
   if (screen === 'booking') return <BookingScreen />;
   if (screen === 'chat') return <ChatScreen />;
-  return <DashboardScreen goToFacilities={() => setScreen('facilities')} goToChat={() => setScreen('chat')} />;
+  if (screen === 'profile') return <ProfileScreen />;
+  return (
+    <DashboardScreen
+      goToFacilities={() => setScreen('facilities')}
+      goToChat={() => setScreen('chat')}
+      goToBooking={() => setScreen('booking')}
+      goToProfile={() => setScreen('profile')}
+    />
+  );
 }
 
 export const App = () => {
