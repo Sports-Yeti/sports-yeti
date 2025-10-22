@@ -27,6 +27,14 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": []
+  "plugins": [],
+  "extra": {
+    "USE_FIXTURES": true,
+    "API_BASE_URL": "https://api.sportsyeti.example.com/api/v1",
+    "API_BASE_URL_DEV_ANDROID": "http://10.0.2.2:8000/api/v1",
+    "API_BASE_URL_DEV_IOS": "http://localhost:8000/api/v1",
+    "DATADOG_ENABLED": false,
+    "SENTRY_DSN": ""
+  }
   }
 }
