@@ -69,5 +69,26 @@
     "test": {
       "dependsOn": ["^build"]
     }
+  },
+  "projects": {
+    "api": {
+      "root": "apps/api",
+      "targets": {
+        "build": {
+          "executor": "@nx/js:tsc",
+          "options": {
+            "tsConfig": "apps/api/tsconfig.json",
+            "outputPath": "dist/apps/api"
+          }
+        },
+        "test": {
+          "executor": "@nx/jest:jest",
+          "options": {
+            "jestConfig": "apps/api/jest.config.cjs",
+            "passWithNoTests": true
+          }
+        }
+      }
+    }
   }
 }
