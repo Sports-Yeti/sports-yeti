@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, TextInput, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import {
+  View,
+  TextInput,
+  Text,
+  StyleSheet,
+  ViewStyle,
+  TextStyle,
+} from 'react-native';
 
 interface InputProps {
   label?: string;
@@ -14,6 +21,7 @@ interface InputProps {
   inputStyle?: TextStyle;
   multiline?: boolean;
   numberOfLines?: number;
+  testID?: string;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -29,6 +37,7 @@ const Input: React.FC<InputProps> = ({
   inputStyle,
   multiline = false,
   numberOfLines = 1,
+  testID,
 }) => {
   return (
     <View style={[styles.container, style]}>
@@ -49,6 +58,9 @@ const Input: React.FC<InputProps> = ({
         multiline={multiline}
         numberOfLines={multiline ? numberOfLines : 1}
         placeholderTextColor="#8E8E93"
+        testID={testID}
+        textContentType={secureTextEntry ? 'password' : 'none'}
+        autoComplete={secureTextEntry ? 'password' : 'off'}
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>

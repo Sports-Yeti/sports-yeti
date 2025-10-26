@@ -532,17 +532,35 @@ export type Sport =
   | 'rugby'
   | 'softball';
 
-export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced' | 'professional';
+export type ExperienceLevel =
+  | 'beginner'
+  | 'intermediate'
+  | 'advanced'
+  | 'professional';
 
-export type SkillLevel = 'recreational' | 'competitive' | 'semi-professional' | 'professional';
+export type SkillLevel =
+  | 'recreational'
+  | 'competitive'
+  | 'semi-professional'
+  | 'professional';
 
 export type AvailabilityStatus = 'available' | 'busy' | 'unavailable' | 'away';
 
 export type TeamRole = 'captain' | 'co-captain' | 'player';
 
-export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
+export type PaymentStatus =
+  | 'pending'
+  | 'completed'
+  | 'failed'
+  | 'refunded'
+  | 'cancelled';
 
-export type GameStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed';
+export type GameStatus =
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
+  | 'postponed';
 
 export type GameType = 'league' | 'tournament' | 'friendly' | 'mock' | 'pickup';
 
@@ -550,7 +568,12 @@ export type ChatType = 'game' | 'team' | 'league' | 'general';
 
 export type MessageType = 'text' | 'image' | 'video' | 'poll' | 'system';
 
-export type ReportType = 'absence' | 'equipment_damage' | 'incident' | 'score_dispute' | 'general';
+export type ReportType =
+  | 'absence'
+  | 'equipment_damage'
+  | 'incident'
+  | 'score_dispute'
+  | 'general';
 
 export type PointTransactionType =
   | 'earned_game'
@@ -574,7 +597,12 @@ export type AchievementCategory =
   | 'special'
   | 'milestone';
 
-export type BookingStatus = 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled';
+export type BookingStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'checked_in'
+  | 'completed'
+  | 'cancelled';
 
 export type EquipmentType =
   | 'ball'
@@ -584,7 +612,12 @@ export type EquipmentType =
   | 'protective_gear'
   | 'other';
 
-export type EquipmentCondition = 'excellent' | 'good' | 'fair' | 'poor' | 'broken';
+export type EquipmentCondition =
+  | 'excellent'
+  | 'good'
+  | 'fair'
+  | 'poor'
+  | 'broken';
 
 export type SpaceAvailability = {
   date: string;
@@ -609,27 +642,68 @@ export type NotificationType =
   | 'friend_request'
   | 'league_news';
 
-export type TournamentType = 'single_elimination' | 'double_elimination' | 'round_robin' | 'swiss' | 'custom';
+export type TournamentType =
+  | 'single_elimination'
+  | 'double_elimination'
+  | 'round_robin'
+  | 'swiss'
+  | 'custom';
 
-export type TournamentStatus = 'registration' | 'in_progress' | 'completed' | 'cancelled';
+export type TournamentStatus =
+  | 'registration'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled';
 
 export type AttendanceStatus = 'registered' | 'attended' | 'absent' | 'excused';
 
 export type TrainerRole = 'head_trainer' | 'assistant_trainer' | 'specialist';
 
-export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+export type DayOfWeek =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
 
-export type VideoStatus = 'uploaded' | 'processing' | 'ready' | 'failed' | 'deleted';
+export type VideoStatus =
+  | 'uploaded'
+  | 'processing'
+  | 'ready'
+  | 'failed'
+  | 'deleted';
 
-export type ProcessingStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+export type ProcessingStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'completed'
+  | 'failed';
 
-export type DisputeType = 'game_related' | 'payment' | 'referee' | 'facility' | 'technical' | 'other';
+export type DisputeType =
+  | 'game_related'
+  | 'payment'
+  | 'referee'
+  | 'facility'
+  | 'technical'
+  | 'other';
 
-export type DisputeStatus = 'open' | 'investigating' | 'resolved' | 'closed' | 'escalated';
+export type DisputeStatus =
+  | 'open'
+  | 'investigating'
+  | 'resolved'
+  | 'closed'
+  | 'escalated';
 
 export type DisputePriority = 'low' | 'medium' | 'high' | 'urgent';
 
-export type SocialPlatform = 'instagram' | 'tiktok' | 'youtube' | 'twitter' | 'facebook';
+export type SocialPlatform =
+  | 'instagram'
+  | 'tiktok'
+  | 'youtube'
+  | 'twitter'
+  | 'facebook';
 
 // Supporting Types
 export interface Location {
@@ -798,6 +872,8 @@ export type HomeStackParamList = {
   GameDetails: { gameId: string };
   PlayerProfile: { playerId: string };
   TeamDetails: { teamId: string };
+  CreateGame: undefined;
+  Chat: { chatId: string };
 };
 
 export type LeagueStackParamList = {
@@ -813,12 +889,15 @@ export type TeamStackParamList = {
   CreateTeam: undefined;
   EditTeam: { teamId: string };
   TeamMembers: { teamId: string };
+  FindTeams: undefined;
+  TeamRequests: undefined;
+  TeamStats: { teamId: string };
 };
 
 export type FacilityStackParamList = {
   FacilitiesScreen: undefined;
   FacilityDetails: { facilityId: string };
-  BookFacility: { facilityId: string };
+  BookFacility: { facilityId: string; spaceId?: string };
   QRScanner: undefined;
   BookingDetails: { bookingId: string };
 };

@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "dev:cursor": "echo \"=== New run at $(date) ===\" > .cursor_terminal.log && npm start 2>&1 | tee -a .cursor_terminal.log",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "start": "expo start",

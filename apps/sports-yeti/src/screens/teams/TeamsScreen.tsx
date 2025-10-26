@@ -6,13 +6,17 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { TeamStackParamList } from '../../types';
 import { getMyTeams } from '../../mocks/data';
 import Button from '../../components/common/Button';
 
-type TeamsScreenNavigationProp = StackNavigationProp<TeamStackParamList, 'TeamsScreen'>;
+type TeamsScreenNavigationProp = StackNavigationProp<
+  TeamStackParamList,
+  'TeamsScreen'
+>;
 
 interface Props {
   navigation: TeamsScreenNavigationProp;
@@ -31,11 +35,16 @@ const TeamsScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Teams</Text>
-          <Text style={styles.subtitle}>Manage your teams and find new ones</Text>
+          <Text style={styles.subtitle}>
+            Manage your teams and find new ones
+          </Text>
         </View>
 
         {/* Create Team Button */}
@@ -91,25 +100,52 @@ const TeamsScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
 
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('FindTeams')}
+            >
               <Text style={styles.actionIcon}>🔍</Text>
               <Text style={styles.actionTitle}>Find Teams</Text>
               <Text style={styles.actionSubtitle}>Discover teams to join</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('TeamRequests')}
+            >
               <Text style={styles.actionIcon}>📋</Text>
               <Text style={styles.actionTitle}>Team Requests</Text>
               <Text style={styles.actionSubtitle}>Manage invitations</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => {
+                if (myTeams.length > 0) {
+                  navigation.navigate('TeamStats', { teamId: myTeams[0].id });
+                } else {
+                  Alert.alert(
+                    'No Teams',
+                    'Join or create a team to view stats'
+                  );
+                }
+              }}
+            >
               <Text style={styles.actionIcon}>📊</Text>
               <Text style={styles.actionTitle}>Team Stats</Text>
               <Text style={styles.actionSubtitle}>View performance</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => {
+                if (myTeams.length > 0) {
+                  navigateToTeamDetails(myTeams[0].id);
+                } else {
+                  Alert.alert('No Teams', 'Create a team first to manage it');
+                }
+              }}
+            >
               <Text style={styles.actionIcon}>⚙️</Text>
               <Text style={styles.actionTitle}>Manage Teams</Text>
               <Text style={styles.actionSubtitle}>Edit team settings</Text>

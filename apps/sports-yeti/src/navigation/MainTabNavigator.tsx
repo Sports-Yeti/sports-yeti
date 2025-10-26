@@ -3,12 +3,12 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MainTabParamList } from '../types';
 import { Ionicons } from '@expo/vector-icons';
 
-// Import main tab screens (we'll create these next)
-import HomeScreen from '../screens/home/HomeScreen';
-import LeaguesScreen from '../screens/leagues/LeaguesScreen';
-import TeamsScreen from '../screens/teams/TeamsScreen';
-import FacilitiesScreen from '../screens/facilities/FacilitiesScreen';
-import ProfileScreen from '../screens/profile/ProfileScreen';
+// Import stack navigators
+import HomeStackNavigator from './HomeStackNavigator';
+import LeagueStackNavigator from './LeagueStackNavigator';
+import TeamStackNavigator from './TeamStackNavigator';
+import FacilityStackNavigator from './FacilityStackNavigator';
+import ProfileStackNavigator from './ProfileStackNavigator';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -38,11 +38,11 @@ const MainTabNavigator: React.FC = () => {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Leagues" component={LeaguesScreen} />
-      <Tab.Screen name="Teams" component={TeamsScreen} />
-      <Tab.Screen name="Facilities" component={FacilitiesScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Home" component={HomeStackNavigator} />
+      <Tab.Screen name="Leagues" component={LeagueStackNavigator} />
+      <Tab.Screen name="Teams" component={TeamStackNavigator} />
+      <Tab.Screen name="Facilities" component={FacilityStackNavigator} />
+      <Tab.Screen name="Profile" component={ProfileStackNavigator} />
     </Tab.Navigator>
   );
 };

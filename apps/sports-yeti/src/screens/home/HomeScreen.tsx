@@ -7,15 +7,22 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { HomeStackParamList } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
-import { getMyUpcomingGames, getRecentPosts, getMyUpcomingBookings } from '../../mocks/data';
-import Button from '../../components/common/Button';
+import {
+  getMyUpcomingGames,
+  getRecentPosts,
+  getMyUpcomingBookings,
+} from '../../mocks/data';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
-type HomeScreenNavigationProp = StackNavigationProp<HomeStackParamList, 'HomeScreen'>;
+type HomeScreenNavigationProp = StackNavigationProp<
+  HomeStackParamList,
+  'HomeScreen'
+>;
 
 interface Props {
   navigation: HomeScreenNavigationProp;
@@ -34,7 +41,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.welcomeSection}>
@@ -66,25 +76,50 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('CreateGame')}
+            >
               <Text style={styles.actionIcon}>🏀</Text>
               <Text style={styles.actionTitle}>Create Game</Text>
               <Text style={styles.actionSubtitle}>Find players & book</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => {
+                // Navigate to Facilities tab
+                navigation.getParent()?.navigate('Facilities');
+              }}
+            >
               <Text style={styles.actionIcon}>🏟️</Text>
               <Text style={styles.actionTitle}>Book Facility</Text>
               <Text style={styles.actionSubtitle}>Court, field, equipment</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => {
+                // Navigate to Teams tab and then to FindTeams screen
+                const parentNavigation = navigation.getParent();
+                if (parentNavigation) {
+                  parentNavigation.navigate('Teams');
+                  // The Teams tab will show TeamsScreen by default, user can then navigate to FindTeams
+                }
+              }}
+            >
               <Text style={styles.actionIcon}>👥</Text>
               <Text style={styles.actionTitle}>Find Team</Text>
               <Text style={styles.actionSubtitle}>Join or create teams</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => {
+                // Navigate to Leagues tab
+                navigation.getParent()?.navigate('Leagues');
+              }}
+            >
               <Text style={styles.actionIcon}>🏆</Text>
               <Text style={styles.actionTitle}>Join League</Text>
               <Text style={styles.actionSubtitle}>Competitive play</Text>
@@ -97,7 +132,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Upcoming Games</Text>
-              <TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  // Navigate to games or create a games list screen
+                  Alert.alert('Coming Soon', 'Games list screen coming soon!');
+                }}
+              >
                 <Text style={styles.seeAllText}>See All</Text>
               </TouchableOpacity>
             </View>
@@ -130,7 +170,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Upcoming Bookings</Text>
-              <TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  // Navigate to bookings or create a bookings list screen
+                  Alert.alert(
+                    'Coming Soon',
+                    'Bookings list screen coming soon!'
+                  );
+                }}
+              >
                 <Text style={styles.seeAllText}>See All</Text>
               </TouchableOpacity>
             </View>
@@ -164,14 +212,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                // Navigate to social feed
+                navigation.getParent()?.navigate('Profile'); // Social feed could be in Profile tab
+              }}
+            >
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
           {recentPosts.map((post) => (
             <TouchableOpacity key={post.id} style={styles.postCard}>
               <View style={styles.postHeader}>
-                <Image source={{ uri: post.user.avatar }} style={styles.postAvatar} />
+                <Image
+                  source={{ uri: post.user.avatar }}
+                  style={styles.postAvatar}
+                />
                 <View style={styles.postUser}>
                   <Text style={styles.postUserName}>
                     {post.user.firstName} {post.user.lastName}
@@ -183,7 +239,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </View>
               <Text style={styles.postContent}>{post.content}</Text>
               {post.mediaUrls.length > 0 && (
-                <Image source={{ uri: post.mediaUrls[0] }} style={styles.postImage} />
+                <Image
+                  source={{ uri: post.mediaUrls[0] }}
+                  style={styles.postImage}
+                />
               )}
               <View style={styles.postStats}>
                 <Text style={styles.postStat}>❤️ {post.likesCount}</Text>
