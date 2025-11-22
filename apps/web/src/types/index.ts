@@ -19,6 +19,8 @@ export interface League {
   maxTeams: number;
   registeredTeams: number;
   rules?: string;
+  seasonFormat?: 'round-robin' | 'single-elimination' | 'double-elimination' | 'swiss';
+  gamesPerTeam?: number;
 }
 
 export interface Team {
@@ -133,12 +135,33 @@ export interface Game {
   leagueId?: string;
   homeTeamId: string;
   awayTeamId: string;
+  homeTeamName?: string;
+  awayTeamName?: string;
   location: string;
   dateTime: string;
   sport: string;
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   homeScore?: number;
   awayScore?: number;
+  round?: number;
+  bracketPosition?: string;
+  referee?: string;
+}
+
+export interface PlayerGameStats {
+  playerId: string;
+  playerName: string;
+  teamId: string;
+  gameId: string;
+  points?: number;
+  assists?: number;
+  rebounds?: number;
+  goals?: number;
+  shots?: number;
+  saves?: number;
+  minutesPlayed?: number;
+  fouls?: number;
+  [key: string]: any; // For sport-specific stats
 }
 
 export interface GameReport {

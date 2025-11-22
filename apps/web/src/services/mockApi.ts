@@ -11,6 +11,7 @@ import {
   Activity,
   TeamApplication,
   Player,
+  PlayerGameStats,
 } from '../types';
 
 // Mock Referees
@@ -91,52 +92,6 @@ export const mockGameAssignments: GameAssignment[] = [
     dateTime: '2025-12-05T19:30:00Z',
     status: 'pending',
     compensation: 80,
-  },
-];
-
-// Mock Games
-export const mockGames: Game[] = [
-  {
-    id: 'game-1',
-    leagueId: 'league-1',
-    homeTeamId: 'team-1',
-    awayTeamId: 'team-2',
-    location: 'Central Park Courts',
-    dateTime: '2025-12-01T18:00:00Z',
-    sport: 'basketball',
-    status: 'scheduled',
-  },
-  {
-    id: 'game-2',
-    leagueId: 'league-2',
-    homeTeamId: 'team-3',
-    awayTeamId: 'team-4',
-    location: 'Prospect Park Field 3',
-    dateTime: '2025-12-03T15:00:00Z',
-    sport: 'soccer',
-    status: 'scheduled',
-  },
-  {
-    id: 'game-3',
-    leagueId: 'league-2',
-    homeTeamId: 'team-5',
-    awayTeamId: 'team-6',
-    location: 'Brooklyn Soccer Complex',
-    dateTime: '2025-11-28T14:00:00Z',
-    sport: 'soccer',
-    status: 'completed',
-    homeScore: 2,
-    awayScore: 1,
-  },
-  {
-    id: 'game-4',
-    leagueId: 'league-1',
-    homeTeamId: 'team-7',
-    awayTeamId: 'team-8',
-    location: 'Manhattan Basketball Arena',
-    dateTime: '2025-12-05T19:30:00Z',
-    sport: 'basketball',
-    status: 'scheduled',
   },
 ];
 
@@ -286,6 +241,52 @@ export const mockTeams: Team[] = [
     logo: 'https://i.pravatar.cc/150?u=teamlogo3',
     description: 'New team looking to make an impact',
     status: 'pending',
+  },
+];
+
+// Mock Games
+export const mockGames: Game[] = [
+  {
+    id: 'game-1',
+    leagueId: 'league-1',
+    homeTeamId: 'team-1',
+    awayTeamId: 'team-2',
+    homeTeamName: 'Manhattan Ballers',
+    awayTeamName: 'Brooklyn Hoops',
+    location: 'Madison Square Garden',
+    dateTime: '2024-12-01T19:00:00Z',
+    sport: 'basketball',
+    status: 'completed',
+    homeScore: 95,
+    awayScore: 88,
+    round: 1,
+    referee: 'referee-1',
+  },
+  {
+    id: 'game-2',
+    leagueId: 'league-1',
+    homeTeamId: 'team-3',
+    awayTeamId: 'team-1',
+    homeTeamName: 'Queens Warriors',
+    awayTeamName: 'Manhattan Ballers',
+    location: 'Queens Sports Complex',
+    dateTime: '2024-12-05T18:30:00Z',
+    sport: 'basketball',
+    status: 'scheduled',
+    round: 2,
+  },
+  {
+    id: 'game-3',
+    leagueId: 'league-1',
+    homeTeamId: 'team-2',
+    awayTeamId: 'team-3',
+    homeTeamName: 'Brooklyn Hoops',
+    awayTeamName: 'Queens Warriors',
+    location: 'Brooklyn Recreation Center',
+    dateTime: '2024-12-08T20:00:00Z',
+    sport: 'basketball',
+    status: 'scheduled',
+    round: 2,
   },
 ];
 
@@ -593,6 +594,102 @@ export const mockApi = {
     return mockPlayers.find(p => p.id === id) || null;
   },
 
+  // Games
+  getGames: async (filters?: { leagueId?: string; teamId?: string; status?: string }): Promise<Game[]> => {
+    await delay(500);
+    let games = [...mockGames];
+    
+    if (filters?.leagueId) {
+      games = games.filter(g => g.leagueId === filters.leagueId);
+    }
+    if (filters?.teamId) {
+      games = games.filter(g => g.homeTeamId === filters.teamId || g.awayTeamId === filters.teamId);
+    }
+    if (filters?.status) {
+      games = games.filter(g => g.status === filters.status);
+    }
+    
+    return games;
+  },
+
+  getGameById: async (id: string): Promise<Game | null> => {
+    await delay(500);
+    return mockGames.find(g => g.id === id) || null;
+  },
+
+  createGame: async (game: Omit<Game, 'id'>): Promise<Game> => {
+    await delay(1000);
+    const newGame: Game = {
+      ...game,
+      id: `game-${Date.now()}`,
+    };
+    mockGames.push(newGame);
+    return newGame;
+  },
+
+  updateGame: async (id: string, updates: Partial<Game>): Promise<Game> => {
+    await delay(1000);
+    const index = mockGames.findIndex(g => g.id === id);
+    if (index === -1) throw new Error('Game not found');
+    mockGames[index] = { ...mockGames[index], ...updates };
+    return mockGames[index];
+  },
+
+  deleteGame: async (id: string): Promise<void> => {
+    await delay(500);
+    const index = mockGames.findIndex(g => g.id === id);
+    if (index !== -1) {
+      mockGames.splice(index, 1);
+    }
+  },
+
+  getPlayerGameStats: async (gameId: string): Promise<PlayerGameStats[]> => {
+    await delay(500);
+    const { mockPlayerGameStats } = await import('./mockGameStats');
+    return mockPlayerGameStats.filter(s => s.gameId === gameId);
+  },
+
+  generateSchedule: async (leagueId: string, format: string): Promise<Game[]> => {
+    await delay(2000);
+    // Mock schedule generation
+    const league = await mockApi.getLeagueById(leagueId);
+    const teams = await mockApi.getTeamsByLeague(leagueId);
+    
+    if (!league || teams.length < 2) {
+      throw new Error('Not enough teams to generate schedule');
+    }
+
+    const newGames: Game[] = [];
+    const startDate = new Date(league.startDate);
+    
+    if (format === 'round-robin') {
+      // Generate round-robin schedule
+      for (let i = 0; i < teams.length; i++) {
+        for (let j = i + 1; j < teams.length; j++) {
+          const gameDate = new Date(startDate);
+          gameDate.setDate(gameDate.getDate() + newGames.length * 3); // 3 days between games
+          
+          newGames.push({
+            id: `game-${Date.now()}-${i}-${j}`,
+            leagueId,
+            homeTeamId: teams[i].id,
+            awayTeamId: teams[j].id,
+            homeTeamName: teams[i].name,
+            awayTeamName: teams[j].name,
+            location: league.location,
+            dateTime: gameDate.toISOString(),
+            sport: league.sport,
+            status: 'scheduled',
+            round: 1,
+          });
+        }
+      }
+    }
+
+    mockGames.push(...newGames);
+    return newGames;
+  },
+
   // Trainers
   getTrainers: async (): Promise<Trainer[]> => {
     await delay(500);
@@ -663,12 +760,6 @@ export const mockApi = {
     if (index === -1) throw new Error('Assignment not found');
     mockGameAssignments[index].status = 'confirmed';
     return mockGameAssignments[index];
-  },
-
-  // Games
-  getGameById: async (id: string): Promise<Game | null> => {
-    await delay(500);
-    return mockGames.find(g => g.id === id) || null;
   },
 
   // Game Reports
