@@ -79,16 +79,37 @@ export interface Player {
   };
 }
 
+export interface Certification {
+  id: string;
+  name: string;
+  issuingOrganization: string;
+  issueDate: string;
+  expiryDate?: string;
+  credentialId?: string;
+}
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  category: 'award' | 'milestone' | 'recognition' | 'publication';
+}
+
 export interface Trainer {
   id: string;
   name: string;
   email: string;
   phone: string;
   specializations: string[];
-  certifications: string[];
+  certifications: Certification[];
+  achievements: Achievement[];
   rating: number;
   totalCamps: number;
+  campsTaught: string[]; // Array of camp IDs
   avatar?: string;
+  bio?: string;
+  yearsOfExperience?: number;
 }
 
 export interface Camp {

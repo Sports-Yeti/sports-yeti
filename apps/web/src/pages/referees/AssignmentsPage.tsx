@@ -13,14 +13,11 @@ import {
   AccordionDetails,
   List,
   ListItem,
-  ListItemText,
   Divider,
   Avatar,
-  ListItemAvatar,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { format } from 'date-fns';
-import { useAuth } from '../../contexts/AuthContext';
 import mockApi from '../../services/mockApi';
 import { GameAssignment, League } from '../../types';
 
@@ -35,7 +32,6 @@ interface LeagueGroup {
 }
 
 function AssignmentsPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<GameAssignment[]>([]);
   const [leagues, setLeagues] = useState<League[]>([]);

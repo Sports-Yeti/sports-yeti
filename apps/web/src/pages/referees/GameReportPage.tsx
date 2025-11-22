@@ -175,7 +175,7 @@ function GameReportPage() {
                 <strong>Submitted:</strong> {format(new Date(existingReport.submittedAt), 'MMM d, yyyy h:mm a')}
               </Typography>
               <Typography variant="body2" paragraph>
-                <strong>Incidents:</strong> {existingReport.incidents.length}
+                <strong>Incidents:</strong> {existingReport.incidents?.length || 0}
               </Typography>
               <Typography variant="body2">
                 <strong>Notes:</strong>
