@@ -32,6 +32,7 @@ import {
   Settings as SettingsIcon,
   CalendarMonth as CalendarIcon,
   Search as SearchIcon,
+  Business as FacilityIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -88,7 +89,12 @@ const navigationItems: NavigationItem[] = [
     text: 'Camps',
     icon: <CampIcon />,
     path: '/camps',
-    roles: ['trainer'],
+    roles: ['trainer', 'league_admin'],
+  },
+  {
+    text: 'Facilities',
+    icon: <FacilityIcon />,
+    path: '/facilities',
   },
   {
     text: 'Referees',

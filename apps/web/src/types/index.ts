@@ -3,7 +3,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'league_admin' | 'trainer' | 'referee';
+  role: 'league_admin' | 'trainer' | 'referee' | 'facility-admin';
   avatar?: string;
 }
 

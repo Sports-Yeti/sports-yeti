@@ -19,6 +19,7 @@ import RefereeDetailsPage from './pages/referees/RefereeDetailsPage';
 import AssignmentsPage from './pages/referees/AssignmentsPage';
 import GameReportPage from './pages/referees/GameReportPage';
 import PlayerSearchPage from './pages/players/PlayerSearchPage';
+import FacilitiesPage from './pages/facilities/FacilitiesPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import CalendarPage from './pages/CalendarPage';
 
@@ -68,6 +69,9 @@ function AppRoutes() {
         <Route path="referees/:id" element={<RefereeDetailsPage />} />
         <Route path="referees/assignments" element={<AssignmentsPage />} />
         <Route path="referees/assignments/:id/report" element={<GameReportPage />} />
+        
+        {/* Facility Routes */}
+        <Route path="facilities" element={<FacilitiesPage />} />
         
         {/* Settings */}
         <Route path="settings" element={<SettingsPage />} />
