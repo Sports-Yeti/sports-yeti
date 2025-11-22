@@ -9,6 +9,8 @@ import {
   GameReport,
   DashboardStats,
   Activity,
+  TeamApplication,
+  Player,
 } from '../types';
 
 // Mock Referees
@@ -187,26 +189,103 @@ export const mockTeams: Team[] = [
     id: 'team-1',
     name: 'Manhattan Ballers',
     leagueId: 'league-1',
-    captainId: 'user-1',
+    captainId: 'player-1',
     members: [
-      { id: 'member-1', name: 'John Doe', position: 'Point Guard', jerseyNumber: 23 },
-      { id: 'member-2', name: 'Jane Smith', position: 'Shooting Guard', jerseyNumber: 11 },
+      { 
+        id: 'player-1', 
+        name: 'John Doe', 
+        position: 'Point Guard', 
+        jerseyNumber: 23,
+        email: 'john.doe@example.com',
+        phone: '+1-555-0101',
+        avatar: 'https://i.pravatar.cc/150?u=player1',
+        joinedDate: '2024-01-15'
+      },
+      { 
+        id: 'player-2', 
+        name: 'Jane Smith', 
+        position: 'Shooting Guard', 
+        jerseyNumber: 11,
+        email: 'jane.smith@example.com',
+        phone: '+1-555-0102',
+        avatar: 'https://i.pravatar.cc/150?u=player2',
+        joinedDate: '2024-01-15'
+      },
+      { 
+        id: 'player-3', 
+        name: 'Mike Johnson', 
+        position: 'Center', 
+        jerseyNumber: 32,
+        email: 'mike.j@example.com',
+        phone: '+1-555-0103',
+        avatar: 'https://i.pravatar.cc/150?u=player3',
+        joinedDate: '2024-01-20'
+      },
     ],
     wins: 12,
     losses: 3,
     draws: 0,
+    logo: 'https://i.pravatar.cc/150?u=teamlogo1',
+    description: 'Competitive basketball team from Manhattan',
+    status: 'active',
   },
   {
     id: 'team-2',
     name: 'Brooklyn Hoops',
     leagueId: 'league-1',
-    captainId: 'user-2',
+    captainId: 'player-4',
     members: [
-      { id: 'member-3', name: 'Mike Johnson', position: 'Center', jerseyNumber: 32 },
+      { 
+        id: 'player-4', 
+        name: 'Sarah Williams', 
+        position: 'Power Forward', 
+        jerseyNumber: 15,
+        email: 'sarah.w@example.com',
+        phone: '+1-555-0104',
+        avatar: 'https://i.pravatar.cc/150?u=player4',
+        joinedDate: '2024-01-10'
+      },
+      { 
+        id: 'player-5', 
+        name: 'Tom Brown', 
+        position: 'Small Forward', 
+        jerseyNumber: 7,
+        email: 'tom.brown@example.com',
+        phone: '+1-555-0105',
+        avatar: 'https://i.pravatar.cc/150?u=player5',
+        joinedDate: '2024-01-12'
+      },
     ],
     wins: 10,
     losses: 5,
     draws: 0,
+    logo: 'https://i.pravatar.cc/150?u=teamlogo2',
+    description: 'Rising stars from Brooklyn',
+    status: 'active',
+  },
+  {
+    id: 'team-3',
+    name: 'Queens Warriors',
+    leagueId: 'league-1',
+    captainId: 'player-6',
+    members: [
+      { 
+        id: 'player-6', 
+        name: 'Alex Rodriguez', 
+        position: 'Point Guard', 
+        jerseyNumber: 10,
+        email: 'alex.r@example.com',
+        phone: '+1-555-0106',
+        avatar: 'https://i.pravatar.cc/150?u=player6',
+        joinedDate: '2024-02-01'
+      },
+    ],
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    logo: 'https://i.pravatar.cc/150?u=teamlogo3',
+    description: 'New team looking to make an impact',
+    status: 'pending',
   },
 ];
 
@@ -419,6 +498,99 @@ export const mockApi = {
   getTeamsByLeague: async (leagueId: string): Promise<Team[]> => {
     await delay(500);
     return mockTeams.filter(t => t.leagueId === leagueId);
+  },
+
+  getTeamById: async (id: string): Promise<Team | null> => {
+    await delay(500);
+    return mockTeams.find(t => t.id === id) || null;
+  },
+
+  // Team Applications
+  getTeamApplications: async (filters?: { leagueId?: string; status?: string }): Promise<TeamApplication[]> => {
+    await delay(500);
+    const { mockTeamApplications } = await import('./mockPlayerData');
+    let applications = [...mockTeamApplications];
+    if (filters?.leagueId) {
+      applications = applications.filter(a => a.leagueId === filters.leagueId);
+    }
+    if (filters?.status) {
+      applications = applications.filter(a => a.status === filters.status);
+    }
+    return applications;
+  },
+
+  approveTeamApplication: async (id: string): Promise<TeamApplication> => {
+    await delay(1000);
+    const { mockTeamApplications } = await import('./mockPlayerData');
+    const index = mockTeamApplications.findIndex(a => a.id === id);
+    if (index === -1) throw new Error('Application not found');
+    
+    mockTeamApplications[index] = {
+      ...mockTeamApplications[index],
+      status: 'approved',
+      reviewedDate: new Date().toISOString(),
+      reviewedBy: 'admin-1',
+    };
+
+    // Update team status to active
+    const teamIndex = mockTeams.findIndex(t => t.id === mockTeamApplications[index].teamId);
+    if (teamIndex !== -1) {
+      mockTeams[teamIndex].status = 'active';
+    }
+
+    return mockTeamApplications[index];
+  },
+
+  rejectTeamApplication: async (id: string, reason: string): Promise<TeamApplication> => {
+    await delay(1000);
+    const { mockTeamApplications } = await import('./mockPlayerData');
+    const index = mockTeamApplications.findIndex(a => a.id === id);
+    if (index === -1) throw new Error('Application not found');
+    
+    mockTeamApplications[index] = {
+      ...mockTeamApplications[index],
+      status: 'rejected',
+      reviewedDate: new Date().toISOString(),
+      reviewedBy: 'admin-1',
+      rejectionReason: reason,
+    };
+
+    // Update team status to rejected
+    const teamIndex = mockTeams.findIndex(t => t.id === mockTeamApplications[index].teamId);
+    if (teamIndex !== -1) {
+      mockTeams[teamIndex].status = 'rejected';
+    }
+
+    return mockTeamApplications[index];
+  },
+
+  // Players
+  getPlayers: async (filters?: { sport?: string; skillLevel?: string; search?: string }): Promise<Player[]> => {
+    await delay(500);
+    const { mockPlayers } = await import('./mockPlayerData');
+    let players = [...mockPlayers];
+    
+    if (filters?.sport) {
+      players = players.filter(p => p.sports.includes(filters.sport as string));
+    }
+    if (filters?.skillLevel) {
+      players = players.filter(p => p.skillLevel === filters.skillLevel);
+    }
+    if (filters?.search) {
+      const search = filters.search.toLowerCase();
+      players = players.filter(p => 
+        p.name.toLowerCase().includes(search) ||
+        p.email.toLowerCase().includes(search)
+      );
+    }
+    
+    return players;
+  },
+
+  getPlayerById: async (id: string): Promise<Player | null> => {
+    await delay(500);
+    const { mockPlayers } = await import('./mockPlayerData');
+    return mockPlayers.find(p => p.id === id) || null;
   },
 
   // Trainers

@@ -10,8 +10,9 @@ import {
   List,
   ListItem,
   ListItemText,
+  Badge,
 } from '@mui/material';
-import { Edit as EditIcon, ArrowBack as BackIcon } from '@mui/icons-material';
+import { Edit as EditIcon, ArrowBack as BackIcon, PendingActions as PendingIcon } from '@mui/icons-material';
 import { format } from 'date-fns';
 import DataCard from '../../components/DataCard';
 import DataTable, { Column } from '../../components/DataTable';
@@ -24,6 +25,7 @@ function LeagueDetailsPage() {
   const navigate = useNavigate();
   const [league, setLeague] = useState<League | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [pendingApplications, setPendingApplications] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,12 +34,14 @@ function LeagueDetailsPage() {
       
       setLoading(true);
       try {
-        const [leagueData, teamsData] = await Promise.all([
+        const [leagueData, teamsData, applications] = await Promise.all([
           mockApi.getLeagueById(id),
           mockApi.getTeamsByLeague(id),
+          mockApi.getTeamApplications({ leagueId: id, status: 'pending' }),
         ]);
         setLeague(leagueData);
         setTeams(teamsData);
+        setPendingApplications(applications.length);
       } catch (error) {
         console.error('Failed to load league details:', error);
       } finally {
@@ -88,13 +92,24 @@ function LeagueDetailsPage() {
 
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">{league.name}</Typography>
-        <Button
-          variant="contained"
-          startIcon={<EditIcon />}
-          onClick={() => navigate(`/leagues/${id}/edit`)}
-        >
-          Edit League
-        </Button>
+        <Box display="flex" gap={2}>
+          <Badge badgeContent={pendingApplications} color="error">
+            <Button
+              variant="outlined"
+              startIcon={<PendingIcon />}
+              onClick={() => navigate(`/leagues/${id}/applications`)}
+            >
+              Team Applications
+            </Button>
+          </Badge>
+          <Button
+            variant="contained"
+            startIcon={<EditIcon />}
+            onClick={() => navigate(`/leagues/${id}/edit`)}
+          >
+            Edit League
+          </Button>
+        </Box>
       </Box>
 
       <Grid container spacing={3}>

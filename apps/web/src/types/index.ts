@@ -30,6 +30,9 @@ export interface Team {
   wins: number;
   losses: number;
   draws: number;
+  logo?: string;
+  description?: string;
+  status: 'active' | 'pending' | 'rejected';
 }
 
 export interface TeamMember {
@@ -37,6 +40,41 @@ export interface TeamMember {
   name: string;
   position?: string;
   jerseyNumber?: number;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+  joinedDate?: string;
+}
+
+export interface TeamApplication {
+  id: string;
+  teamId: string;
+  leagueId: string;
+  status: 'pending' | 'approved' | 'rejected';
+  appliedDate: string;
+  reviewedDate?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  notes?: string;
+}
+
+export interface Player {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  avatar?: string;
+  dateOfBirth: string;
+  sports: string[];
+  skillLevel: 'beginner' | 'intermediate' | 'advanced' | 'professional';
+  position?: string;
+  teams: string[];
+  gamesPlayed: number;
+  stats?: {
+    wins: number;
+    losses: number;
+    winRate: number;
+  };
 }
 
 export interface Trainer {

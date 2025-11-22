@@ -8,6 +8,7 @@ import LeaguesPage from './pages/leagues/LeaguesPage';
 import LeagueDetailsPage from './pages/leagues/LeagueDetailsPage';
 import CreateLeaguePage from './pages/leagues/CreateLeaguePage';
 import EditLeaguePage from './pages/leagues/EditLeaguePage';
+import TeamApplicationsPage from './pages/leagues/TeamApplicationsPage';
 import TrainersPage from './pages/trainers/TrainersPage';
 import TrainerDetailsPage from './pages/trainers/TrainerDetailsPage';
 import CampsPage from './pages/camps/CampsPage';
@@ -16,6 +17,7 @@ import RefereesPage from './pages/referees/RefereesPage';
 import RefereeDetailsPage from './pages/referees/RefereeDetailsPage';
 import AssignmentsPage from './pages/referees/AssignmentsPage';
 import GameReportPage from './pages/referees/GameReportPage';
+import PlayerSearchPage from './pages/players/PlayerSearchPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -42,6 +44,10 @@ function AppRoutes() {
         <Route path="leagues/create" element={<CreateLeaguePage />} />
         <Route path="leagues/:id" element={<LeagueDetailsPage />} />
         <Route path="leagues/:id/edit" element={<EditLeaguePage />} />
+        <Route path="leagues/:id/applications" element={<TeamApplicationsPage />} />
+        
+        {/* Player Routes */}
+        <Route path="players" element={<PlayerSearchPage />} />
         
         {/* Trainer Routes */}
         <Route path="trainers" element={<TrainersPage />} />

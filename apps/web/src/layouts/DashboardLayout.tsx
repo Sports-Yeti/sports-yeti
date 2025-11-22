@@ -28,6 +28,7 @@ import {
   School as CampIcon,
   Notifications as NotificationsIcon,
   Analytics as AnalyticsIcon,
+  People as PeopleIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -58,6 +59,12 @@ const navigationItems: NavigationItem[] = [
     text: 'Leagues',
     icon: <LeagueIcon />,
     path: '/leagues',
+    roles: ['league_admin'],
+  },
+  {
+    text: 'Players',
+    icon: <PeopleIcon />,
+    path: '/players',
     roles: ['league_admin'],
   },
   {
