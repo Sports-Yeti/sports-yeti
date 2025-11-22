@@ -3,6 +3,7 @@ import { useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardLayout from './layouts/DashboardLayout';
 import DashboardHome from './pages/DashboardHome';
+import AnalyticsPage from './pages/AnalyticsPage';
 import LeaguesPage from './pages/leagues/LeaguesPage';
 import LeagueDetailsPage from './pages/leagues/LeagueDetailsPage';
 import CreateLeaguePage from './pages/leagues/CreateLeaguePage';
@@ -34,6 +35,7 @@ function AppRoutes() {
         }
       >
         <Route index element={<DashboardHome />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
         
         {/* League Routes */}
         <Route path="leagues" element={<LeaguesPage />} />

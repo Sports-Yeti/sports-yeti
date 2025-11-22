@@ -16,6 +16,7 @@ import {
   Avatar,
   Menu,
   MenuItem,
+  Badge,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -25,8 +26,12 @@ import {
   SportsMma as RefereeIcon,
   Event as AssignmentIcon,
   School as CampIcon,
+  Notifications as NotificationsIcon,
+  Analytics as AnalyticsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotifications } from '../contexts/NotificationContext';
+import NotificationDrawer from '../components/NotificationDrawer';
 
 const drawerWidth = 240;
 
@@ -42,6 +47,12 @@ const navigationItems: NavigationItem[] = [
     text: 'Dashboard',
     icon: <DashboardIcon />,
     path: '/',
+  },
+  {
+    text: 'Analytics',
+    icon: <AnalyticsIcon />,
+    path: '/analytics',
+    roles: ['league_admin'],
   },
   {
     text: 'Leagues',
@@ -78,7 +89,9 @@ const navigationItems: NavigationItem[] = [
 function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [notificationDrawerOpen, setNotificationDrawerOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
 
   const handleDrawerToggle = () => {
@@ -153,6 +166,15 @@ function DashboardLayout() {
             {user?.role === 'trainer' && 'Trainer Dashboard'}
             {user?.role === 'referee' && 'Referee Dashboard'}
           </Typography>
+          <IconButton 
+            color="inherit" 
+            onClick={() => setNotificationDrawerOpen(true)}
+            sx={{ mr: 2 }}
+          >
+            <Badge badgeContent={unreadCount} color="error">
+              <NotificationsIcon />
+            </Badge>
+          </IconButton>
           <IconButton onClick={handleProfileMenuOpen} sx={{ p: 0 }}>
             <Avatar alt={user?.name} src={user?.avatar}>
               {user?.name?.[0]?.toUpperCase()}
@@ -222,6 +244,10 @@ function DashboardLayout() {
         <Toolbar />
         <Outlet />
       </Box>
+      <NotificationDrawer 
+        open={notificationDrawerOpen} 
+        onClose={() => setNotificationDrawerOpen(false)} 
+      />
     </Box>
   );
 }

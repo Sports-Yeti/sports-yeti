@@ -12,6 +12,7 @@ import {
 import { Add as AddIcon } from '@mui/icons-material';
 import { format } from 'date-fns';
 import DataTable, { Column } from '../../components/DataTable';
+import ExportButtons from '../../components/ExportButtons';
 import mockApi from '../../services/mockApi';
 import { League } from '../../types';
 
@@ -85,13 +86,29 @@ function LeaguesPage() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Leagues</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/leagues/create')}
-        >
-          Create League
-        </Button>
+        <Box display="flex" gap={2}>
+          <ExportButtons
+            data={leagues}
+            filename="leagues"
+            title="Leagues Report"
+            columns={[
+              { header: 'Name', dataKey: 'name' },
+              { header: 'Sport', dataKey: 'sport' },
+              { header: 'Location', dataKey: 'location' },
+              { header: 'Status', dataKey: 'status' },
+              { header: 'Start Date', dataKey: 'startDate' },
+              { header: 'Teams', dataKey: 'registeredTeams' },
+            ]}
+            fields={['name', 'sport', 'location', 'status', 'startDate', 'registeredTeams', 'maxTeams']}
+          />
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/leagues/create')}
+          >
+            Create League
+          </Button>
+        </Box>
       </Box>
 
       {/* Filters */}
