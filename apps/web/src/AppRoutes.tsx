@@ -9,6 +9,7 @@ import LeagueDetailsPage from './pages/leagues/LeagueDetailsPage';
 import CreateLeaguePage from './pages/leagues/CreateLeaguePage';
 import EditLeaguePage from './pages/leagues/EditLeaguePage';
 import TeamApplicationsPage from './pages/leagues/TeamApplicationsPage';
+import GameSchedulingPage from './pages/leagues/GameSchedulingPage';
 import TrainersPage from './pages/trainers/TrainersPage';
 import TrainerDetailsPage from './pages/trainers/TrainerDetailsPage';
 import CampsPage from './pages/camps/CampsPage';
@@ -48,6 +49,8 @@ function AppRoutes() {
         <Route path="leagues/:id" element={<LeagueDetailsPage />} />
         <Route path="leagues/:id/edit" element={<EditLeaguePage />} />
         <Route path="leagues/:id/applications" element={<TeamApplicationsPage />} />
+        <Route path="leagues/:id/schedule" element={<GameSchedulingPage />} />
+        <Route path="games/:id/report" element={<GameReportPage />} />
         
         {/* Player Routes */}
         <Route path="players" element={<PlayerSearchPage />} />

@@ -29,6 +29,7 @@ import {
   PendingActions as PendingIcon,
   ExpandMore as ExpandMoreIcon,
   Visibility as ViewIcon,
+  CalendarMonth as ScheduleIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import DataCard from '../../components/DataCard';
@@ -110,6 +111,13 @@ function LeagueDetailsPage() {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">{league.name}</Typography>
         <Box display="flex" gap={2}>
+          <Button
+            variant="outlined"
+            startIcon={<ScheduleIcon />}
+            onClick={() => navigate(`/leagues/${id}/schedule`)}
+          >
+            Manage Schedule
+          </Button>
           <Badge badgeContent={pendingApplications} color="error">
             <Button
               variant="outlined"
