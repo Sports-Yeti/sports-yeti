@@ -20,6 +20,7 @@ import AssignmentsPage from './pages/referees/AssignmentsPage';
 import GameReportPage from './pages/referees/GameReportPage';
 import PlayerSearchPage from './pages/players/PlayerSearchPage';
 import FacilitiesPage from './pages/facilities/FacilitiesPage';
+import FacilityDetailsPage from './pages/facilities/FacilityDetailsPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import CalendarPage from './pages/CalendarPage';
 
@@ -72,6 +73,7 @@ function AppRoutes() {
         
         {/* Facility Routes */}
         <Route path="facilities" element={<FacilitiesPage />} />
+        <Route path="facilities/:id" element={<FacilityDetailsPage />} />
         
         {/* Settings */}
         <Route path="settings" element={<SettingsPage />} />
