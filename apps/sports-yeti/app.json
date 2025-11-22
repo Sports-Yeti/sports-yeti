@@ -1,17 +1,15 @@
 {
   "expo": {
     "name": "SportsYeti",
-    "slug": "@sports-yeti/sports-yeti",
+    "slug": "sports-yeti",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
-    },
-    "updates": {
-      "fallbackToCacheTimeout": 0
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -24,9 +22,7 @@
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png",
-      "bundler": "metro"
-    },
-    "plugins": []
+      "favicon": "./assets/favicon.png"
+    }
   }
 }
