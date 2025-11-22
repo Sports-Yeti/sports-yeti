@@ -213,6 +213,75 @@ export interface Incident {
   description: string;
 }
 
+// Facility Management Types
+export interface Equipment {
+  id: string;
+  name: string;
+  category: 'sports' | 'audio-visual' | 'seating' | 'safety' | 'other';
+  quantity: number;
+  pricePerHour: number;
+  pricePerDay: number;
+  condition: 'excellent' | 'good' | 'fair' | 'needs-repair';
+  description?: string;
+  image?: string;
+}
+
+export interface Facility {
+  id: string;
+  name: string;
+  ownerId: string; // facility-admin user id
+  ownerName: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  description: string;
+  sports: string[]; // Supported sports
+  amenities: string[]; // Parking, WiFi, Locker Rooms, etc.
+  capacity: number;
+  squareFootage?: number;
+  indoorOutdoor: 'indoor' | 'outdoor' | 'both';
+  hourlyRate: number;
+  dailyRate: number;
+  weeklyRate?: number;
+  monthlyRate?: number;
+  equipment: Equipment[];
+  images: string[];
+  availability: {
+    monday: { open: string; close: string; available: boolean };
+    tuesday: { open: string; close: string; available: boolean };
+    wednesday: { open: string; close: string; available: boolean };
+    thursday: { open: string; close: string; available: boolean };
+    friday: { open: string; close: string; available: boolean };
+    saturday: { open: string; close: string; available: boolean };
+    sunday: { open: string; close: string; available: boolean };
+  };
+  rating: number;
+  totalBookings: number;
+  status: 'active' | 'inactive' | 'maintenance';
+  contactPhone: string;
+  contactEmail: string;
+  createdAt: string;
+}
+
+export interface FacilityBooking {
+  id: string;
+  facilityId: string;
+  facilityName: string;
+  bookingType: 'camp' | 'game' | 'training' | 'event';
+  relatedId?: string; // camp id or game id
+  bookedBy: string; // user id
+  bookedByName: string;
+  startDateTime: string;
+  endDateTime: string;
+  duration: number; // in hours
+  equipmentRented: { equipmentId: string; name: string; quantity: number; cost: number }[];
+  totalCost: number;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  notes?: string;
+  createdAt: string;
+}
+
 export interface DashboardStats {
   totalLeagues: number;
   activeLeagues: number;

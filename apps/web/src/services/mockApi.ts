@@ -12,7 +12,12 @@ import {
   TeamApplication,
   Player,
   PlayerGameStats,
+  Facility,
+  FacilityBooking,
+  Equipment,
 } from '../types';
+import { mockPlayerGameStats } from './mockGameStats';
+import { mockFacilities, mockFacilityBookings } from './mockFacilityData';
 
 // Mock Referees
 export const mockReferees: Referee[] = [
@@ -857,8 +862,146 @@ export const mockApi = {
 
   getPlayerGameStats: async (gameId: string): Promise<PlayerGameStats[]> => {
     await delay(500);
-    const { mockPlayerGameStats } = await import('./mockGameStats');
-    return mockPlayerGameStats.filter(s => s.gameId === gameId);
+    return mockPlayerGameStats.filter(stat => stat.gameId === gameId);
+  },
+
+  // Facilities
+  getFacilities: async (filters?: { sport?: string; city?: string; status?: string }): Promise<Facility[]> => {
+    await delay(500);
+    let facilities = [...mockFacilities];
+    
+    if (filters?.sport) {
+      facilities = facilities.filter(f => f.sports.includes(filters.sport!));
+    }
+    if (filters?.city) {
+      facilities = facilities.filter(f => f.city.toLowerCase().includes(filters.city!.toLowerCase()));
+    }
+    if (filters?.status) {
+      facilities = facilities.filter(f => f.status === filters.status);
+    }
+    
+    return facilities;
+  },
+
+  getFacilityById: async (id: string): Promise<Facility | null> => {
+    await delay(500);
+    return mockFacilities.find(f => f.id === id) || null;
+  },
+
+  createFacility: async (facility: Omit<Facility, 'id' | 'createdAt' | 'totalBookings' | 'rating'>): Promise<Facility> => {
+    await delay(1000);
+    const newFacility: Facility = {
+      ...facility,
+      id: `facility-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      totalBookings: 0,
+      rating: 0,
+    };
+    mockFacilities.push(newFacility);
+    return newFacility;
+  },
+
+  updateFacility: async (id: string, updates: Partial<Facility>): Promise<Facility> => {
+    await delay(1000);
+    const index = mockFacilities.findIndex(f => f.id === id);
+    if (index === -1) throw new Error('Facility not found');
+    mockFacilities[index] = { ...mockFacilities[index], ...updates };
+    return mockFacilities[index];
+  },
+
+  deleteFacility: async (id: string): Promise<void> => {
+    await delay(1000);
+    const index = mockFacilities.findIndex(f => f.id === id);
+    if (index === -1) throw new Error('Facility not found');
+    mockFacilities.splice(index, 1);
+  },
+
+  // Equipment Management
+  addEquipment: async (facilityId: string, equipment: Omit<Equipment, 'id'>): Promise<Equipment> => {
+    await delay(1000);
+    const facility = mockFacilities.find(f => f.id === facilityId);
+    if (!facility) throw new Error('Facility not found');
+    
+    const newEquipment: Equipment = {
+      ...equipment,
+      id: `equip-${Date.now()}`,
+    };
+    facility.equipment.push(newEquipment);
+    return newEquipment;
+  },
+
+  updateEquipment: async (facilityId: string, equipmentId: string, updates: Partial<Equipment>): Promise<Equipment> => {
+    await delay(1000);
+    const facility = mockFacilities.find(f => f.id === facilityId);
+    if (!facility) throw new Error('Facility not found');
+    
+    const equipIndex = facility.equipment.findIndex(e => e.id === equipmentId);
+    if (equipIndex === -1) throw new Error('Equipment not found');
+    
+    facility.equipment[equipIndex] = { ...facility.equipment[equipIndex], ...updates };
+    return facility.equipment[equipIndex];
+  },
+
+  deleteEquipment: async (facilityId: string, equipmentId: string): Promise<void> => {
+    await delay(1000);
+    const facility = mockFacilities.find(f => f.id === facilityId);
+    if (!facility) throw new Error('Facility not found');
+    
+    const equipIndex = facility.equipment.findIndex(e => e.id === equipmentId);
+    if (equipIndex === -1) throw new Error('Equipment not found');
+    
+    facility.equipment.splice(equipIndex, 1);
+  },
+
+  // Facility Bookings
+  getFacilityBookings: async (filters?: { facilityId?: string; bookedBy?: string; status?: string }): Promise<FacilityBooking[]> => {
+    await delay(500);
+    let bookings = [...mockFacilityBookings];
+    
+    if (filters?.facilityId) {
+      bookings = bookings.filter(b => b.facilityId === filters.facilityId);
+    }
+    if (filters?.bookedBy) {
+      bookings = bookings.filter(b => b.bookedBy === filters.bookedBy);
+    }
+    if (filters?.status) {
+      bookings = bookings.filter(b => b.status === filters.status);
+    }
+    
+    return bookings;
+  },
+
+  createFacilityBooking: async (booking: Omit<FacilityBooking, 'id' | 'createdAt'>): Promise<FacilityBooking> => {
+    await delay(1000);
+    const newBooking: FacilityBooking = {
+      ...booking,
+      id: `booking-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    mockFacilityBookings.push(newBooking);
+    
+    // Update facility total bookings
+    const facility = mockFacilities.find(f => f.id === booking.facilityId);
+    if (facility) {
+      facility.totalBookings++;
+    }
+    
+    return newBooking;
+  },
+
+  updateFacilityBooking: async (id: string, updates: Partial<FacilityBooking>): Promise<FacilityBooking> => {
+    await delay(1000);
+    const index = mockFacilityBookings.findIndex(b => b.id === id);
+    if (index === -1) throw new Error('Booking not found');
+    mockFacilityBookings[index] = { ...mockFacilityBookings[index], ...updates };
+    return mockFacilityBookings[index];
+  },
+
+  cancelFacilityBooking: async (id: string): Promise<void> => {
+    await delay(1000);
+    const booking = mockFacilityBookings.find(b => b.id === id);
+    if (!booking) throw new Error('Booking not found');
+    booking.status = 'cancelled';
   },
 
   generateSchedule: async (leagueId: string, format: string): Promise<Game[]> => {
