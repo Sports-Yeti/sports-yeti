@@ -22,6 +22,8 @@ import {
   Alert,
   TextField,
   IconButton,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -29,12 +31,15 @@ import {
   Delete as DeleteIcon,
   Sports as SportsIcon,
   AutoAwesome as AutoIcon,
+  ViewList as ListIcon,
+  AccountTree as BracketIcon,
 } from '@mui/icons-material';
 import { format, addDays } from 'date-fns';
 import FormInput from '../../components/FormInput';
 import FormSelect from '../../components/FormSelect';
 import DataTable, { Column } from '../../components/DataTable';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import BracketView from '../../components/BracketView';
 import mockApi from '../../services/mockApi';
 import { League, Game, Team } from '../../types';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -64,6 +69,7 @@ function GameSchedulingPage() {
   const [seasonFormat, setSeasonFormat] = useState<string>('round-robin');
   const [gamesPerTeam, setGamesPerTeam] = useState<number>(6);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'bracket'>('list');
 
   const { control, handleSubmit, reset } = useForm<GameFormData>({
     resolver: zodResolver(gameSchema),
@@ -408,7 +414,27 @@ function GameSchedulingPage() {
       {/* Games List */}
       <Paper sx={{ p: 3 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6">Scheduled Games ({games.length})</Typography>
+          <Box display="flex" alignItems="center" gap={2}>
+            <Typography variant="h6">Scheduled Games ({games.length})</Typography>
+            
+            {/* View Mode Toggle */}
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={(_e, newMode) => newMode && setViewMode(newMode)}
+              size="small"
+            >
+              <ToggleButton value="list">
+                <ListIcon sx={{ mr: 0.5 }} fontSize="small" />
+                List
+              </ToggleButton>
+              <ToggleButton value="bracket">
+                <BracketIcon sx={{ mr: 0.5 }} fontSize="small" />
+                Bracket
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -418,11 +444,19 @@ function GameSchedulingPage() {
           </Button>
         </Box>
 
-        <DataTable
-          columns={gameColumns}
-          rows={games}
-          emptyMessage="No games scheduled yet. Click 'Add Game' or use auto-generate."
-        />
+        {viewMode === 'list' ? (
+          <DataTable
+            columns={gameColumns}
+            rows={games}
+            emptyMessage="No games scheduled yet. Click 'Add Game' or use auto-generate."
+          />
+        ) : (
+          <BracketView
+            games={games}
+            teams={teams}
+            format={seasonFormat}
+          />
+        )}
       </Paper>
 
       {/* Add/Edit Game Dialog */}
