@@ -1,0 +1,61 @@
+import { PlayerGameStats } from '../types';
+
+// Mock Player Game Stats
+export const mockPlayerGameStats: PlayerGameStats[] = [
+  // Game 1 stats - Manhattan Ballers vs Brooklyn Hoops
+  {
+    playerId: 'player-1',
+    playerName: 'John Doe',
+    teamId: 'team-1',
+    gameId: 'game-1',
+    points: 28,
+    assists: 7,
+    rebounds: 5,
+    minutesPlayed: 35,
+    fouls: 2,
+  },
+  {
+    playerId: 'player-2',
+    playerName: 'Jane Smith',
+    teamId: 'team-1',
+    gameId: 'game-1',
+    points: 22,
+    assists: 4,
+    rebounds: 8,
+    minutesPlayed: 32,
+    fouls: 3,
+  },
+  {
+    playerId: 'player-3',
+    playerName: 'Mike Johnson',
+    teamId: 'team-1',
+    gameId: 'game-1',
+    points: 18,
+    assists: 2,
+    rebounds: 12,
+    minutesPlayed: 30,
+    fouls: 4,
+  },
+  {
+    playerId: 'player-4',
+    playerName: 'Sarah Williams',
+    teamId: 'team-2',
+    gameId: 'game-1',
+    points: 31,
+    assists: 5,
+    rebounds: 9,
+    minutesPlayed: 38,
+    fouls: 2,
+  },
+  {
+    playerId: 'player-5',
+    playerName: 'Tom Brown',
+    teamId: 'team-2',
+    gameId: 'game-1',
+    points: 24,
+    assists: 6,
+    rebounds: 4,
+    minutesPlayed: 34,
+    fouls: 3,
+  },
+];
