@@ -15,8 +15,9 @@ import {
   CalendarMonth as CalendarIcon,
   ViewList as ListIcon,
 } from '@mui/icons-material';
-import { Calendar, momentLocalizer, View, Event as CalendarEvent } from 'react-big-calendar';
+import { Calendar, dateFnsLocalizer, View, Event as CalendarEvent } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
+import enUS from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import DataCard from '../components/DataCard';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -24,17 +25,15 @@ import mockApi from '../services/mockApi';
 import { GameAssignment } from '../types';
 
 // Setup date-fns localizer for react-big-calendar
-const locales = {
-  'en-US': require('date-fns/locale/en-US'),
-};
-
-const localizer = momentLocalizer({
-  format: (date: Date, formatStr: string) => format(date, formatStr),
-  parse: (dateStr: string, formatStr: string) => parse(dateStr, formatStr, new Date()),
-  startOfWeek: () => startOfWeek(new Date()),
-  getDay: (date: Date) => getDay(date),
-  locales,
-} as any);
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales: {
+    'en-US': enUS,
+  },
+});
 
 interface CalendarEventData extends CalendarEvent {
   id: string;
