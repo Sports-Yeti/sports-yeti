@@ -18,6 +18,8 @@ import RefereeDetailsPage from './pages/referees/RefereeDetailsPage';
 import AssignmentsPage from './pages/referees/AssignmentsPage';
 import GameReportPage from './pages/referees/GameReportPage';
 import PlayerSearchPage from './pages/players/PlayerSearchPage';
+import SettingsPage from './pages/settings/SettingsPage';
+import CalendarPage from './pages/CalendarPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -38,6 +40,7 @@ function AppRoutes() {
       >
         <Route index element={<DashboardHome />} />
         <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="calendar" element={<CalendarPage />} />
         
         {/* League Routes */}
         <Route path="leagues" element={<LeaguesPage />} />
@@ -60,8 +63,11 @@ function AppRoutes() {
         {/* Referee Routes */}
         <Route path="referees" element={<RefereesPage />} />
         <Route path="referees/:id" element={<RefereeDetailsPage />} />
-        <Route path="assignments" element={<AssignmentsPage />} />
-        <Route path="games/:id/report" element={<GameReportPage />} />
+        <Route path="referees/assignments" element={<AssignmentsPage />} />
+        <Route path="referees/assignments/:id/report" element={<GameReportPage />} />
+        
+        {/* Settings */}
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   );

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -29,10 +29,14 @@ import {
   Notifications as NotificationsIcon,
   Analytics as AnalyticsIcon,
   People as PeopleIcon,
+  Settings as SettingsIcon,
+  CalendarMonth as CalendarIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import NotificationDrawer from '../components/NotificationDrawer';
+import GlobalSearch from '../components/GlobalSearch';
 
 const drawerWidth = 240;
 
@@ -48,6 +52,13 @@ const navigationItems: NavigationItem[] = [
     text: 'Dashboard',
     icon: <DashboardIcon />,
     path: '/',
+    roles: ['league_admin', 'trainer', 'referee'],
+  },
+  {
+    text: 'Calendar',
+    icon: <CalendarIcon />,
+    path: '/calendar',
+    roles: ['league_admin', 'trainer', 'referee'],
   },
   {
     text: 'Analytics',
@@ -83,13 +94,19 @@ const navigationItems: NavigationItem[] = [
     text: 'Referees',
     icon: <RefereeIcon />,
     path: '/referees',
-    roles: ['referee', 'league_admin'],
+    roles: ['league_admin'],
   },
   {
-    text: 'Assignments',
+    text: 'Referee Assignments',
     icon: <AssignmentIcon />,
-    path: '/assignments',
+    path: '/referees/assignments',
     roles: ['referee'],
+  },
+  {
+    text: 'Settings',
+    icon: <SettingsIcon />,
+    path: '/settings',
+    roles: ['league_admin', 'trainer', 'referee'],
   },
 ];
 
@@ -97,9 +114,23 @@ function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationDrawerOpen, setNotificationDrawerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
+
+  // Global keyboard shortcut for search (Ctrl+K or Cmd+K)
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -173,6 +204,17 @@ function DashboardLayout() {
             {user?.role === 'trainer' && 'Trainer Dashboard'}
             {user?.role === 'referee' && 'Referee Dashboard'}
           </Typography>
+
+          {/* Search Button */}
+          <IconButton
+            color="inherit"
+            onClick={() => setSearchOpen(true)}
+            sx={{ mr: 1 }}
+          >
+            <SearchIcon />
+          </IconButton>
+
+          {/* Notifications */}
           <IconButton 
             color="inherit" 
             onClick={() => setNotificationDrawerOpen(true)}
@@ -251,9 +293,17 @@ function DashboardLayout() {
         <Toolbar />
         <Outlet />
       </Box>
+
+      {/* Notification Drawer */}
       <NotificationDrawer 
         open={notificationDrawerOpen} 
         onClose={() => setNotificationDrawerOpen(false)} 
+      />
+
+      {/* Global Search */}
+      <GlobalSearch
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
       />
     </Box>
   );
