@@ -911,6 +911,12 @@ export type ProfileStackParamList = {
   Achievements: undefined;
   DataExport: undefined;
   Help: undefined;
+  PaymentMethods: undefined;
+  AddPaymentMethod: undefined;
+  PaymentHistory: undefined;
+  Camps: undefined;
+  CampDetails: { campId: string };
+  MyCamps: undefined;
 };
 
 // Context Types

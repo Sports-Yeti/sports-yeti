@@ -10,6 +10,12 @@ import PointsScreen from '../screens/profile/PointsScreen';
 import AchievementsScreen from '../screens/profile/AchievementsScreen';
 import DataExportScreen from '../screens/profile/DataExportScreen';
 import HelpScreen from '../screens/profile/HelpScreen';
+import PaymentMethodsScreen from '../screens/payments/PaymentMethodsScreen';
+import AddPaymentMethodScreen from '../screens/payments/AddPaymentMethodScreen';
+import PaymentHistoryScreen from '../screens/payments/PaymentHistoryScreen';
+import CampsScreen from '../screens/camps/CampsScreen';
+import CampDetailsScreen from '../screens/camps/CampDetailsScreen';
+import MyCampsScreen from '../screens/camps/MyCampsScreen';
 
 const Stack = createStackNavigator<ProfileStackParamList>();
 
@@ -28,6 +34,12 @@ const ProfileStackNavigator: React.FC = () => {
       <Stack.Screen name="Achievements" component={AchievementsScreen} />
       <Stack.Screen name="DataExport" component={DataExportScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
+      <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
+      <Stack.Screen name="AddPaymentMethod" component={AddPaymentMethodScreen} />
+      <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
+      <Stack.Screen name="Camps" component={CampsScreen} />
+      <Stack.Screen name="CampDetails" component={CampDetailsScreen} />
+      <Stack.Screen name="MyCamps" component={MyCampsScreen} />
     </Stack.Navigator>
   );
 };

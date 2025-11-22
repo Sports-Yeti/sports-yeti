@@ -58,6 +58,14 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     navigation.navigate('Help');
   };
 
+  const navigateToPaymentMethods = () => {
+    navigation.navigate('PaymentMethods');
+  };
+
+  const navigateToCamps = () => {
+    navigation.navigate('Camps');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -172,6 +180,24 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           >
             <Text style={styles.menuIcon}>🏆</Text>
             <Text style={styles.menuTitle}>Achievements</Text>
+            <Text style={styles.menuArrow}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={navigateToCamps}
+          >
+            <Text style={styles.menuIcon}>⛺</Text>
+            <Text style={styles.menuTitle}>Training Camps</Text>
+            <Text style={styles.menuArrow}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={navigateToPaymentMethods}
+          >
+            <Text style={styles.menuIcon}>💳</Text>
+            <Text style={styles.menuTitle}>Payment Methods</Text>
             <Text style={styles.menuArrow}>→</Text>
           </TouchableOpacity>
 
