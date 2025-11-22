@@ -58,30 +58,108 @@ export const mockGameAssignments: GameAssignment[] = [
     gameId: 'game-1',
     refereeId: 'referee-1',
     sport: 'basketball',
-    location: 'Central Park Courts',
-    dateTime: '2025-12-01T18:00:00Z',
-    status: 'confirmed',
+    location: 'Madison Square Garden',
+    dateTime: '2025-12-01T19:00:00Z',
+    status: 'completed',
+    compensation: 100,
+    leagueId: 'league-1',
+    leagueName: 'Manhattan Basketball League',
+    homeTeamName: 'Manhattan Ballers',
+    awayTeamName: 'Brooklyn Hoops',
+    assignedReferees: [
+      { id: 'referee-1', name: 'John Smith', role: 'Head Referee' },
+      { id: 'referee-2', name: 'Maria Garcia', role: 'Assistant Referee' },
+    ],
+  },
+  {
+    id: 'assignment-1b',
+    gameId: 'game-1',
+    refereeId: 'referee-2',
+    sport: 'basketball',
+    location: 'Madison Square Garden',
+    dateTime: '2025-12-01T19:00:00Z',
+    status: 'completed',
     compensation: 75,
+    leagueId: 'league-1',
+    leagueName: 'Manhattan Basketball League',
+    homeTeamName: 'Manhattan Ballers',
+    awayTeamName: 'Brooklyn Hoops',
+    assignedReferees: [
+      { id: 'referee-1', name: 'John Smith', role: 'Head Referee' },
+      { id: 'referee-2', name: 'Maria Garcia', role: 'Assistant Referee' },
+    ],
   },
   {
     id: 'assignment-2',
     gameId: 'game-2',
     refereeId: 'referee-1',
-    sport: 'soccer',
-    location: 'Prospect Park Field 3',
-    dateTime: '2025-12-03T15:00:00Z',
-    status: 'pending',
-    compensation: 60,
+    sport: 'basketball',
+    location: 'Queens Sports Complex',
+    dateTime: '2025-12-05T18:30:00Z',
+    status: 'confirmed',
+    compensation: 100,
+    leagueId: 'league-1',
+    leagueName: 'Manhattan Basketball League',
+    homeTeamName: 'Queens Warriors',
+    awayTeamName: 'Manhattan Ballers',
+    assignedReferees: [
+      { id: 'referee-1', name: 'John Smith', role: 'Head Referee' },
+      { id: 'referee-3', name: 'David Lee', role: 'Assistant Referee' },
+    ],
+  },
+  {
+    id: 'assignment-2b',
+    gameId: 'game-2',
+    refereeId: 'referee-3',
+    sport: 'basketball',
+    location: 'Queens Sports Complex',
+    dateTime: '2025-12-05T18:30:00Z',
+    status: 'confirmed',
+    compensation: 75,
+    leagueId: 'league-1',
+    leagueName: 'Manhattan Basketball League',
+    homeTeamName: 'Queens Warriors',
+    awayTeamName: 'Manhattan Ballers',
+    assignedReferees: [
+      { id: 'referee-1', name: 'John Smith', role: 'Head Referee' },
+      { id: 'referee-3', name: 'David Lee', role: 'Assistant Referee' },
+    ],
   },
   {
     id: 'assignment-3',
     gameId: 'game-3',
     refereeId: 'referee-2',
-    sport: 'soccer',
-    location: 'Brooklyn Soccer Complex',
-    dateTime: '2025-11-28T14:00:00Z',
-    status: 'completed',
-    compensation: 60,
+    sport: 'basketball',
+    location: 'Brooklyn Recreation Center',
+    dateTime: '2025-12-08T20:00:00Z',
+    status: 'pending',
+    compensation: 100,
+    leagueId: 'league-1',
+    leagueName: 'Manhattan Basketball League',
+    homeTeamName: 'Brooklyn Hoops',
+    awayTeamName: 'Queens Warriors',
+    assignedReferees: [
+      { id: 'referee-2', name: 'Maria Garcia', role: 'Head Referee' },
+      { id: 'referee-1', name: 'John Smith', role: 'Assistant Referee' },
+    ],
+  },
+  {
+    id: 'assignment-3b',
+    gameId: 'game-3',
+    refereeId: 'referee-1',
+    sport: 'basketball',
+    location: 'Brooklyn Recreation Center',
+    dateTime: '2025-12-08T20:00:00Z',
+    status: 'pending',
+    compensation: 75,
+    leagueId: 'league-1',
+    leagueName: 'Manhattan Basketball League',
+    homeTeamName: 'Brooklyn Hoops',
+    awayTeamName: 'Queens Warriors',
+    assignedReferees: [
+      { id: 'referee-2', name: 'Maria Garcia', role: 'Head Referee' },
+      { id: 'referee-1', name: 'John Smith', role: 'Assistant Referee' },
+    ],
   },
   {
     id: 'assignment-4',
@@ -89,9 +167,16 @@ export const mockGameAssignments: GameAssignment[] = [
     refereeId: 'referee-3',
     sport: 'basketball',
     location: 'Manhattan Basketball Arena',
-    dateTime: '2025-12-05T19:30:00Z',
+    dateTime: '2025-12-10T19:30:00Z',
     status: 'pending',
-    compensation: 80,
+    compensation: 100,
+    leagueId: 'league-1',
+    leagueName: 'Manhattan Basketball League',
+    homeTeamName: 'Manhattan Ballers',
+    awayTeamName: 'Brooklyn Hoops',
+    assignedReferees: [
+      { id: 'referee-3', name: 'David Lee', role: 'Head Referee' },
+    ],
   },
 ];
 
@@ -742,7 +827,7 @@ export const mockApi = {
   },
 
   // Game Assignments
-  getAssignments: async (filters?: { refereeId?: string; status?: string }): Promise<GameAssignment[]> => {
+  getAssignments: async (filters?: { refereeId?: string; status?: string; leagueId?: string }): Promise<GameAssignment[]> => {
     await delay(500);
     let assignments = [...mockGameAssignments];
     if (filters?.refereeId) {
@@ -750,6 +835,9 @@ export const mockApi = {
     }
     if (filters?.status) {
       assignments = assignments.filter(a => a.status === filters.status);
+    }
+    if (filters?.leagueId) {
+      assignments = assignments.filter(a => a.leagueId === filters.leagueId);
     }
     return assignments;
   },
@@ -769,8 +857,19 @@ export const mockApi = {
       ...report,
       id: `report-${Date.now()}`,
       submittedAt: new Date().toISOString(),
+      autoExtractedStats: report.statsImageUrl ? true : false, // Simulate auto-extraction if image provided
     };
     mockGameReports.push(newReport);
+    
+    // Update game status and scores
+    if (report.gameId) {
+      await mockApi.updateGame(report.gameId, {
+        status: 'completed',
+        homeScore: report.homeScore,
+        awayScore: report.awayScore,
+      });
+    }
+    
     return newReport;
   },
 

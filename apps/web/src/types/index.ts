@@ -128,6 +128,11 @@ export interface GameAssignment {
   dateTime: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   compensation: number;
+  leagueId?: string;
+  leagueName?: string;
+  homeTeamName?: string;
+  awayTeamName?: string;
+  assignedReferees?: { id: string; name: string; role: string }[]; // All referees assigned to this game
 }
 
 export interface Game {
@@ -170,9 +175,11 @@ export interface GameReport {
   refereeId: string;
   homeScore: number;
   awayScore: number;
-  incidents: Incident[];
-  notes: string;
+  incidents?: Incident[];
+  notes?: string;
   submittedAt: string;
+  statsImageUrl?: string; // Image of game stats sheet
+  autoExtractedStats?: boolean; // Whether stats were auto-extracted from image
 }
 
 export interface Incident {
