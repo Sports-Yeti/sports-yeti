@@ -35,8 +35,8 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
-    // Authentication routes (public)
-    Route::prefix('auth')->group(function () {
+    // Authentication routes (public) with strict rate limiting
+    Route::prefix('auth')->middleware('throttle:auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
 
@@ -140,18 +140,18 @@ Route::prefix('v1')->group(function () {
             Route::delete('/{notification}', [NotificationController::class, 'destroy']);
         });
 
-        // Payments
-        Route::prefix('payments')->group(function () {
+        // Payments with stricter rate limiting
+        Route::prefix('payments')->middleware('throttle:payments')->group(function () {
             Route::get('/', [PaymentController::class, 'index']);
             Route::get('/{payment}', [PaymentController::class, 'show']);
             Route::post('/intent', [PaymentController::class, 'createIntent']);
             Route::post('/{payment}/confirm', [PaymentController::class, 'confirm']);
-            Route::post('/{payment}/refund', [PaymentController::class, 'refund']);
+            Route::post('/{payment}/refund', [PaymentController::class, 'refund'])->middleware('permission:payments.refund');
         });
     });
 
     // Webhooks (no auth required - called by external services)
-    Route::prefix('webhooks')->group(function () {
+    Route::prefix('webhooks')->middleware('throttle:webhooks')->group(function () {
         Route::post('/stripe', [WebhookController::class, 'handleStripe']);
     });
 });
