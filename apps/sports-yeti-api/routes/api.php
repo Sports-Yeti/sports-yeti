@@ -5,11 +5,15 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\CampController;
+use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\FacilityController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\LeagueController;
+use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\TeamController;
+use App\Http\Controllers\Api\V1\WebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -112,5 +116,42 @@ Route::prefix('v1')->group(function () {
             Route::delete('/{game}', [GameController::class, 'destroy']);
             Route::post('/{game}/attendance', [GameController::class, 'respondAttendance']);
         });
+
+        // Chats
+        Route::prefix('chats')->group(function () {
+            Route::get('/{chat}', [ChatController::class, 'show']);
+            Route::get('/{chat}/messages', [ChatController::class, 'messages']);
+            Route::post('/{chat}/messages', [ChatController::class, 'sendMessage']);
+            Route::delete('/{chat}/messages/{message}', [ChatController::class, 'deleteMessage']);
+            Route::get('/{chat}/polls', [ChatController::class, 'polls']);
+            Route::post('/{chat}/polls', [ChatController::class, 'createPoll']);
+            Route::post('/{chat}/polls/{poll}/vote', [ChatController::class, 'votePoll']);
+            Route::post('/{chat}/polls/{poll}/close', [ChatController::class, 'closePoll']);
+        });
+
+        // Notifications
+        Route::prefix('notifications')->group(function () {
+            Route::get('/', [NotificationController::class, 'index']);
+            Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+            Route::delete('/clear', [NotificationController::class, 'clearAll']);
+            Route::put('/push-token', [NotificationController::class, 'updatePushToken']);
+            Route::put('/preferences', [NotificationController::class, 'updatePreferences']);
+            Route::post('/{notification}/read', [NotificationController::class, 'markAsRead']);
+            Route::delete('/{notification}', [NotificationController::class, 'destroy']);
+        });
+
+        // Payments
+        Route::prefix('payments')->group(function () {
+            Route::get('/', [PaymentController::class, 'index']);
+            Route::get('/{payment}', [PaymentController::class, 'show']);
+            Route::post('/intent', [PaymentController::class, 'createIntent']);
+            Route::post('/{payment}/confirm', [PaymentController::class, 'confirm']);
+            Route::post('/{payment}/refund', [PaymentController::class, 'refund']);
+        });
+    });
+
+    // Webhooks (no auth required - called by external services)
+    Route::prefix('webhooks')->group(function () {
+        Route::post('/stripe', [WebhookController::class, 'handleStripe']);
     });
 });
