@@ -11,6 +11,7 @@ import {
   BookingsScreen,
   CampsScreen,
   ChatScreen,
+  ScannerScreen,
 } from '../screens';
 import { COLORS } from '../constants';
 
@@ -172,8 +173,8 @@ export function MainNavigator() {
       />
       <Stack.Screen
         name="Scanner"
-        component={PlaceholderScreen}
-        options={{ title: 'Scan QR Code' }}
+        component={ScannerScreen}
+        options={{ title: 'Scan QR Code', headerShown: false }}
       />
       <Stack.Screen
         name="Chat"

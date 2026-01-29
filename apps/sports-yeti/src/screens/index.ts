@@ -25,3 +25,6 @@ export { CampsScreen } from './camps/CampsScreen';
 
 // Chat screens
 export { ChatScreen } from './chat/ChatScreen';
+
+// Scanner screens
+export { ScannerScreen } from './scanner/ScannerScreen';
