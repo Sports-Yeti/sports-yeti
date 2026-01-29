@@ -7,6 +7,10 @@ import {
   FacilitiesScreen,
   GamesScreen,
   ProfileScreen,
+  TeamsScreen,
+  BookingsScreen,
+  CampsScreen,
+  ChatScreen,
 } from '../screens';
 import { COLORS } from '../constants';
 
@@ -23,10 +27,12 @@ export type RootStackParamList = {
   FacilityDetails: { id: string };
   BookingDetails: { id: string };
   CampDetails: { id: string };
+  TeamDetails: { id: string };
   Teams: undefined;
   Camps: undefined;
   Bookings: undefined;
   Scanner: undefined;
+  Chat: { chatId: string; title?: string };
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -101,7 +107,7 @@ function MainTabs() {
   );
 }
 
-// Placeholder screens for navigation targets
+// Placeholder for detail screens that need more implementation
 function PlaceholderScreen() {
   return null;
 }
@@ -145,24 +151,36 @@ export function MainNavigator() {
         options={{ title: 'Camp Details' }}
       />
       <Stack.Screen
-        name="Teams"
+        name="TeamDetails"
         component={PlaceholderScreen}
+        options={{ title: 'Team Details' }}
+      />
+      <Stack.Screen
+        name="Teams"
+        component={TeamsScreen}
         options={{ title: 'Find Teams' }}
       />
       <Stack.Screen
         name="Camps"
-        component={PlaceholderScreen}
+        component={CampsScreen}
         options={{ title: 'Training Camps' }}
       />
       <Stack.Screen
         name="Bookings"
-        component={PlaceholderScreen}
+        component={BookingsScreen}
         options={{ title: 'My Bookings' }}
       />
       <Stack.Screen
         name="Scanner"
         component={PlaceholderScreen}
         options={{ title: 'Scan QR Code' }}
+      />
+      <Stack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={({ route }) => ({
+          title: route.params?.title || 'Chat',
+        })}
       />
     </Stack.Navigator>
   );

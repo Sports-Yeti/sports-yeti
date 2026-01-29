@@ -4,7 +4,7 @@ export const API_BASE_URL =
 export const COLORS = {
   primary: '#1E88E5',
   primaryDark: '#1565C0',
-  primaryLight: '#42A5F5',
+  primaryLight: '#E3F2FD',
   secondary: '#FF6F00',
   success: '#4CAF50',
   warning: '#FF9800',
@@ -13,6 +13,7 @@ export const COLORS = {
   surface: '#FFFFFF',
   text: '#212121',
   textSecondary: '#757575',
+  textLight: '#FFFFFF',
   border: '#E0E0E0',
   disabled: '#BDBDBD',
 };

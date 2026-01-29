@@ -13,3 +13,15 @@ export { GamesScreen } from './games/GamesScreen';
 
 // Profile screens
 export { ProfileScreen } from './profile/ProfileScreen';
+
+// Teams screens
+export { TeamsScreen } from './teams/TeamsScreen';
+
+// Bookings screens
+export { BookingsScreen } from './bookings/BookingsScreen';
+
+// Camps screens
+export { CampsScreen } from './camps/CampsScreen';
+
+// Chat screens
+export { ChatScreen } from './chat/ChatScreen';

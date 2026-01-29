@@ -318,6 +318,95 @@ class ApiService {
   ): Promise<void> {
     await this.client.post(`/games/${gameId}/attendance`, { response });
   }
+
+  // Chats
+  async getChat(chatId: string): Promise<{ data: { id: string; type: string; name: string } }> {
+    const response = await this.client.get(`/chats/${chatId}`);
+    return response.data;
+  }
+
+  async getChatMessages(
+    chatId: string,
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<Array<{
+    id: string;
+    content: string;
+    user_id: string;
+    user: { id: string; name: string; avatar_url?: string };
+    created_at: string;
+  }>>> {
+    const response = await this.client.get(`/chats/${chatId}/messages`, {
+      params,
+    });
+    return response.data;
+  }
+
+  async sendChatMessage(
+    chatId: string,
+    content: string
+  ): Promise<{
+    id: string;
+    content: string;
+    user_id: string;
+    user: { id: string; name: string; avatar_url?: string };
+    created_at: string;
+  }> {
+    const response = await this.client.post(`/chats/${chatId}/messages`, {
+      content,
+    });
+    return response.data.data;
+  }
+
+  async getChatPolls(
+    chatId: string
+  ): Promise<ApiResponse<Array<{
+    id: string;
+    question: string;
+    options: string[];
+    votes: Record<string, number>;
+    user_vote?: string;
+    is_closed: boolean;
+    closes_at?: string;
+  }>>> {
+    const response = await this.client.get(`/chats/${chatId}/polls`);
+    return response.data;
+  }
+
+  async voteChatPoll(
+    chatId: string,
+    pollId: string,
+    option: string
+  ): Promise<void> {
+    await this.client.post(`/chats/${chatId}/polls/${pollId}/vote`, { option });
+  }
+
+  // Notifications
+  async getNotifications(
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<Array<{
+    id: string;
+    type: string;
+    title: string;
+    body: string;
+    data?: Record<string, unknown>;
+    read_at?: string;
+    created_at: string;
+  }>>> {
+    const response = await this.client.get('/notifications', { params });
+    return response.data;
+  }
+
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    await this.client.post(`/notifications/${notificationId}/read`);
+  }
+
+  async markAllNotificationsAsRead(): Promise<void> {
+    await this.client.post('/notifications/mark-all-read');
+  }
+
+  async updatePushToken(token: string): Promise<void> {
+    await this.client.put('/notifications/push-token', { expo_push_token: token });
+  }
 }
 
 export const api = new ApiService();
