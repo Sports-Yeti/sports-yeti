@@ -270,4 +270,109 @@ class ChatController extends Controller
             'data' => $polls,
         ]);
     }
+
+    /**
+     * SSE endpoint for real-time chat updates
+     * 
+     * @param Request $request
+     * @param Chat $chat
+     * @return \Symfony\Component\HttpFoundation\StreamedResponse
+     */
+    public function stream(Request $request, Chat $chat)
+    {
+        $lastMessageId = $request->header('Last-Event-ID');
+        $lastTimestamp = $lastMessageId ? ChatMessage::find($lastMessageId)?->created_at : now();
+
+        return response()->stream(function () use ($chat, $lastTimestamp) {
+            // Disable output buffering for real-time streaming
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            // Send headers to prevent buffering
+            header('X-Accel-Buffering: no');
+            header('Cache-Control: no-cache');
+
+            $heartbeatInterval = 15; // seconds
+            $lastHeartbeat = time();
+            $checkInterval = 2; // seconds
+
+            while (true) {
+                // Check for connection abort
+                if (connection_aborted()) {
+                    break;
+                }
+
+                // Fetch new messages since last timestamp
+                $newMessages = ChatMessage::with(['user:id,name,avatar_url'])
+                    ->where('chat_id', $chat->id)
+                    ->where('created_at', '>', $lastTimestamp)
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+
+                foreach ($newMessages as $message) {
+                    $this->sendSseEvent('message', [
+                        'id' => $message->id,
+                        'user_id' => $message->user_id,
+                        'user' => $message->user,
+                        'message' => $message->message,
+                        'message_type' => $message->message_type,
+                        'created_at' => $message->created_at->toIso8601String(),
+                    ], $message->id);
+
+                    $lastTimestamp = $message->created_at;
+                }
+
+                // Check for poll updates
+                $activePollUpdates = ChatPoll::where('chat_id', $chat->id)
+                    ->where('is_closed', false)
+                    ->where('updated_at', '>', $lastTimestamp)
+                    ->get();
+
+                foreach ($activePollUpdates as $poll) {
+                    $this->sendSseEvent('poll_update', [
+                        'id' => $poll->id,
+                        'question' => $poll->question,
+                        'options' => $poll->options,
+                        'vote_counts' => $poll->getVoteCounts(),
+                        'is_closed' => $poll->is_closed,
+                    ], 'poll-' . $poll->id);
+                }
+
+                // Send heartbeat to keep connection alive
+                if (time() - $lastHeartbeat >= $heartbeatInterval) {
+                    $this->sendSseEvent('heartbeat', [
+                        'timestamp' => now()->toIso8601String(),
+                    ]);
+                    $lastHeartbeat = time();
+                }
+
+                // Flush output
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
+                flush();
+
+                // Sleep before next check
+                sleep($checkInterval);
+            }
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'X-Accel-Buffering' => 'no',
+            'Connection' => 'keep-alive',
+        ]);
+    }
+
+    /**
+     * Send an SSE event
+     */
+    private function sendSseEvent(string $event, array $data, ?string $id = null): void
+    {
+        if ($id) {
+            echo "id: {$id}\n";
+        }
+        echo "event: {$event}\n";
+        echo "data: " . json_encode($data) . "\n\n";
+    }
 }

@@ -127,6 +127,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/{chat}/polls', [ChatController::class, 'createPoll']);
             Route::post('/{chat}/polls/{poll}/vote', [ChatController::class, 'votePoll']);
             Route::post('/{chat}/polls/{poll}/close', [ChatController::class, 'closePoll']);
+            // SSE endpoint for real-time updates
+            Route::get('/{chat}/stream', [ChatController::class, 'stream']);
         });
 
         // Notifications
