@@ -24,10 +24,14 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->foreign('chat_id')->references('id')->on('chats')->onDelete('cascade');
-            $table->foreign('reply_to_id')->references('id')->on('chat_messages')->onDelete('set null');
             $table->index('chat_id');
             $table->index('user_id');
             $table->index('created_at');
+        });
+
+        // Self-referencing foreign key must be added after table creation
+        Schema::table('chat_messages', function (Blueprint $table) {
+            $table->foreign('reply_to_id')->references('id')->on('chat_messages')->onDelete('set null');
         });
     }
 

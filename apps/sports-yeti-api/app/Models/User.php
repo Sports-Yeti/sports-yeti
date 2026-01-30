@@ -23,6 +23,12 @@ class User extends Authenticatable implements JWTSubject
     use LogsActivity;
     use SoftDeletes;
 
+    /**
+     * The guard name for Spatie Permission roles/permissions.
+     * This must match the guard used when creating roles in RolesAndPermissionsSeeder.
+     */
+    protected string $guard_name = 'api';
+
     protected $fillable = [
         'name',
         'email',

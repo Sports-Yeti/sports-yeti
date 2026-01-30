@@ -21,10 +21,14 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->foreign('post_id')->references('id')->on('posts')->onDelete('cascade');
-            $table->foreign('parent_id')->references('id')->on('comments')->onDelete('cascade');
             $table->index('post_id');
             $table->index('user_id');
             $table->index('parent_id');
+        });
+
+        // Self-referencing foreign key must be added after table creation
+        Schema::table('comments', function (Blueprint $table) {
+            $table->foreign('parent_id')->references('id')->on('comments')->onDelete('cascade');
         });
     }
 

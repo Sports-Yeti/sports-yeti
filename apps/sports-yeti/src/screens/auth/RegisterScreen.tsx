@@ -46,7 +46,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
     }
 
     try {
-      await register({ name, email, password, phone: phone || undefined });
+      await register({ name, email, password, password_confirmation: confirmPassword, phone: phone || undefined });
     } catch {
       Alert.alert('Registration Failed', error || 'Please try again');
     }

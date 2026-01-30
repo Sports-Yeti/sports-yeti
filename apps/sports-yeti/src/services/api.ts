@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import * as Storage from './storage';
 import { API_BASE_URL } from '../constants';
 import type {
   ApiError,
@@ -98,16 +98,16 @@ class ApiService {
 
   // Token management
   async getToken(): Promise<string | null> {
-    return SecureStore.getItemAsync(TOKEN_KEY);
+    return Storage.getItemAsync(TOKEN_KEY);
   }
 
   async setToken(token: string): Promise<void> {
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
+    await Storage.setItemAsync(TOKEN_KEY, token);
   }
 
   async clearTokens(): Promise<void> {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+    await Storage.deleteItemAsync(TOKEN_KEY);
+    await Storage.deleteItemAsync(REFRESH_TOKEN_KEY);
   }
 
   // Auth endpoints
