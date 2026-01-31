@@ -9,11 +9,13 @@ use App\Models\Game;
 use App\Models\League;
 use App\Models\Payment;
 use App\Models\Team;
+use App\Policies\ActivityPolicy;
 use App\Policies\BookingPolicy;
 use App\Policies\GamePolicy;
 use App\Policies\LeaguePolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\TeamPolicy;
+use Spatie\Activitylog\Models\Activity;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -33,6 +35,7 @@ class AppServiceProvider extends ServiceProvider
         Booking::class => BookingPolicy::class,
         Game::class => GamePolicy::class,
         Payment::class => PaymentPolicy::class,
+        Activity::class => ActivityPolicy::class,
     ];
 
     /**

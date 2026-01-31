@@ -83,6 +83,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'notifications.view',
             'notifications.send',
             'notifications.manage',
+
+            // Audit permissions
+            'audit.view',
+            'audit.view-stats',
         ];
 
         foreach ($permissions as $permission) {
@@ -133,6 +137,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'notifications.view',
             'notifications.send',
             'notifications.manage',
+            'audit.view',
+            'audit.view-stats',
         ]);
 
         $facilityManagerRole = Role::firstOrCreate(['name' => 'facility-manager', 'guard_name' => 'api']);

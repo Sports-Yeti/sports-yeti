@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Models\League;
+use App\Models\Player;
 use App\Models\Team;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -26,12 +26,12 @@ class TeamFactory extends Factory
 
         return [
             'league_id' => League::factory(),
-            'captain_id' => User::factory(),
+            'captain_id' => Player::factory(),
             'name' => $this->faker->city() . ' ' . $this->faker->randomElement($teamNames),
             'description' => $this->faker->sentence(),
             'logo_url' => null,
             'status' => 'active',
-            'max_members' => 15,
+            'max_roster_size' => 15,
         ];
     }
 

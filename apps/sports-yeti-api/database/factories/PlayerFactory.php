@@ -23,12 +23,7 @@ class PlayerFactory extends Factory
             'experience_level' => $this->faker->randomElement(['beginner', 'intermediate', 'advanced', 'pro']),
             'availability_status' => $this->faker->randomElement(['available', 'looking_for_team', 'unavailable']),
             'is_private' => false,
-            'preferred_positions' => $this->faker->randomElements(['point_guard', 'shooting_guard', 'small_forward', 'power_forward', 'center'], 2),
-            'skill_ratings' => [
-                'shooting' => $this->faker->numberBetween(1, 10),
-                'passing' => $this->faker->numberBetween(1, 10),
-                'defense' => $this->faker->numberBetween(1, 10),
-            ],
+            'position' => $this->faker->randomElement(['point_guard', 'shooting_guard', 'small_forward', 'power_forward', 'center']),
         ];
     }
 

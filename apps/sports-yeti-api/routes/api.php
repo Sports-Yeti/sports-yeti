@@ -2,16 +2,20 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AuditController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\CampController;
 use App\Http\Controllers\Api\V1\ChatController;
+use App\Http\Controllers\Api\V1\CommentController;
 use App\Http\Controllers\Api\V1\FacilityController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\LeagueController;
+use App\Http\Controllers\Api\V1\LeagueNewsController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PlayerController;
+use App\Http\Controllers\Api\V1\PostController;
 use App\Http\Controllers\Api\V1\TeamController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use Illuminate\Support\Facades\Route;
@@ -149,6 +153,47 @@ Route::prefix('v1')->group(function () {
             Route::post('/intent', [PaymentController::class, 'createIntent']);
             Route::post('/{payment}/confirm', [PaymentController::class, 'confirm']);
             Route::post('/{payment}/refund', [PaymentController::class, 'refund'])->middleware('permission:payments.refund');
+        });
+
+        // Audit logs (league-admin and super-admin only)
+        Route::prefix('audit')->middleware('tenant')->group(function () {
+            Route::get('/', [AuditController::class, 'index']);
+            Route::get('/stats', [AuditController::class, 'stats']);
+            Route::get('/subject-types', [AuditController::class, 'subjectTypes']);
+            Route::get('/{activity}', [AuditController::class, 'show']);
+        });
+
+        // Posts (Social Feed)
+        Route::prefix('posts')->group(function () {
+            Route::get('/', [PostController::class, 'index']);
+            Route::post('/', [PostController::class, 'store']);
+            Route::get('/{post}', [PostController::class, 'show']);
+            Route::put('/{post}', [PostController::class, 'update']);
+            Route::delete('/{post}', [PostController::class, 'destroy']);
+            Route::post('/{post}/like', [PostController::class, 'like']);
+            Route::delete('/{post}/like', [PostController::class, 'unlike']);
+            Route::get('/{post}/comments', [PostController::class, 'comments']);
+        });
+
+        // Comments
+        Route::prefix('comments')->group(function () {
+            Route::get('/', [CommentController::class, 'index']);
+            Route::post('/', [CommentController::class, 'store']);
+            Route::get('/{comment}', [CommentController::class, 'show']);
+            Route::put('/{comment}', [CommentController::class, 'update']);
+            Route::delete('/{comment}', [CommentController::class, 'destroy']);
+            Route::get('/{comment}/replies', [CommentController::class, 'replies']);
+        });
+
+        // League News (nested under leagues)
+        Route::prefix('leagues/{league}/news')->group(function () {
+            Route::get('/', [LeagueNewsController::class, 'index']);
+            Route::post('/', [LeagueNewsController::class, 'store']);
+            Route::get('/{news}', [LeagueNewsController::class, 'show']);
+            Route::put('/{news}', [LeagueNewsController::class, 'update']);
+            Route::delete('/{news}', [LeagueNewsController::class, 'destroy']);
+            Route::post('/{news}/publish', [LeagueNewsController::class, 'publish']);
+            Route::post('/{news}/unpublish', [LeagueNewsController::class, 'unpublish']);
         });
     });
 
