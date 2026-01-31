@@ -5,11 +5,16 @@ import { Text } from 'react-native';
 import {
   DashboardScreen,
   FacilitiesScreen,
+  FacilityDetailScreen,
   GamesScreen,
+  GameDetailScreen,
   ProfileScreen,
   TeamsScreen,
+  TeamDetailScreen,
   BookingsScreen,
+  BookingDetailScreen,
   CampsScreen,
+  CampDetailScreen,
   ChatScreen,
   ScannerScreen,
 } from '../screens';
@@ -108,10 +113,6 @@ function MainTabs() {
   );
 }
 
-// Placeholder for detail screens that need more implementation
-function PlaceholderScreen() {
-  return null;
-}
 
 export function MainNavigator() {
   return (
@@ -133,27 +134,27 @@ export function MainNavigator() {
       />
       <Stack.Screen
         name="GameDetails"
-        component={PlaceholderScreen}
+        component={GameDetailScreen}
         options={{ title: 'Game Details' }}
       />
       <Stack.Screen
         name="FacilityDetails"
-        component={PlaceholderScreen}
+        component={FacilityDetailScreen}
         options={{ title: 'Facility Details' }}
       />
       <Stack.Screen
         name="BookingDetails"
-        component={PlaceholderScreen}
+        component={BookingDetailScreen}
         options={{ title: 'Booking Details' }}
       />
       <Stack.Screen
         name="CampDetails"
-        component={PlaceholderScreen}
+        component={CampDetailScreen}
         options={{ title: 'Camp Details' }}
       />
       <Stack.Screen
         name="TeamDetails"
-        component={PlaceholderScreen}
+        component={TeamDetailScreen}
         options={{ title: 'Team Details' }}
       />
       <Stack.Screen
