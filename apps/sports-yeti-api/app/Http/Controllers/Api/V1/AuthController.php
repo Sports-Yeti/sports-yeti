@@ -108,6 +108,11 @@ class AuthController extends Controller
 
     private function formatUser(User $user): array
     {
+        // Load roles if not already loaded
+        if (!$user->relationLoaded('roles')) {
+            $user->load('roles');
+        }
+
         return [
             'id' => $user->id,
             'name' => $user->name,
@@ -125,6 +130,11 @@ class AuthController extends Controller
                 'availability_status' => $user->player->availability_status,
                 'is_private' => $user->player->is_private,
             ] : null,
+            'roles' => $user->roles->map(fn ($role) => [
+                'id' => $role->id,
+                'name' => $role->name,
+                'guard_name' => $role->guard_name,
+            ])->toArray(),
         ];
     }
 }

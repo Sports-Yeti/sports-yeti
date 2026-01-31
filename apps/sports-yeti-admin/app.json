@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Sports Yeti Admin",
+    "slug": "@sports-yeti/sports-yeti-admin",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1E293B"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": ["**/*"],
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "Sports Yeti Admin"
+    },
+    "plugins": [],
+    "platforms": ["web"]
+  }
+}
