@@ -1,6 +1,8 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
+import * as Sentry from '@sentry/react-native';
 import * as Storage from './storage';
 import { API_BASE_URL } from '../constants';
+import { generateTraceparent } from '../utils/tracing';
 import type {
   ApiError,
   ApiResponse,
@@ -39,25 +41,84 @@ class ApiService {
   }
 
   private setupInterceptors(): void {
-    // Request interceptor to add auth token
+    // Request interceptor to add auth token and tracing headers
     this.client.interceptors.request.use(
       async (config) => {
         const token = await this.getToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // Add W3C traceparent header for distributed tracing
+        const traceparent = generateTraceparent();
+        config.headers.traceparent = traceparent;
+        config.headers.tracestate = 'sports-yeti=true';
+
+        // Add Sentry breadcrumb for API requests
+        Sentry.addBreadcrumb({
+          category: 'api',
+          message: `${config.method?.toUpperCase()} ${config.url}`,
+          level: 'info',
+          data: {
+            url: config.url,
+            method: config.method,
+            traceparent,
+          },
+        });
+
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => {
+        Sentry.captureException(error);
+        return Promise.reject(error);
+      }
     );
 
-    // Response interceptor for token refresh
+    // Response interceptor for token refresh and error tracking
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Add success breadcrumb
+        Sentry.addBreadcrumb({
+          category: 'api',
+          message: `API Response ${response.status}`,
+          level: 'info',
+          data: {
+            url: response.config.url,
+            status: response.status,
+          },
+        });
+        return response;
+      },
       async (error: AxiosError<ApiError>) => {
         const originalRequest = error.config as AxiosRequestConfig & {
           _retry?: boolean;
         };
+
+        // Capture API errors in Sentry (except auth errors that will be retried)
+        if (error.response?.status !== 401 || originalRequest._retry) {
+          Sentry.captureException(error, {
+            tags: {
+              type: 'api_error',
+              status: error.response?.status?.toString() ?? 'network_error',
+              url: originalRequest.url ?? 'unknown',
+            },
+            extra: {
+              requestData: originalRequest.data,
+              responseData: error.response?.data,
+            },
+          });
+
+          Sentry.addBreadcrumb({
+            category: 'api',
+            message: `API Error ${error.response?.status ?? 'network'}`,
+            level: 'error',
+            data: {
+              url: originalRequest.url,
+              status: error.response?.status,
+              error: error.message,
+            },
+          });
+        }
 
         if (error.response?.status === 401 && !originalRequest._retry) {
           if (this.isRefreshing) {
@@ -84,6 +145,9 @@ class ApiService {
             }
             return this.client(originalRequest);
           } catch (refreshError) {
+            Sentry.captureException(refreshError, {
+              tags: { type: 'token_refresh_failed' },
+            });
             await this.clearTokens();
             return Promise.reject(refreshError);
           } finally {

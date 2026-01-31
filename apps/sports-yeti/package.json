@@ -1,5 +1,8 @@
 {
   "name": "@sports-yeti/sports-yeti",
   "version": "0.0.1",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@sentry/react-native": "^7.11.0"
+  }
 }
