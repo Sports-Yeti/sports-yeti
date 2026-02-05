@@ -14,8 +14,128 @@ permissions:
   contents: read
 
 jobs:
-  main:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Laravel API Tests
+  # ─────────────────────────────────────────────────────────────────────────────
+  api-tests:
+    name: API Tests (Laravel/PHPUnit)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/sports-yeti-api
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: sports_yeti_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, pdo_mysql, redis, bcmath, gd
+          coverage: xdebug
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Copy environment file
+        run: cp .env.example .env
+
+      - name: Configure test environment
+        run: |
+          sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=mysql/' .env
+          sed -i 's/DB_HOST=.*/DB_HOST=127.0.0.1/' .env
+          sed -i 's/DB_PORT=.*/DB_PORT=3306/' .env
+          sed -i 's/DB_DATABASE=.*/DB_DATABASE=sports_yeti_test/' .env
+          sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env
+          sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=password/' .env
+          sed -i 's/CACHE_STORE=.*/CACHE_STORE=redis/' .env
+          sed -i 's/REDIS_HOST=.*/REDIS_HOST=127.0.0.1/' .env
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Generate JWT secret
+        run: php artisan jwt:secret --force
+
+      - name: Run database migrations
+        run: php artisan migrate --force
+
+      - name: Run Laravel Pint (code style)
+        run: vendor/bin/pint --test
+
+      - name: Run PHPUnit tests
+        run: vendor/bin/phpunit --testdox --colors=always
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Mobile App Build Verification
+  # ─────────────────────────────────────────────────────────────────────────────
+  mobile-build:
+    name: Mobile App Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: TypeScript type check (mobile)
+        run: npx nx run sports-yeti:typecheck
+        continue-on-error: false
+
+      - name: Lint mobile app
+        run: npx nx run sports-yeti:lint
+
+      - name: Run mobile unit tests
+        run: npx nx run sports-yeti:test --passWithNoTests
+
+      - name: Verify Expo export (web)
+        run: npx nx run sports-yeti:export --platform web
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Nx Workspace (lint, test, build, e2e)
+  # ─────────────────────────────────────────────────────────────────────────────
+  nx-workspace:
+    name: Nx Workspace CI
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:

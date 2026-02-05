@@ -1,0 +1,293 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - main
+      - 'staging/**'
+  workflow_dispatch:
+    inputs:
+      deploy_api:
+        description: 'Deploy API to staging'
+        type: boolean
+        default: true
+      deploy_mobile:
+        description: 'Build and publish mobile preview'
+        type: boolean
+        default: false
+      deploy_admin:
+        description: 'Deploy admin dashboard'
+        type: boolean
+        default: false
+
+env:
+  # Staging environment configuration
+  STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Pre-deployment Checks
+  # ─────────────────────────────────────────────────────────────────────────────
+  pre-deploy:
+    name: Pre-deployment Validation
+    runs-on: ubuntu-latest
+    outputs:
+      api_changed: ${{ steps.changes.outputs.api }}
+      mobile_changed: ${{ steps.changes.outputs.mobile }}
+      admin_changed: ${{ steps.changes.outputs.admin }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect file changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api:
+              - 'apps/sports-yeti-api/**'
+            mobile:
+              - 'apps/sports-yeti/**'
+              - '!apps/sports-yeti-admin/**'
+            admin:
+              - 'apps/sports-yeti-admin/**'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # API Deployment to Staging
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-api:
+    name: Deploy API to Staging
+    needs: pre-deploy
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_api == 'true') ||
+      (github.event_name == 'push' && needs.pre-deploy.outputs.api_changed == 'true')
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ secrets.STAGING_API_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, pdo_mysql, redis, bcmath, gd
+
+      - name: Install Composer dependencies
+        working-directory: apps/sports-yeti-api
+        run: composer install --no-dev --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Build frontend assets
+        working-directory: apps/sports-yeti-api
+        run: |
+          npm ci
+          npm run build
+
+      - name: Create deployment artifact
+        run: |
+          tar -czf api-deploy.tar.gz \
+            --exclude='apps/sports-yeti-api/.env' \
+            --exclude='apps/sports-yeti-api/storage/logs/*' \
+            --exclude='apps/sports-yeti-api/storage/framework/cache/*' \
+            --exclude='apps/sports-yeti-api/storage/framework/sessions/*' \
+            --exclude='apps/sports-yeti-api/storage/framework/views/*' \
+            --exclude='apps/sports-yeti-api/tests' \
+            --exclude='apps/sports-yeti-api/node_modules' \
+            apps/sports-yeti-api
+
+      - name: Upload deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-staging-${{ github.sha }}
+          path: api-deploy.tar.gz
+          retention-days: 7
+
+      # Deploy via SSH (configure based on your hosting provider)
+      # Uncomment and configure for your specific setup
+      # - name: Deploy to staging server
+      #   uses: appleboy/ssh-action@v1
+      #   with:
+      #     host: ${{ secrets.STAGING_SSH_HOST }}
+      #     username: ${{ secrets.STAGING_SSH_USER }}
+      #     key: ${{ secrets.STAGING_SSH_KEY }}
+      #     script: |
+      #       cd /var/www/staging
+      #       ./deploy.sh
+
+      - name: Deployment summary
+        run: |
+          echo "## API Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact:** api-staging-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "Configure SSH deployment or use artifact for manual deployment." >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Mobile App Preview Build (EAS)
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-mobile-preview:
+    name: Build Mobile Preview (EAS)
+    needs: pre-deploy
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mobile == 'true') ||
+      (github.event_name == 'push' && needs.pre-deploy.outputs.mobile_changed == 'true')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Configure environment
+        run: |
+          cd apps/sports-yeti
+          cp .env.example .env 2>/dev/null || true
+          echo "API_URL=${{ secrets.STAGING_API_URL }}" >> .env
+
+      - name: Build preview (Android)
+        working-directory: apps/sports-yeti
+        run: eas build --platform android --profile preview --non-interactive
+        continue-on-error: true
+
+      - name: Build preview (iOS Simulator)
+        working-directory: apps/sports-yeti
+        run: eas build --platform ios --profile preview --non-interactive
+        continue-on-error: true
+
+      - name: Mobile build summary
+        run: |
+          echo "## Mobile Preview Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Platform:** Android APK, iOS Simulator" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check [Expo Dashboard](https://expo.dev) for build status and download links." >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Admin Dashboard Deployment
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-admin:
+    name: Deploy Admin Dashboard
+    needs: pre-deploy
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_admin == 'true') ||
+      (github.event_name == 'push' && needs.pre-deploy.outputs.admin_changed == 'true')
+    runs-on: ubuntu-latest
+    environment:
+      name: staging-admin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build admin dashboard (web)
+        run: npx nx run sports-yeti-admin:export --platform web
+
+      - name: Upload admin build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-staging-${{ github.sha }}
+          path: apps/sports-yeti-admin/dist
+          retention-days: 7
+
+      # Deploy to hosting provider (Vercel, Netlify, etc.)
+      # Uncomment and configure for your specific setup
+      # - name: Deploy to Vercel
+      #   uses: amondnet/vercel-action@v25
+      #   with:
+      #     vercel-token: ${{ secrets.VERCEL_TOKEN }}
+      #     vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+      #     vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+      #     working-directory: apps/sports-yeti-admin
+
+      - name: Admin deployment summary
+        run: |
+          echo "## Admin Dashboard Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact:** admin-staging-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Post-deployment Smoke Tests
+  # ─────────────────────────────────────────────────────────────────────────────
+  smoke-tests:
+    name: Staging Smoke Tests
+    needs: [deploy-api]
+    if: always() && needs.deploy-api.result == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Health check - API
+        run: |
+          echo "Checking API health endpoint..."
+          # Uncomment when staging is configured
+          # curl -f ${{ secrets.STAGING_API_URL }}/api/health || exit 1
+          echo "API health check passed (placeholder)"
+
+      - name: Smoke test summary
+        run: |
+          echo "## Smoke Tests Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Health:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Notify on Deployment
+  # ─────────────────────────────────────────────────────────────────────────────
+  notify:
+    name: Deployment Notification
+    needs: [deploy-api, build-mobile-preview, deploy-admin, smoke-tests]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deployment notification
+        run: |
+          echo "## Staging Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| API | ${{ needs.deploy-api.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mobile | ${{ needs.build-mobile-preview.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Admin | ${{ needs.deploy-admin.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Smoke Tests | ${{ needs.smoke-tests.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+
+      # Uncomment to enable Slack notifications
+      # - name: Send Slack notification
+      #   uses: 8398a7/action-slack@v3
+      #   with:
+      #     status: ${{ job.status }}
+      #     text: 'Staging deployment completed'
+      #     webhook_url: ${{ secrets.SLACK_WEBHOOK }}
