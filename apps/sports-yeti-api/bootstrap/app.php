@@ -15,6 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->throttleApi();
+
+        // Add observability middleware to all API routes
+        $middleware->api(prepend: [
+            \App\Http\Middleware\TraceRequest::class,
+            \App\Http\Middleware\PrometheusMetrics::class,
+        ]);
         
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,

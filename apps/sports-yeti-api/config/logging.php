@@ -127,6 +127,52 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        /*
+        |--------------------------------------------------------------------------
+        | Structured JSON Logging Channel
+        |--------------------------------------------------------------------------
+        |
+        | This channel outputs logs in JSON format, suitable for log aggregation
+        | systems like Elasticsearch, Loki, CloudWatch, etc.
+        |
+        */
+
+        'json' => [
+            'driver' => 'monolog',
+            'level' => env('LOG_LEVEL', 'debug'),
+            'handler' => StreamHandler::class,
+            'formatter' => \Monolog\Formatter\JsonFormatter::class,
+            'formatter_with' => [
+                'batchMode' => \Monolog\Formatter\JsonFormatter::BATCH_MODE_JSON,
+                'appendNewline' => true,
+            ],
+            'with' => [
+                'stream' => storage_path('logs/laravel-json.log'),
+            ],
+            'processors' => [
+                PsrLogMessageProcessor::class,
+                \App\Logging\TraceContextProcessor::class,
+            ],
+        ],
+
+        'json-stdout' => [
+            'driver' => 'monolog',
+            'level' => env('LOG_LEVEL', 'debug'),
+            'handler' => StreamHandler::class,
+            'formatter' => \Monolog\Formatter\JsonFormatter::class,
+            'formatter_with' => [
+                'batchMode' => \Monolog\Formatter\JsonFormatter::BATCH_MODE_JSON,
+                'appendNewline' => true,
+            ],
+            'with' => [
+                'stream' => 'php://stdout',
+            ],
+            'processors' => [
+                PsrLogMessageProcessor::class,
+                \App\Logging\TraceContextProcessor::class,
+            ],
+        ],
+
     ],
 
 ];

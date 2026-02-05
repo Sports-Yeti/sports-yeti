@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\FacilityController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\LeagueController;
 use App\Http\Controllers\Api\V1\LeagueNewsController;
+use App\Http\Controllers\Api\V1\MetricsController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PlayerController;
@@ -19,6 +20,20 @@ use App\Http\Controllers\Api\V1\PostController;
 use App\Http\Controllers\Api\V1\TeamController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Metrics Endpoint (Public)
+|--------------------------------------------------------------------------
+|
+| Prometheus metrics endpoint - excluded from auth and rate limiting.
+|
+*/
+
+Route::get('/metrics', MetricsController::class)->withoutMiddleware([
+    \App\Http\Middleware\TraceRequest::class,
+    \App\Http\Middleware\PrometheusMetrics::class,
+]);
 
 /*
 |--------------------------------------------------------------------------
