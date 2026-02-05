@@ -10,6 +10,8 @@ import { SENTRY_DSN, IS_PRODUCTION } from '../constants';
 // Initialize Sentry
 Sentry.init({
   dsn: SENTRY_DSN,
+  // Send default PII data (e.g., automatic IP address collection)
+  sendDefaultPii: true,
   // Enable automatic instrumentation
   enableAutoSessionTracking: true,
   // Set sample rates for production vs development
@@ -24,8 +26,8 @@ Sentry.init({
   release: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
   // Configure beforeSend to filter/modify events
   beforeSend(event) {
-    // Don't send events in development if no DSN is configured
-    if (!SENTRY_DSN && !IS_PRODUCTION) {
+    // Don't send events if no DSN is configured
+    if (!SENTRY_DSN) {
       return null;
     }
     return event;
