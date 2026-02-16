@@ -62,3 +62,9 @@ cache/
 test-output
 
 .env
+
+# Build artifacts
+*.tsbuildinfo
+
+# Redis
+dump.rdb
