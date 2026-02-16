@@ -166,16 +166,35 @@ export interface Booking {
 export interface Payment {
   id: string;
   user_id: number;
+  league_id: string | null;
   booking_id: string | null;
+  payable_type: string | null;
+  payable_id: string | null;
   amount: number;
+  fee_amount: number;
+  net_amount: number;
   currency: string;
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  type: 'league_registration' | 'camp_registration' | 'facility_booking';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'partially_refunded';
   payment_method: string | null;
   stripe_payment_intent_id: string | null;
+  stripe_charge_id: string | null;
+  idempotency_key: string | null;
+  paid_at: string | null;
+  refunded_at: string | null;
+  refund_amount: number | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
+  updated_at: string;
   user?: User;
   booking?: Booking;
+  league?: League;
+  payable?: unknown;
+}
+
+export interface RefundResult {
+  refund_id: string;
+  amount: number;
 }
 
 // Audit log types
@@ -185,13 +204,32 @@ export interface AuditLog {
   description: string;
   subject_type: string | null;
   subject_id: string | null;
+  subject?: unknown;
   causer_type: string | null;
   causer_id: string | null;
-  properties: Record<string, unknown>;
-  batch_uuid: string | null;
-  event: string;
-  created_at: string;
   causer?: User;
+  properties: AuditLogProperties;
+  batch_uuid: string | null;
+  event: 'created' | 'updated' | 'deleted' | string;
+  created_at: string;
+}
+
+export interface AuditLogProperties {
+  attributes?: Record<string, unknown>;
+  old?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface AuditStats {
+  total_events: number;
+  events_by_type: Record<string, number>;
+  events_by_subject: Record<string, number>;
+  most_active_users: Array<{
+    user_id: string;
+    user: User | null;
+    action_count: number;
+  }>;
+  activity_timeline: Record<string, number>;
 }
 
 // Dashboard stats types
@@ -205,3 +243,22 @@ export interface DashboardStats {
   recent_signups: number;
   pending_bookings: number;
 }
+
+// Navigation types
+export type MainStackParamList = {
+  Dashboard: undefined;
+  Leagues: undefined;
+  LeagueDetail: { id: string };
+  LeagueForm: { id?: string };
+  Teams: undefined;
+  TeamDetail: { id: string };
+  Players: undefined;
+  PlayerDetail: { id: string };
+  Facilities: undefined;
+  FacilityDetail: { id: string };
+  FacilityForm: { id?: string };
+  Bookings: undefined;
+  Payments: undefined;
+  PaymentDetail: { id: string };
+  AuditLogs: undefined;
+};

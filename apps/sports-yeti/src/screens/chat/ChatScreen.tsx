@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { COLORS, SPACING, FONT_SIZES } from '../../constants';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../stores';
+import { useChatSSE, ChatMessage, ChatPoll } from '../../hooks';
 
 interface Message {
   id: string;
@@ -55,6 +56,41 @@ export function ChatScreen({ route }: ChatScreenProps) {
   const flatListRef = useRef<FlatList>(null);
   const { user } = useAuthStore();
 
+  // Handle incoming SSE message
+  const handleSSEMessage = useCallback((message: ChatMessage) => {
+    setMessages((prev) => {
+      // Check if message already exists (avoid duplicates)
+      if (prev.some((m) => m.id === message.id)) {
+        return prev;
+      }
+      return [...prev, message];
+    });
+    // Scroll to bottom when new message arrives
+    setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+  }, []);
+
+  // Handle incoming SSE poll update
+  const handleSSEPollUpdate = useCallback(
+    (pollUpdate: { id: string; votes: Record<string, number>; is_closed: boolean }) => {
+      setPolls((prev) =>
+        prev.map((poll) =>
+          poll.id === pollUpdate.id
+            ? { ...poll, votes: pollUpdate.votes, is_closed: pollUpdate.is_closed }
+            : poll
+        )
+      );
+    },
+    []
+  );
+
+  // Set up SSE connection for real-time updates
+  const { isConnected, reconnectAttempts, error: sseError, reconnect } = useChatSSE({
+    chatId,
+    onMessage: handleSSEMessage,
+    onPollUpdate: handleSSEPollUpdate,
+    enabled: !isLoading, // Only connect after initial load
+  });
+
   const loadMessages = async () => {
     try {
       const [messagesRes, pollsRes] = await Promise.all([
@@ -72,7 +108,6 @@ export function ChatScreen({ route }: ChatScreenProps) {
 
   useEffect(() => {
     loadMessages();
-    // In production, set up SSE connection here for real-time updates
   }, [chatId]);
 
   const sendMessage = async () => {
@@ -200,12 +235,44 @@ export function ChatScreen({ route }: ChatScreenProps) {
     );
   }
 
+  // Render connection status indicator
+  const renderConnectionStatus = () => {
+    if (isConnected) return null;
+
+    if (reconnectAttempts > 0) {
+      return (
+        <TouchableOpacity style={styles.connectionBanner} onPress={reconnect}>
+          <View style={styles.connectionContent}>
+            <ActivityIndicator size="small" color={COLORS.warning} />
+            <Text style={styles.connectionText}>
+              Reconnecting... (Attempt {reconnectAttempts})
+            </Text>
+          </View>
+          <Text style={styles.connectionAction}>Tap to retry</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    if (sseError) {
+      return (
+        <TouchableOpacity style={styles.connectionBannerError} onPress={reconnect}>
+          <Text style={styles.connectionText}>Connection lost</Text>
+          <Text style={styles.connectionAction}>Tap to reconnect</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
+      {renderConnectionStatus()}
+
       {polls.length > 0 && (
         <View style={styles.pollsSection}>
           {polls.filter((p) => !p.is_closed).map(renderPoll)}
@@ -266,6 +333,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.background,
+  },
+  connectionBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.warning + '20',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.warning,
+  },
+  connectionBannerError: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.error + '20',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.error,
+  },
+  connectionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  connectionText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text,
+  },
+  connectionAction: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   pollsSection: {
     padding: SPACING.md,

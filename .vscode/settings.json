@@ -1,3 +1,16 @@
 {
-    "nxConsole.generateAiAgentRules": true
+    "nxConsole.generateAiAgentRules": true,
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "sports-yeti-local",
+            "database": "sports_yeti",
+            "username": "sports_yeti",
+            "password": ""
+        }
+    ]
 }

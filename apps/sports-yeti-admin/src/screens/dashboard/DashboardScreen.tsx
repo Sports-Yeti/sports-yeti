@@ -1,16 +1,31 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, SPACING, FONT_SIZES } from '../../constants';
+import { api } from '../../services/api';
+import type { MainStackParamList } from '../../navigation/MainNavigator';
+
+type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
 interface StatCardProps {
   title: string;
   value: string | number;
   icon: string;
   color: string;
+  onPress?: () => void;
 }
 
-function StatCard({ title, value, icon, color }: StatCardProps) {
-  return (
+function StatCard({ title, value, icon, color, onPress }: StatCardProps) {
+  const content = (
     <View style={styles.statCard}>
       <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
         <Text style={styles.statIcon}>{icon}</Text>
@@ -21,17 +36,119 @@ function StatCard({ title, value, icon, color }: StatCardProps) {
       </View>
     </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} style={styles.statCardWrapper}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={styles.statCardWrapper}>{content}</View>;
+}
+
+interface QuickActionProps {
+  icon: string;
+  title: string;
+  onPress: () => void;
+}
+
+function QuickAction({ icon, title, onPress }: QuickActionProps) {
+  return (
+    <TouchableOpacity style={styles.actionCard} onPress={onPress}>
+      <Text style={styles.actionIcon}>{icon}</Text>
+      <Text style={styles.actionText}>{title}</Text>
+    </TouchableOpacity>
+  );
 }
 
 export function DashboardScreen() {
-  // Placeholder stats - these will be fetched from the API in Wave 2
-  const stats = [
-    { title: 'Total Leagues', value: '-', icon: '🏆', color: COLORS.primary },
-    { title: 'Active Teams', value: '-', icon: '👥', color: COLORS.success },
-    { title: 'Players', value: '-', icon: '🏃', color: COLORS.secondary },
-    { title: 'Bookings Today', value: '-', icon: '📅', color: COLORS.warning },
-    { title: 'Revenue (MTD)', value: '-', icon: '💰', color: COLORS.accent },
-    { title: 'Active Games', value: '-', icon: '🎮', color: COLORS.error },
+  const navigation = useNavigation<NavigationProp>();
+
+  // Fetch dashboard stats from API
+  const { data: stats, isLoading, error } = useQuery({
+    queryKey: ['dashboardStats'],
+    queryFn: () => api.getDashboardStats(),
+    staleTime: 60000, // 1 minute
+  });
+
+  // Also fetch recent counts for fallback
+  const { data: leaguesData } = useQuery({
+    queryKey: ['leagues', { per_page: 1 }],
+    queryFn: () => api.getLeagues({ per_page: 1 }),
+    staleTime: 60000,
+  });
+
+  const { data: teamsData } = useQuery({
+    queryKey: ['teams', { per_page: 1 }],
+    queryFn: () => api.getTeams({ per_page: 1 }),
+    staleTime: 60000,
+  });
+
+  const { data: playersData } = useQuery({
+    queryKey: ['players', { per_page: 1 }],
+    queryFn: () => api.getPlayers({ per_page: 1 }),
+    staleTime: 60000,
+  });
+
+  // Use API stats if available, fall back to pagination meta
+  const totalLeagues = stats?.total_leagues ?? leaguesData?.meta?.total ?? 0;
+  const totalTeams = stats?.total_teams ?? teamsData?.meta?.total ?? 0;
+  const totalPlayers = stats?.total_players ?? playersData?.meta?.total ?? 0;
+  const totalBookings = stats?.total_bookings ?? 0;
+  const revenueThisMonth = stats?.revenue_this_month ?? 0;
+  const activeGames = stats?.active_games ?? 0;
+
+  const formatCurrency = (amount: number): string => {
+    if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(1)}k`;
+    }
+    return `$${amount.toFixed(0)}`;
+  };
+
+  const dashboardStats = [
+    {
+      title: 'Total Leagues',
+      value: isLoading ? '...' : totalLeagues,
+      icon: '🏆',
+      color: COLORS.primary,
+      onPress: () => navigation.navigate('Leagues'),
+    },
+    {
+      title: 'Active Teams',
+      value: isLoading ? '...' : totalTeams,
+      icon: '👥',
+      color: COLORS.success,
+      onPress: () => navigation.navigate('Teams'),
+    },
+    {
+      title: 'Players',
+      value: isLoading ? '...' : totalPlayers,
+      icon: '🏃',
+      color: COLORS.secondary,
+      onPress: () => navigation.navigate('Players'),
+    },
+    {
+      title: 'Total Bookings',
+      value: isLoading ? '...' : totalBookings,
+      icon: '📅',
+      color: COLORS.warning,
+      onPress: () => navigation.navigate('Bookings'),
+    },
+    {
+      title: 'Revenue (MTD)',
+      value: isLoading ? '...' : formatCurrency(revenueThisMonth),
+      icon: '💰',
+      color: COLORS.accent,
+      onPress: () => navigation.navigate('Payments'),
+    },
+    {
+      title: 'Active Games',
+      value: isLoading ? '...' : activeGames,
+      icon: '🎮',
+      color: COLORS.error,
+    },
   ];
 
   return (
@@ -41,14 +158,23 @@ export function DashboardScreen() {
         <Text style={styles.subtitle}>Welcome to Sports Yeti Admin</Text>
       </View>
 
+      {error ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>
+            Unable to load some stats. Showing available data.
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.statsGrid}>
-        {stats.map((stat, index) => (
+        {dashboardStats.map((stat, index) => (
           <StatCard
             key={index}
             title={stat.title}
             value={stat.value}
             icon={stat.icon}
             color={stat.color}
+            onPress={stat.onPress}
           />
         ))}
       </View>
@@ -56,34 +182,59 @@ export function DashboardScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsGrid}>
-          <View style={styles.actionCard}>
-            <Text style={styles.actionIcon}>➕</Text>
-            <Text style={styles.actionText}>Create League</Text>
-          </View>
-          <View style={styles.actionCard}>
-            <Text style={styles.actionIcon}>👥</Text>
-            <Text style={styles.actionText}>Add Team</Text>
-          </View>
-          <View style={styles.actionCard}>
-            <Text style={styles.actionIcon}>🏟️</Text>
-            <Text style={styles.actionText}>New Facility</Text>
-          </View>
-          <View style={styles.actionCard}>
-            <Text style={styles.actionIcon}>📊</Text>
-            <Text style={styles.actionText}>View Reports</Text>
-          </View>
+          <QuickAction
+            icon="➕"
+            title="Create League"
+            onPress={() => navigation.navigate('LeagueForm', {})}
+          />
+          <QuickAction
+            icon="👥"
+            title="View Teams"
+            onPress={() => navigation.navigate('Teams')}
+          />
+          <QuickAction
+            icon="🏟️"
+            title="Facilities"
+            onPress={() => navigation.navigate('Facilities')}
+          />
+          <QuickAction
+            icon="📋"
+            title="Audit Logs"
+            onPress={() => navigation.navigate('AuditLogs')}
+          />
         </View>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent Activity</Text>
         <View style={styles.activityList}>
-          <View style={styles.activityItem}>
+          <TouchableOpacity
+            style={styles.activityItem}
+            onPress={() => navigation.navigate('Leagues')}
+          >
             <View style={styles.activityDot} />
             <Text style={styles.activityText}>
-              Dashboard shell created - Wave 2 features coming soon
+              {totalLeagues} leagues active across the platform
             </Text>
-          </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.activityItem}
+            onPress={() => navigation.navigate('Teams')}
+          >
+            <View style={[styles.activityDot, { backgroundColor: COLORS.success }]} />
+            <Text style={styles.activityText}>
+              {totalTeams} teams registered and competing
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.activityItem}
+            onPress={() => navigation.navigate('Players')}
+          >
+            <View style={[styles.activityDot, { backgroundColor: COLORS.secondary }]} />
+            <Text style={styles.activityText}>
+              {totalPlayers} players in the system
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </ScrollView>
@@ -109,22 +260,35 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
   },
+  errorBanner: {
+    backgroundColor: COLORS.warning + '20',
+    padding: SPACING.md,
+    borderRadius: 8,
+    marginBottom: SPACING.lg,
+  },
+  errorText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.warning,
+    textAlign: 'center',
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -SPACING.sm,
     marginBottom: SPACING.xl,
   },
+  statCardWrapper: {
+    minWidth: 200,
+    flex: 1,
+    maxWidth: '31%',
+    margin: SPACING.sm,
+  },
   statCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: SPACING.lg,
-    margin: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 200,
-    flex: 1,
-    maxWidth: '31%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -193,6 +357,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: SPACING.lg,
+    gap: SPACING.md,
   },
   activityItem: {
     flexDirection: 'row',
@@ -208,5 +373,6 @@ const styles = StyleSheet.create({
   activityText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
+    flex: 1,
   },
 });

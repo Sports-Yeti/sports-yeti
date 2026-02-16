@@ -313,6 +313,20 @@ class AdminApiService {
     return response.data.data;
   }
 
+  async createBooking(data: {
+    space_id: string;
+    start_time: string;
+    end_time: string;
+    purpose?: string;
+    notes?: string;
+  }): Promise<Booking> {
+    const response = await this.client.post<{ data: Booking }>(
+      '/bookings',
+      data
+    );
+    return response.data.data;
+  }
+
   async updateBooking(id: string, data: Partial<Booking>): Promise<Booking> {
     const response = await this.client.put<{ data: Booking }>(
       `/bookings/${id}`,
@@ -325,6 +339,23 @@ class AdminApiService {
     const response = await this.client.post<{ data: Booking }>(
       `/bookings/${id}/cancel`
     );
+    return response.data.data;
+  }
+
+  async checkBookingConflicts(
+    spaceId: string,
+    startTime: string,
+    endTime: string,
+    excludeBookingId?: string
+  ): Promise<{ has_conflict: boolean; conflicting_bookings: Booking[] }> {
+    const response = await this.client.post<{
+      data: { has_conflict: boolean; conflicting_bookings: Booking[] };
+    }>('/bookings/check-conflicts', {
+      space_id: spaceId,
+      start_time: startTime,
+      end_time: endTime,
+      exclude_booking_id: excludeBookingId,
+    });
     return response.data.data;
   }
 

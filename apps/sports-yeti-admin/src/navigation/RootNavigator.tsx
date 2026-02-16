@@ -1,10 +1,27 @@
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
 import { useAuthStore } from '../stores';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
 import { COLORS } from '../constants';
+import type { MainStackParamList } from '../types';
+
+// Create a navigation ref that can be used outside of React components
+export const navigationRef = createNavigationContainerRef<MainStackParamList>();
+
+// Helper function to navigate from anywhere
+export function navigate<RouteName extends keyof MainStackParamList>(
+  name: RouteName,
+  params?: MainStackParamList[RouteName]
+) {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate(name, params as never);
+  }
+}
 
 export function RootNavigator() {
   const { isAuthenticated, isLoading, loadUser } = useAuthStore();
@@ -22,7 +39,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {isAuthenticated ? <MainNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );

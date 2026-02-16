@@ -224,6 +224,45 @@ export interface ChatMessage {
   user?: User;
 }
 
+export interface ChatPoll {
+  id: string;
+  chat_id: string;
+  question: string;
+  options: string[];
+  vote_counts: Record<string, number>;
+  is_closed: boolean;
+  closes_at: string | null;
+  created_at: string;
+}
+
+// SSE Event types
+export type SSEEventType = 'message' | 'poll_update' | 'heartbeat' | 'error' | 'open' | 'close';
+
+export interface SSEMessageEvent {
+  id: string;
+  user_id: number;
+  user: {
+    id: string;
+    name: string;
+    avatar_url?: string;
+  };
+  message: string;
+  message_type: 'text' | 'image' | 'poll' | 'system';
+  created_at: string;
+}
+
+export interface SSEPollUpdateEvent {
+  id: string;
+  question: string;
+  options: string[];
+  vote_counts: Record<string, number>;
+  is_closed: boolean;
+}
+
+export interface SSEHeartbeatEvent {
+  timestamp: string;
+}
+
 // Notification types
 export interface Notification {
   id: string;
