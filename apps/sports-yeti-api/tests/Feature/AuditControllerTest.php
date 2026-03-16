@@ -244,7 +244,7 @@ class AuditControllerTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('meta.per_page', 10);
-        
+
         // Verify pagination is working (more than 1 page)
         $this->assertGreaterThan(1, $response->json('meta.last_page'));
     }

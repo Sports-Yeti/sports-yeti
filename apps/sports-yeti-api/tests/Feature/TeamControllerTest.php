@@ -17,7 +17,9 @@ class TeamControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Player $player;
+
     private League $league;
 
     protected function setUp(): void
@@ -399,7 +401,7 @@ class TeamControllerTest extends TestCase
 
         $response->assertStatus(204);
 
-        $this->assertDatabaseMissing('team_members', [
+        $this->assertSoftDeleted('team_members', [
             'team_id' => $team->id,
             'player_id' => $memberPlayer->id,
         ]);

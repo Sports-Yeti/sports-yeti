@@ -17,13 +17,15 @@ class BookingControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Facility $facility;
+
     private Space $space;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Seed roles and permissions
         $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
 
@@ -33,8 +35,8 @@ class BookingControllerTest extends TestCase
         $league = League::create([
             'name' => 'Test League',
             'admin_id' => $this->user->id,
-            'sport' => 'basketball',
-            'status' => 'active',
+            'sport_type' => 'basketball',
+            'is_active' => true,
         ]);
 
         $this->facility = Facility::create([
@@ -50,7 +52,7 @@ class BookingControllerTest extends TestCase
         $this->space = Space::create([
             'facility_id' => $this->facility->id,
             'name' => 'Court 1',
-            'type' => 'basketball_court',
+            'sport_type' => 'basketball_court',
             'capacity' => 20,
             'hourly_rate' => 50.00,
             'is_active' => true,
@@ -186,7 +188,7 @@ class BookingControllerTest extends TestCase
     {
         $startTime = now()->addDays(2)->setHour(10)->format('Y-m-d H:i:s');
         $endTime = now()->addDays(2)->setHour(11)->format('Y-m-d H:i:s');
-        $idempotencyKey = 'test-idempotency-key-' . uniqid();
+        $idempotencyKey = 'test-idempotency-key-'.uniqid();
 
         // First request
         $response1 = $this->actingAs($this->user, 'api')

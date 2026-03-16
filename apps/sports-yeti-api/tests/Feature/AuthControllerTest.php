@@ -15,7 +15,7 @@ class AuthControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Seed roles and permissions
         $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
     }
@@ -52,7 +52,7 @@ class AuthControllerTest extends TestCase
         // Check that player profile was created
         $user = User::where('email', 'test@example.com')->first();
         $this->assertNotNull($user->player);
-        
+
         // Check that player role was assigned
         $this->assertTrue($user->hasRole('player'));
     }

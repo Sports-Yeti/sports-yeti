@@ -17,7 +17,9 @@ class CampControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Player $player;
+
     private League $league;
 
     protected function setUp(): void

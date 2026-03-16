@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\Comment;
-use App\Models\League;
 use App\Models\Player;
 use App\Models\Post;
 use App\Models\User;
@@ -17,7 +16,9 @@ class CommentControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private User $adminUser;
+
     private Post $post;
 
     protected function setUp(): void

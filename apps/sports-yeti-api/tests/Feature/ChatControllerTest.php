@@ -7,7 +7,6 @@ namespace Tests\Feature;
 use App\Models\Chat;
 use App\Models\ChatMessage;
 use App\Models\ChatPoll;
-use App\Models\ChatPollVote;
 use App\Models\League;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +17,9 @@ class ChatControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private League $league;
+
     private Chat $chat;
 
     protected function setUp(): void

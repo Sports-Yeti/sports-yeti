@@ -19,8 +19,11 @@ class PostControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private User $adminUser;
+
     private League $league;
+
     private Team $team;
 
     protected function setUp(): void
@@ -33,7 +36,7 @@ class PostControllerTest extends TestCase
         $this->user = User::factory()->create();
         $this->user->assignRole('player');
 
-        Player::create([
+        $player = Player::create([
             'user_id' => $this->user->id,
             'experience_level' => 'intermediate',
             'availability_status' => 'available',
@@ -45,14 +48,14 @@ class PostControllerTest extends TestCase
         $this->league = League::create([
             'name' => 'Test League',
             'admin_id' => $this->adminUser->id,
-            'sport' => 'basketball',
-            'status' => 'active',
+            'sport_type' => 'basketball',
+            'is_active' => true,
         ]);
 
         $this->team = Team::create([
             'league_id' => $this->league->id,
             'name' => 'Test Team',
-            'captain_id' => $this->user->id,
+            'captain_id' => $player->id,
             'status' => 'active',
         ]);
     }

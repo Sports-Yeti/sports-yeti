@@ -15,6 +15,7 @@ class FacilityControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private League $league;
 
     protected function setUp(): void
@@ -210,7 +211,7 @@ class FacilityControllerTest extends TestCase
         \App\Models\Space::create([
             'facility_id' => $facility->id,
             'name' => 'Court 1',
-            'type' => 'basketball_court',
+            'sport_type' => 'basketball_court',
             'capacity' => 20,
             'hourly_rate' => 50.00,
             'is_active' => true,
@@ -225,7 +226,7 @@ class FacilityControllerTest extends TestCase
                     'id',
                     'name',
                     'spaces' => [
-                        '*' => ['id', 'name', 'type', 'capacity', 'hourly_rate'],
+                        '*' => ['id', 'name', 'sport_type', 'capacity', 'hourly_rate'],
                     ],
                 ],
             ]);

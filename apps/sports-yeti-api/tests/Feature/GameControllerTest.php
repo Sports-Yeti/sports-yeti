@@ -19,22 +19,27 @@ class GameControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private User $captainUser;
+
     private League $league;
+
     private Team $homeTeam;
+
     private Team $awayTeam;
+
     private Facility $facility;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Seed roles and permissions
         $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
 
         $this->user = User::factory()->create();
         $this->user->assignRole('player');
-        
+
         $player = Player::create([
             'user_id' => $this->user->id,
             'experience_level' => 'intermediate',
@@ -43,7 +48,7 @@ class GameControllerTest extends TestCase
 
         $this->captainUser = User::factory()->create();
         $this->captainUser->assignRole('team-captain');
-        
+
         $captainPlayer = Player::create([
             'user_id' => $this->captainUser->id,
             'experience_level' => 'advanced',
@@ -56,21 +61,29 @@ class GameControllerTest extends TestCase
         $this->league = League::create([
             'name' => 'Test Basketball League',
             'admin_id' => $adminUser->id,
-            'sport' => 'basketball',
-            'status' => 'active',
+            'sport_type' => 'basketball',
+            'is_active' => true,
         ]);
 
         $this->homeTeam = Team::create([
             'league_id' => $this->league->id,
             'name' => 'Home Team',
-            'captain_id' => $this->captainUser->id,
+            'captain_id' => $captainPlayer->id,
             'status' => 'active',
+        ]);
+
+        $awayCaptainUser = User::factory()->create();
+        $awayCaptainUser->assignRole('team-captain');
+        $awayCaptainPlayer = Player::create([
+            'user_id' => $awayCaptainUser->id,
+            'experience_level' => 'advanced',
+            'availability_status' => 'available',
         ]);
 
         $this->awayTeam = Team::create([
             'league_id' => $this->league->id,
             'name' => 'Away Team',
-            'captain_id' => User::factory()->create()->id,
+            'captain_id' => $awayCaptainPlayer->id,
             'status' => 'active',
         ]);
 
@@ -89,11 +102,10 @@ class GameControllerTest extends TestCase
     {
         Game::create([
             'league_id' => $this->league->id,
-            'home_team_id' => $this->homeTeam->id,
-            'away_team_id' => $this->awayTeam->id,
+            'team1_id' => $this->homeTeam->id,
+            'team2_id' => $this->awayTeam->id,
             'facility_id' => $this->facility->id,
             'scheduled_at' => now()->addDays(7),
-            'duration_minutes' => 60,
             'status' => 'scheduled',
         ]);
 
@@ -107,8 +119,8 @@ class GameControllerTest extends TestCase
                         'id',
                         'scheduled_at',
                         'status',
-                        'home_team',
-                        'away_team',
+                        'team1',
+                        'team2',
                     ],
                 ],
             ]);
@@ -118,11 +130,10 @@ class GameControllerTest extends TestCase
     {
         $game = Game::create([
             'league_id' => $this->league->id,
-            'home_team_id' => $this->homeTeam->id,
-            'away_team_id' => $this->awayTeam->id,
+            'team1_id' => $this->homeTeam->id,
+            'team2_id' => $this->awayTeam->id,
             'facility_id' => $this->facility->id,
             'scheduled_at' => now()->addDays(7),
-            'duration_minutes' => 60,
             'status' => 'scheduled',
         ]);
 
@@ -145,11 +156,10 @@ class GameControllerTest extends TestCase
         $response = $this->actingAs($this->captainUser, 'api')
             ->postJson('/api/v1/games', [
                 'league_id' => $this->league->id,
-                'home_team_id' => $this->homeTeam->id,
-                'away_team_id' => $this->awayTeam->id,
+                'team1_id' => $this->homeTeam->id,
+                'team2_id' => $this->awayTeam->id,
                 'facility_id' => $this->facility->id,
                 'scheduled_at' => $scheduledAt,
-                'duration_minutes' => 90,
             ]);
 
         $response->assertStatus(201)
@@ -162,8 +172,8 @@ class GameControllerTest extends TestCase
             ]);
 
         $this->assertDatabaseHas('games', [
-            'home_team_id' => $this->homeTeam->id,
-            'away_team_id' => $this->awayTeam->id,
+            'team1_id' => $this->homeTeam->id,
+            'team2_id' => $this->awayTeam->id,
         ]);
     }
 
@@ -172,27 +182,33 @@ class GameControllerTest extends TestCase
         $response = $this->actingAs($this->captainUser, 'api')
             ->postJson('/api/v1/games', [
                 'league_id' => $this->league->id,
-                'home_team_id' => $this->homeTeam->id,
-                'away_team_id' => $this->homeTeam->id, // Same as home team
+                'team1_id' => $this->homeTeam->id,
+                'team2_id' => $this->homeTeam->id, // Same as home team
                 'facility_id' => $this->facility->id,
                 'scheduled_at' => now()->addDays(14)->format('Y-m-d H:i:s'),
-                'duration_minutes' => 60,
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['away_team_id']);
+            ->assertJsonValidationErrors(['team2_id']);
     }
 
     public function test_player_can_respond_to_attendance(): void
     {
         $game = Game::create([
             'league_id' => $this->league->id,
-            'home_team_id' => $this->homeTeam->id,
-            'away_team_id' => $this->awayTeam->id,
+            'team1_id' => $this->homeTeam->id,
+            'team2_id' => $this->awayTeam->id,
             'facility_id' => $this->facility->id,
             'scheduled_at' => now()->addDays(7),
-            'duration_minutes' => 60,
             'status' => 'scheduled',
+        ]);
+
+        $player = $this->user->player;
+
+        GameParticipant::create([
+            'game_id' => $game->id,
+            'player_id' => $player->id,
+            'team_id' => $this->homeTeam->id,
         ]);
 
         $response = $this->actingAs($this->user, 'api')
@@ -204,7 +220,7 @@ class GameControllerTest extends TestCase
 
         $this->assertDatabaseHas('game_participants', [
             'game_id' => $game->id,
-            'player_id' => $this->user->player->id,
+            'player_id' => $player->id,
             'attendance_response' => 'yes',
         ]);
     }
@@ -213,11 +229,10 @@ class GameControllerTest extends TestCase
     {
         $game = Game::create([
             'league_id' => $this->league->id,
-            'home_team_id' => $this->homeTeam->id,
-            'away_team_id' => $this->awayTeam->id,
+            'team1_id' => $this->homeTeam->id,
+            'team2_id' => $this->awayTeam->id,
             'facility_id' => $this->facility->id,
             'scheduled_at' => now()->addDays(7),
-            'duration_minutes' => 60,
             'status' => 'scheduled',
         ]);
 
@@ -233,21 +248,19 @@ class GameControllerTest extends TestCase
     {
         Game::create([
             'league_id' => $this->league->id,
-            'home_team_id' => $this->homeTeam->id,
-            'away_team_id' => $this->awayTeam->id,
+            'team1_id' => $this->homeTeam->id,
+            'team2_id' => $this->awayTeam->id,
             'facility_id' => $this->facility->id,
             'scheduled_at' => now()->addDays(7),
-            'duration_minutes' => 60,
             'status' => 'scheduled',
         ]);
 
         Game::create([
             'league_id' => $this->league->id,
-            'home_team_id' => $this->homeTeam->id,
-            'away_team_id' => $this->awayTeam->id,
+            'team1_id' => $this->homeTeam->id,
+            'team2_id' => $this->awayTeam->id,
             'facility_id' => $this->facility->id,
             'scheduled_at' => now()->subDays(7),
-            'duration_minutes' => 60,
             'status' => 'completed',
         ]);
 
@@ -255,9 +268,9 @@ class GameControllerTest extends TestCase
             ->getJson('/api/v1/games?status=scheduled');
 
         $response->assertOk();
-        
+
         $games = $response->json('data');
-        $this->assertTrue(collect($games)->every(fn($g) => $g['status'] === 'scheduled'));
+        $this->assertTrue(collect($games)->every(fn ($g) => $g['status'] === 'scheduled'));
     }
 
     public function test_game_requires_future_scheduled_time(): void
@@ -265,11 +278,10 @@ class GameControllerTest extends TestCase
         $response = $this->actingAs($this->captainUser, 'api')
             ->postJson('/api/v1/games', [
                 'league_id' => $this->league->id,
-                'home_team_id' => $this->homeTeam->id,
-                'away_team_id' => $this->awayTeam->id,
+                'team1_id' => $this->homeTeam->id,
+                'team2_id' => $this->awayTeam->id,
                 'facility_id' => $this->facility->id,
                 'scheduled_at' => now()->subDay()->format('Y-m-d H:i:s'),
-                'duration_minutes' => 60,
             ]);
 
         $response->assertStatus(422)
