@@ -52,7 +52,7 @@ class AuthController extends Controller
     {
         $credentials = $request->only('email', 'password');
 
-        if (!$token = JWTAuth::attempt($credentials)) {
+        if (! $token = JWTAuth::attempt($credentials)) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/401',
                 'title' => 'Unauthorized',
@@ -77,6 +77,14 @@ class AuthController extends Controller
     public function me(): JsonResponse
     {
         $user = auth()->user();
+        if (! $user) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/401',
+                'title' => 'Unauthorized',
+                'status' => 401,
+                'detail' => 'Unauthenticated.',
+            ], 401);
+        }
         $user->load('player');
 
         return response()->json([
@@ -86,7 +94,10 @@ class AuthController extends Controller
 
     public function logout(): JsonResponse
     {
-        JWTAuth::invalidate(JWTAuth::getToken());
+        $token = JWTAuth::getToken();
+        if ($token) {
+            JWTAuth::invalidate($token);
+        }
 
         return response()->json([
             'message' => 'Successfully logged out.',
@@ -109,7 +120,7 @@ class AuthController extends Controller
     private function formatUser(User $user): array
     {
         // Load roles if not already loaded
-        if (!$user->relationLoaded('roles')) {
+        if (! $user->relationLoaded('roles')) {
             $user->load('roles');
         }
 

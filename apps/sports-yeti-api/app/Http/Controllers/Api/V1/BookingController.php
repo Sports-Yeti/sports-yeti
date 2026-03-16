@@ -148,7 +148,7 @@ class BookingController extends Controller
 
     public function cancel(Booking $booking): JsonResponse
     {
-        $this->authorize('update', $booking);
+        $this->authorize('cancel', $booking);
 
         if ($booking->status === 'cancelled') {
             return response()->json([
@@ -193,7 +193,7 @@ class BookingController extends Controller
 
         $booking = Booking::where('qr_code', $request->qr_code)->first();
 
-        if (!$booking) {
+        if (! $booking) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/404',
                 'title' => 'Not Found',

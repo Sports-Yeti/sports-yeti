@@ -29,9 +29,12 @@ class LeaguePolicy
 
     public function update(User $user, League $league): bool
     {
-        // Super admin or league admin for this league
+        if ($this->isLeagueAdmin($user, $league)) {
+            return true;
+        }
+
         if ($user->hasPermissionTo('leagues.update')) {
-            return $this->isLeagueAdmin($user, $league);
+            return true;
         }
 
         return false;
@@ -39,6 +42,10 @@ class LeaguePolicy
 
     public function delete(User $user, League $league): bool
     {
+        if ($this->isLeagueAdmin($user, $league)) {
+            return true;
+        }
+
         return $user->hasPermissionTo('leagues.delete');
     }
 
