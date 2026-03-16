@@ -21,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\TraceRequest::class,
             \App\Http\Middleware\PrometheusMetrics::class,
         ]);
-        
+
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
@@ -34,7 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (HttpException $e, Request $request) {
             if ($request->expectsJson() || $request->is('api/*')) {
                 return response()->json([
-                    'type' => 'https://httpstatuses.com/' . $e->getStatusCode(),
+                    'type' => 'https://httpstatuses.com/'.$e->getStatusCode(),
                     'title' => $e->getMessage() ?: 'An error occurred',
                     'status' => $e->getStatusCode(),
                     'detail' => $e->getMessage(),

@@ -157,7 +157,7 @@ class PostController extends Controller
     public function update(Request $request, Post $post): JsonResponse
     {
         // Only post owner or super-admin can update
-        if ($post->user_id !== auth()->id() && !auth()->user()->hasRole('super-admin')) {
+        if ($post->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/403',
                 'title' => 'Forbidden',
@@ -206,7 +206,7 @@ class PostController extends Controller
     public function destroy(Post $post): JsonResponse
     {
         // Only post owner or super-admin can delete
-        if ($post->user_id !== auth()->id() && !auth()->user()->hasRole('super-admin')) {
+        if ($post->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/403',
                 'title' => 'Forbidden',
@@ -263,7 +263,7 @@ class PostController extends Controller
             ->where('user_id', $userId)
             ->first();
 
-        if (!$like) {
+        if (! $like) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/404',
                 'title' => 'Not Found',

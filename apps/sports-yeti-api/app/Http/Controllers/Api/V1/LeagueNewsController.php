@@ -23,7 +23,7 @@ class LeagueNewsController extends Controller
         $isLeagueAdmin = $league->admins()->where('user_id', $user->id)->exists()
             || $user->hasRole('super-admin');
 
-        if (!$isLeagueAdmin) {
+        if (! $isLeagueAdmin) {
             $query->where('is_published', true);
         }
 
@@ -61,7 +61,7 @@ class LeagueNewsController extends Controller
         $isLeagueAdmin = $league->admins()->where('user_id', $user->id)->exists()
             || $user->hasRole('super-admin');
 
-        if (!$isLeagueAdmin) {
+        if (! $isLeagueAdmin) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/403',
                 'title' => 'Forbidden',
@@ -121,12 +121,12 @@ class LeagueNewsController extends Controller
         }
 
         // Check if unpublished news can be viewed
-        if (!$news->is_published) {
+        if (! $news->is_published) {
             $user = auth()->user();
             $isLeagueAdmin = $league->admins()->where('user_id', $user->id)->exists()
                 || $user->hasRole('super-admin');
 
-            if (!$isLeagueAdmin) {
+            if (! $isLeagueAdmin) {
                 return response()->json([
                     'type' => 'https://httpstatuses.io/404',
                     'title' => 'Not Found',
@@ -163,7 +163,7 @@ class LeagueNewsController extends Controller
         $isLeagueAdmin = $league->admins()->where('user_id', $user->id)->exists()
             || $user->hasRole('super-admin');
 
-        if (!$isLeagueAdmin) {
+        if (! $isLeagueAdmin) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/403',
                 'title' => 'Forbidden',
@@ -197,7 +197,7 @@ class LeagueNewsController extends Controller
             $data['is_published'] = $request->boolean('is_published');
 
             // Set published_at when first published
-            if ($data['is_published'] && !$news->published_at) {
+            if ($data['is_published'] && ! $news->published_at) {
                 $data['published_at'] = now();
             }
         }
@@ -227,7 +227,7 @@ class LeagueNewsController extends Controller
         $isLeagueAdmin = $league->admins()->where('user_id', $user->id)->exists()
             || $user->hasRole('super-admin');
 
-        if (!$isLeagueAdmin) {
+        if (! $isLeagueAdmin) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/403',
                 'title' => 'Forbidden',
@@ -258,7 +258,7 @@ class LeagueNewsController extends Controller
         $isLeagueAdmin = $league->admins()->where('user_id', $user->id)->exists()
             || $user->hasRole('super-admin');
 
-        if (!$isLeagueAdmin) {
+        if (! $isLeagueAdmin) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/403',
                 'title' => 'Forbidden',
@@ -305,7 +305,7 @@ class LeagueNewsController extends Controller
         $isLeagueAdmin = $league->admins()->where('user_id', $user->id)->exists()
             || $user->hasRole('super-admin');
 
-        if (!$isLeagueAdmin) {
+        if (! $isLeagueAdmin) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/403',
                 'title' => 'Forbidden',
@@ -314,7 +314,7 @@ class LeagueNewsController extends Controller
             ], 403);
         }
 
-        if (!$news->is_published) {
+        if (! $news->is_published) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/409',
                 'title' => 'Conflict',

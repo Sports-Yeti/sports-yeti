@@ -198,7 +198,7 @@ class ChatController extends Controller
         }
 
         // Check if already voted (and not allows_multiple)
-        if (!$poll->allows_multiple) {
+        if (! $poll->allows_multiple) {
             $existingVote = ChatPollVote::where('poll_id', $poll->id)
                 ->where('user_id', auth()->id())
                 ->first();
@@ -273,9 +273,7 @@ class ChatController extends Controller
 
     /**
      * SSE endpoint for real-time chat updates
-     * 
-     * @param Request $request
-     * @param Chat $chat
+     *
      * @return \Symfony\Component\HttpFoundation\StreamedResponse
      */
     public function stream(Request $request, Chat $chat)
@@ -336,7 +334,7 @@ class ChatController extends Controller
                         'options' => $poll->options,
                         'vote_counts' => $poll->getVoteCounts(),
                         'is_closed' => $poll->is_closed,
-                    ], 'poll-' . $poll->id);
+                    ], 'poll-'.$poll->id);
                 }
 
                 // Send heartbeat to keep connection alive
@@ -373,6 +371,6 @@ class ChatController extends Controller
             echo "id: {$id}\n";
         }
         echo "event: {$event}\n";
-        echo "data: " . json_encode($data) . "\n\n";
+        echo 'data: '.json_encode($data)."\n\n";
     }
 }

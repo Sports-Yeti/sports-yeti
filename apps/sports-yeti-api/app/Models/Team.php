@@ -17,11 +17,11 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class Team extends Model
 {
+    use BelongsToLeague;
     use HasFactory;
     use HasUuids;
-    use SoftDeletes;
     use LogsActivity;
-    use BelongsToLeague;
+    use SoftDeletes;
 
     protected $fillable = [
         'name',

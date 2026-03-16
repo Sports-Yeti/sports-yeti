@@ -151,13 +151,13 @@ class NotificationService
         string $body,
         ?array $data = null
     ): void {
-        if (!$user->expo_push_token) {
+        if (! $user->expo_push_token) {
             return;
         }
 
         // Check user preferences
         $preferences = $user->notification_preferences ?? [];
-        if (isset($preferences['push_notifications']) && !$preferences['push_notifications']) {
+        if (isset($preferences['push_notifications']) && ! $preferences['push_notifications']) {
             return;
         }
 
@@ -173,7 +173,7 @@ class NotificationService
                 'sound' => 'default',
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::warning('Failed to send push notification', [
                     'user_id' => $user->id,
                     'response' => $response->body(),
@@ -194,7 +194,7 @@ class NotificationService
     ): void {
         // Check user preferences
         $preferences = $user->notification_preferences ?? [];
-        if (isset($preferences['email_notifications']) && !$preferences['email_notifications']) {
+        if (isset($preferences['email_notifications']) && ! $preferences['email_notifications']) {
             return;
         }
 

@@ -36,6 +36,7 @@ class OpenTelemetryServiceProvider extends ServiceProvider
 
         $this->app->singleton(TracerInterface::class, function ($app) {
             $config = config('opentelemetry');
+
             return $app->make(TracerProviderInterface::class)->getTracer(
                 $config['service']['name'],
                 $config['service']['version']
@@ -55,7 +56,7 @@ class OpenTelemetryServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if (!config('opentelemetry.enabled')) {
+        if (! config('opentelemetry.enabled')) {
             return;
         }
 
@@ -75,9 +76,9 @@ class OpenTelemetryServiceProvider extends ServiceProvider
     {
         $config = config('opentelemetry');
 
-        if (!$config['enabled']) {
+        if (! $config['enabled']) {
             // Return a no-op tracer provider when disabled
-            return new TracerProvider();
+            return new TracerProvider;
         }
 
         // Build resource
@@ -91,10 +92,10 @@ class OpenTelemetryServiceProvider extends ServiceProvider
         );
 
         // Create transport
-        $endpoint = rtrim($config['exporter']['endpoint'], '/') . '/v1/traces';
+        $endpoint = rtrim($config['exporter']['endpoint'], '/').'/v1/traces';
         $headers = $this->parseHeaders($config['exporter']['headers']);
 
-        $transport = (new OtlpHttpTransportFactory())->create(
+        $transport = (new OtlpHttpTransportFactory)->create(
             $endpoint,
             'application/x-protobuf',
             $headers
@@ -131,12 +132,12 @@ class OpenTelemetryServiceProvider extends ServiceProvider
     protected function createSampler(array $samplerConfig): \OpenTelemetry\SDK\Trace\SamplerInterface
     {
         return match ($samplerConfig['type']) {
-            'always_off' => new AlwaysOffSampler(),
+            'always_off' => new AlwaysOffSampler,
             'traceidratio' => new TraceIdRatioBasedSampler($samplerConfig['ratio']),
             'parentbased_traceidratio' => new ParentBased(
                 new TraceIdRatioBasedSampler($samplerConfig['ratio'])
             ),
-            default => new AlwaysOnSampler(),
+            default => new AlwaysOnSampler,
         };
     }
 

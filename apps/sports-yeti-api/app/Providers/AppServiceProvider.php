@@ -15,12 +15,12 @@ use App\Policies\GamePolicy;
 use App\Policies\LeaguePolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\TeamPolicy;
-use Spatie\Activitylog\Models\Activity;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Spatie\Activitylog\Models\Activity;
 
 class AppServiceProvider extends ServiceProvider
 {

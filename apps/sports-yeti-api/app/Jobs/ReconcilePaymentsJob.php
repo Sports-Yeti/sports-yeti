@@ -55,7 +55,7 @@ class ReconcilePaymentsJob implements ShouldQueue
         foreach ($stripePayments as $stripePayment) {
             $localPayment = $localPayments->get($stripePayment['id']);
 
-            if (!$localPayment) {
+            if (! $localPayment) {
                 // Payment exists in Stripe but not locally
                 $mismatches[] = [
                     'type' => 'missing_local',
@@ -64,6 +64,7 @@ class ReconcilePaymentsJob implements ShouldQueue
                     'stripe_status' => $stripePayment['status'],
                     'created_at' => Carbon::createFromTimestamp($stripePayment['created'])->toIso8601String(),
                 ];
+
                 continue;
             }
 
@@ -95,7 +96,7 @@ class ReconcilePaymentsJob implements ShouldQueue
 
         // Check for local payments not in Stripe
         foreach ($localPayments as $stripeId => $localPayment) {
-            if (!isset($stripePayments[$stripeId]) && $localPayment->status !== 'pending') {
+            if (! isset($stripePayments[$stripeId]) && $localPayment->status !== 'pending') {
                 $mismatches[] = [
                     'type' => 'missing_stripe',
                     'payment_id' => $localPayment->id,
@@ -122,8 +123,9 @@ class ReconcilePaymentsJob implements ShouldQueue
     {
         $stripeKey = config('services.stripe.secret');
 
-        if (!$stripeKey) {
+        if (! $stripeKey) {
             Log::warning('Stripe secret key not configured, skipping Stripe fetch');
+
             return [];
         }
 
@@ -154,6 +156,7 @@ class ReconcilePaymentsJob implements ShouldQueue
             Log::error('Failed to fetch Stripe payments for reconciliation', [
                 'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }

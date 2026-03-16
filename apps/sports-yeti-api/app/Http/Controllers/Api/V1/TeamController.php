@@ -30,7 +30,7 @@ class TeamController extends Controller
         }
 
         if ($request->has('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+            $query->where('name', 'like', '%'.$request->search.'%');
         }
 
         $perPage = min($request->get('per_page', 15), 100);
@@ -68,7 +68,7 @@ class TeamController extends Controller
 
         // Get the player profile of the current user
         $player = Player::where('user_id', auth()->id())->first();
-        if (!$player) {
+        if (! $player) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/400',
                 'title' => 'Bad Request',

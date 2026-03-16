@@ -12,7 +12,7 @@ use Spatie\Activitylog\Models\Activity;
 
 /**
  * Controller for accessing audit logs (activity logs).
- * 
+ *
  * Provides endpoints to view and filter activity logs for league admins
  * and super admins. Supports filtering by user, action, date range, and entity.
  */
@@ -20,9 +20,6 @@ class AuditController extends Controller
 {
     /**
      * Get paginated audit log entries.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -61,7 +58,7 @@ class AuditController extends Controller
                 $q->whereJsonContains('properties->attributes->league_id', $leagueId)
                     ->orWhereJsonContains('properties->old->league_id', $leagueId)
                     // Or filter by subjects that belong to the league
-                    ->orWhere(function ($subQ) use ($leagueId) {
+                    ->orWhere(function ($subQ) {
                         $subQ->whereNotNull('subject_type')
                             ->whereNotNull('subject_id');
                     });
@@ -129,9 +126,6 @@ class AuditController extends Controller
 
     /**
      * Get a specific audit log entry.
-     *
-     * @param Activity $activity
-     * @return JsonResponse
      */
     public function show(Activity $activity): JsonResponse
     {
@@ -160,9 +154,6 @@ class AuditController extends Controller
 
     /**
      * Get activity statistics/summary.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function stats(Request $request): JsonResponse
     {
@@ -247,8 +238,6 @@ class AuditController extends Controller
 
     /**
      * Get available subject types for filtering.
-     *
-     * @return JsonResponse
      */
     public function subjectTypes(): JsonResponse
     {
@@ -294,6 +283,7 @@ class AuditController extends Controller
     {
         // Extract just the class name from the full path
         $parts = explode('\\', $type);
+
         return strtolower(end($parts));
     }
 }

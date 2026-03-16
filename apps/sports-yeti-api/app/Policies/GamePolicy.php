@@ -29,7 +29,7 @@ class GamePolicy
 
     public function update(User $user, Game $game): bool
     {
-        if (!$user->hasPermissionTo('games.update')) {
+        if (! $user->hasPermissionTo('games.update')) {
             return false;
         }
 
@@ -38,7 +38,7 @@ class GamePolicy
 
     public function delete(User $user, Game $game): bool
     {
-        if (!$user->hasPermissionTo('games.delete')) {
+        if (! $user->hasPermissionTo('games.delete')) {
             return false;
         }
 
@@ -47,7 +47,7 @@ class GamePolicy
 
     public function manageParticipants(User $user, Game $game): bool
     {
-        if (!$user->hasPermissionTo('games.manage-participants')) {
+        if (! $user->hasPermissionTo('games.manage-participants')) {
             return false;
         }
 
@@ -56,7 +56,7 @@ class GamePolicy
 
     public function submitReport(User $user, Game $game): bool
     {
-        if (!$user->hasPermissionTo('games.submit-report')) {
+        if (! $user->hasPermissionTo('games.submit-report')) {
             return false;
         }
 

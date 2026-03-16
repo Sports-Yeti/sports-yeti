@@ -19,10 +19,10 @@ class LeagueFactory extends Factory
     {
         return [
             'admin_id' => User::factory(),
-            'name' => $this->faker->company() . ' ' . $this->faker->randomElement(['League', 'Association', 'Federation']),
+            'name' => $this->faker->company().' '.$this->faker->randomElement(['League', 'Association', 'Federation']),
             'description' => $this->faker->paragraph(),
             'sport_type' => $this->faker->randomElement(['basketball', 'soccer', 'volleyball', 'tennis']),
-            'location' => $this->faker->city() . ', ' . $this->faker->stateAbbr(),
+            'location' => $this->faker->city().', '.$this->faker->stateAbbr(),
             'timezone' => 'America/New_York',
             'registration_fee' => $this->faker->randomFloat(2, 0, 150),
             'is_active' => true,

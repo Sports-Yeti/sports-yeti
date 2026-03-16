@@ -23,7 +23,7 @@ class FacilityController extends Controller
         }
 
         if ($request->has('city')) {
-            $query->where('city', 'like', '%' . $request->city . '%');
+            $query->where('city', 'like', '%'.$request->city.'%');
         }
 
         $perPage = min($request->get('per_page', 15), 100);

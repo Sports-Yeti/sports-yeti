@@ -25,8 +25,9 @@ class WebhookController extends Controller
         $signature = $request->header('Stripe-Signature');
         $webhookSecret = config('services.stripe.webhook_secret');
 
-        if (!$webhookSecret) {
+        if (! $webhookSecret) {
             Log::warning('Stripe webhook secret not configured');
+
             return response()->json(['error' => 'Webhook secret not configured'], 500);
         }
 
@@ -40,6 +41,7 @@ class WebhookController extends Controller
             Log::warning('Stripe webhook signature verification failed', [
                 'error' => $e->getMessage(),
             ]);
+
             return response()->json(['error' => 'Invalid signature'], 400);
         }
 
@@ -77,6 +79,7 @@ class WebhookController extends Controller
                 'type' => $event->type,
                 'error' => $e->getMessage(),
             ]);
+
             return response()->json(['error' => 'Webhook processing error'], 500);
         }
 
@@ -87,8 +90,9 @@ class WebhookController extends Controller
     {
         $payment = Payment::where('stripe_payment_intent_id', $paymentIntent->id)->first();
 
-        if (!$payment) {
+        if (! $payment) {
             Log::warning('Payment not found for intent', ['intent_id' => $paymentIntent->id]);
+
             return;
         }
 
@@ -118,7 +122,7 @@ class WebhookController extends Controller
     {
         $payment = Payment::where('stripe_payment_intent_id', $paymentIntent->id)->first();
 
-        if (!$payment) {
+        if (! $payment) {
             return;
         }
 
@@ -136,7 +140,7 @@ class WebhookController extends Controller
     {
         $payment = Payment::where('stripe_charge_id', $charge->id)->first();
 
-        if (!$payment) {
+        if (! $payment) {
             return;
         }
 

@@ -99,7 +99,7 @@ class GameController extends Controller
             'game_id' => $game->id,
             'league_id' => $game->league_id,
             'type' => 'game',
-            'name' => $game->team1->name . ' vs ' . $game->team2->name,
+            'name' => $game->team1->name.' vs '.$game->team2->name,
             'is_active' => true,
         ]);
 
@@ -198,7 +198,7 @@ class GameController extends Controller
             })
             ->first();
 
-        if (!$participant) {
+        if (! $participant) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/404',
                 'title' => 'Not Found',

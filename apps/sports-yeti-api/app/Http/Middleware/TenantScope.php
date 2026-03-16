@@ -12,13 +12,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Middleware that establishes the tenant (league) context for requests.
- * 
+ *
  * The league context can be determined from:
  * 1. X-League-ID header (for explicit league selection)
  * 2. league_id query parameter
  * 3. Route parameter (e.g., /leagues/{league}/...)
  * 4. User's primary league (first admin role or first team membership)
- * 
+ *
  * When a league context is established, all models using the BelongsToLeague
  * trait will automatically scope their queries to that league.
  */
@@ -27,10 +27,7 @@ class TenantScope
     /**
      * Handle an incoming request.
      *
-     * @param \Illuminate\Http\Request $request
-     * @param \Closure $next
-     * @param bool $required Whether a league context is required
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @param  bool  $required  Whether a league context is required
      */
     public function handle(Request $request, Closure $next, bool $required = false): Response
     {
@@ -44,7 +41,7 @@ class TenantScope
 
             // Validate that the league exists and user has access
             $league = League::find($leagueId);
-            
+
             if (! $league) {
                 return $this->leagueNotFoundResponse($leagueId);
             }
@@ -82,6 +79,7 @@ class TenantScope
         // Priority 3: Route parameter
         if ($request->route('league')) {
             $league = $request->route('league');
+
             return $league instanceof League ? $league->id : $league;
         }
 

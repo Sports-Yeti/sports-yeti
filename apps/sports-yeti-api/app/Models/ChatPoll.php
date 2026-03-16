@@ -65,6 +65,7 @@ class ChatPoll extends Model
         foreach ($this->options as $index => $option) {
             $counts[$index] = $this->votes()->where('option_index', $index)->count();
         }
+
         return $counts;
     }
 }

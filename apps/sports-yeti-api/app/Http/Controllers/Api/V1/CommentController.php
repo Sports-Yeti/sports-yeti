@@ -106,7 +106,7 @@ class CommentController extends Controller
             ]);
 
             // Increment comments count on the post (only for top-level comments)
-            if (!$request->parent_id) {
+            if (! $request->parent_id) {
                 Post::where('id', $request->post_id)->increment('comments_count');
             }
 
@@ -177,7 +177,7 @@ class CommentController extends Controller
     public function destroy(Comment $comment): JsonResponse
     {
         // Only comment owner or super-admin can delete
-        if ($comment->user_id !== auth()->id() && !auth()->user()->hasRole('super-admin')) {
+        if ($comment->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/403',
                 'title' => 'Forbidden',

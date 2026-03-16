@@ -125,8 +125,9 @@ class PaymentController extends Controller
             ]
         );
 
-        if (!$result['success']) {
+        if (! $result['success']) {
             $payment->update(['status' => 'failed']);
+
             return response()->json([
                 'type' => 'https://httpstatuses.io/500',
                 'title' => 'Payment Error',
@@ -165,7 +166,7 @@ class PaymentController extends Controller
             ]);
         }
 
-        if (!$payment->stripe_payment_intent_id) {
+        if (! $payment->stripe_payment_intent_id) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/400',
                 'title' => 'Bad Request',
@@ -208,7 +209,7 @@ class PaymentController extends Controller
 
         $result = $this->paymentService->refundPayment($payment, $amount);
 
-        if (!$result['success']) {
+        if (! $result['success']) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/500',
                 'title' => 'Refund Error',

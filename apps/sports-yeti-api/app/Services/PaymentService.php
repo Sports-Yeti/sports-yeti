@@ -91,7 +91,7 @@ class PaymentService
     public function refundPayment(Payment $payment, ?float $amount = null): array
     {
         try {
-            if (!$payment->stripe_charge_id) {
+            if (! $payment->stripe_charge_id) {
                 return [
                     'success' => false,
                     'error' => 'No charge ID found for this payment.',

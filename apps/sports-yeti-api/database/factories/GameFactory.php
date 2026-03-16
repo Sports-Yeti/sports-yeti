@@ -20,7 +20,7 @@ class GameFactory extends Factory
     public function definition(): array
     {
         $league = League::factory()->create();
-        
+
         return [
             'league_id' => $league->id,
             'home_team_id' => Team::factory()->create(['league_id' => $league->id])->id,
