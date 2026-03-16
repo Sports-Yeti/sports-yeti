@@ -149,11 +149,14 @@ This plan aligns with the current scope and design standards: NFRs/SLOs, API sta
 - 🔄 Phase 9: Hardening & Launch
   - ✅ API test coverage expanded (17 feature test files)
   - ✅ CI config fixed (PostgreSQL)
-  - ✅ Production deployment workflow
-  - ✅ Operational runbooks
-  - ⬜ Performance/load testing (requires runtime)
-  - ⬜ Chaos/fault testing (requires runtime)
-  - ⬜ Security review (requires runtime)
+  - ✅ Production deployment workflow (`deploy-production.yml`)
+  - ✅ Operational runbooks (`docs/runbooks/`)
+  - ✅ k6 load test scripts written (`tests/load/`)
+  - ✅ Security audit checklist created (`docs/security-audit-checklist.md`)
+  - ✅ Chaos test scenarios documented (`tests/chaos/scenarios.md`)
+  - ⬜ Execute load tests against running API
+  - ⬜ Execute chaos test scenarios in staging
+  - ⬜ Conduct security audit using checklist
   - ⬜ Backup/restore drill (requires production env)
   - ⬜ Pilot launch
 

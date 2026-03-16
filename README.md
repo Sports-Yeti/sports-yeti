@@ -474,6 +474,29 @@ npx nx test sports-yeti-admin
 cd apps/sports-yeti-admin && npm test
 ```
 
+### Load Tests (k6)
+
+```bash
+# Install k6: brew install k6 (macOS) or see tests/load/README.md
+
+# Auth endpoints (100 RPS target, p95 < 300ms)
+k6 run --env API_URL=http://localhost:8000/api/v1 tests/load/k6-auth.js
+
+# Booking endpoints (50 RPS, p95 < 500ms)
+k6 run --env API_URL=http://localhost:8000/api/v1 tests/load/k6-bookings.js
+
+# Payment endpoints (25 RPS, p95 < 1s)
+k6 run --env API_URL=http://localhost:8000/api/v1 tests/load/k6-payments.js
+
+# Game/listing endpoints (75 RPS, p95 < 300ms)
+k6 run --env API_URL=http://localhost:8000/api/v1 tests/load/k6-games.js
+
+# Chat endpoints (50 RPS, p95 < 500ms)
+k6 run --env API_URL=http://localhost:8000/api/v1 tests/load/k6-chat.js
+```
+
+See `tests/load/README.md` for full setup instructions and SLO thresholds.
+
 ### E2E Tests (Playwright)
 
 ```bash
@@ -720,6 +743,12 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 ### SLOs
 
 Service Level Objectives are documented in `apps/sports-yeti-api/docs/slo-definitions.md`.
+
+### Security & Hardening
+
+- **Security audit checklist:** `apps/sports-yeti-api/docs/security-audit-checklist.md` — OWASP ASVS L2 aligned
+- **Chaos test scenarios:** `tests/chaos/scenarios.md` — 7 fault injection scenarios with expected behaviors
+- **Operational runbooks:** `apps/sports-yeti-api/docs/runbooks/` — Incident response procedures
 
 ---
 
