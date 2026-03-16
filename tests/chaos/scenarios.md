@@ -344,10 +344,13 @@ curl -s http://localhost:8000/api/v1/health | jq .
 
 | Scenario | Expected | Actual | Pass/Fail | Notes |
 |----------|----------|--------|-----------|-------|
-| DB down | 503, auto-recover | | | |
-| Redis down | Degraded, functional | | | |
-| Stripe timeout | Error response, retry | | | |
-| SSE drop | Auto-reconnect | | | |
-| Worker crash | Auto-restart, no loss | | | |
-| Disk full | Graceful errors | | | |
-| Memory pressure | 502/503, recover | | | |
+| DB down | 503, auto-recover | Requests hang/timeout during outage; auto-recovers when DB resumes | Partial Pass | Health endpoint returns static data (no DB check). Data endpoints hang rather than returning 503. Recovery is automatic. |
+| Redis down | Degraded, functional | Requests hang/timeout due to rate limiter dependency on Redis | Fail | Rate limiter (ThrottleRequests middleware) blocks on Redis connection. Consider configuring fallback cache driver or making rate limiter Redis-optional. Recovery is automatic. |
+| Stripe timeout | Error response, retry | Not tested locally | Skipped | Requires Stripe API blocking which is impractical in local dev. |
+| SSE drop | Auto-reconnect | Not tested locally | Skipped | Requires client-side testing. |
+| Worker crash | Auto-restart, no loss | Not tested (no queue worker running) | Skipped | Queue uses database driver; jobs persist in DB. No supervisor configured for auto-restart in local dev. |
+| Disk full | Graceful errors | Not tested locally | Skipped | Too risky for local dev environment. |
+| Memory pressure | 502/503, recover | Not tested locally | Skipped | Too risky for local dev environment. |
+
+**Audit Date:** 2026-03-16
+**Environment:** Local development (macOS, Laravel Herd, single PHP process)

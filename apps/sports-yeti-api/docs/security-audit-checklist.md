@@ -179,10 +179,24 @@ Sports Yeti API — OWASP ASVS L2 aligned security review.
 4. **Penetration testing** — Test with tools like OWASP ZAP or Burp Suite
 5. **Configuration review** — Verify production `.env` and infrastructure config
 
-## Findings Template
+## Findings (Audit Date: 2026-03-16)
 
 | # | Category | Severity | Finding | Status |
 |---|----------|----------|---------|--------|
-| 1 | Auth | High | Example finding | Open/Fixed |
+| 1 | Dependencies | Medium | `league/commonmark` <= 2.8.0 — CVE-2026-30838 DisallowedRawHtml bypass | Open |
+| 2 | Dependencies | Medium | `psy/psysh` <= 0.12.18 — CVE-2026-25129 local privilege escalation via .psysh.php | Open |
+| 3 | Dependencies | High | npm audit: 53 vulnerabilities (9 low, 10 moderate, 33 high, 1 critical) primarily in webpack | Open |
+| 4 | CORS | Medium | No `config/cors.php` exists — default CORS settings likely allow `*` origins | Open |
+| 5 | Auth | Low | Password validation only enforces `min:8` — no complexity rules (uppercase, numbers, symbols) | Open |
+| 6 | Config | Low | `.env.example` missing JWT_SECRET, STRIPE_SECRET, STRIPE_WEBHOOK_SECRET entries | Open |
+| 7 | Config | Info | APP_DEBUG=true in .env.example — production must override to false | Noted |
+| 8 | Rate Limiting | Pass | Auth rate limit (10/min) verified — returns 429 after 10 attempts | Verified |
+| 9 | Auth | Pass | Protected endpoints return 401 for unauthenticated requests | Verified |
+| 10 | Webhooks | Pass | Invalid Stripe signatures handled properly (returns error, no crash) | Verified |
+| 11 | SQL Injection | Pass | No DB::raw() with user input found — all queries use Eloquent ORM | Verified |
+| 12 | Error Handling | Pass | RFC 7807 Problem+JSON format correctly implemented | Verified |
+| 13 | Secrets | Pass | .env excluded from git via .gitignore; no secrets found in git history | Verified |
+| 14 | JWT | Pass | RS256 algorithm, 60-min TTL, blacklist enabled | Verified |
+| 15 | Passwords | Pass | Bcrypt with 12 rounds configured | Verified |
 
 **Severity levels:** Critical, High, Medium, Low, Info
