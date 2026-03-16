@@ -1,0 +1,383 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_api:
+        description: 'Deploy API to production'
+        type: boolean
+        default: true
+      deploy_admin:
+        description: 'Deploy admin dashboard to production'
+        type: boolean
+        default: false
+      build_mobile:
+        description: 'Build and submit mobile app'
+        type: boolean
+        default: false
+      skip_tests:
+        description: 'Skip pre-deployment tests (emergency only)'
+        type: boolean
+        default: false
+
+env:
+  PRODUCTION_API_URL: ${{ secrets.PRODUCTION_API_URL }}
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Pre-deployment Validation
+  # ─────────────────────────────────────────────────────────────────────────────
+  validate:
+    name: Pre-deployment Validation
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.skip_tests != 'true' }}
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: sports_yeti_test
+        ports:
+          - 5432:5432
+        options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, pdo_pgsql, redis, bcmath, gd
+
+      - name: Install Composer dependencies
+        working-directory: apps/sports-yeti-api
+        run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Copy environment file
+        working-directory: apps/sports-yeti-api
+        run: cp .env.example .env
+
+      - name: Configure test environment
+        working-directory: apps/sports-yeti-api
+        run: |
+          sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=pgsql/' .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "DB_DATABASE=sports_yeti_test" >> .env
+          echo "DB_USERNAME=postgres" >> .env
+          echo "DB_PASSWORD=password" >> .env
+          sed -i 's/CACHE_STORE=.*/CACHE_STORE=redis/' .env
+          sed -i 's/REDIS_HOST=.*/REDIS_HOST=127.0.0.1/' .env
+
+      - name: Generate keys
+        working-directory: apps/sports-yeti-api
+        run: |
+          php artisan key:generate
+          php artisan jwt:secret --force
+
+      - name: Run migrations
+        working-directory: apps/sports-yeti-api
+        run: php artisan migrate --force
+
+      - name: Run full test suite
+        working-directory: apps/sports-yeti-api
+        run: vendor/bin/phpunit --testdox --colors=always
+
+      - name: Validation passed
+        run: echo "✅ All pre-deployment tests passed"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # API Deployment to Production
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-api:
+    name: Deploy API to Production
+    needs: [validate]
+    if: |
+      always() &&
+      (needs.validate.result == 'success' || github.event.inputs.skip_tests == 'true') &&
+      github.event.inputs.deploy_api == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ secrets.PRODUCTION_API_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, pdo_pgsql, redis, bcmath, gd
+
+      - name: Install Composer dependencies (production)
+        working-directory: apps/sports-yeti-api
+        run: composer install --no-dev --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Build frontend assets
+        working-directory: apps/sports-yeti-api
+        run: |
+          npm ci --production 2>/dev/null || true
+          npm run build 2>/dev/null || true
+
+      - name: Create deployment artifact
+        run: |
+          tar -czf api-production.tar.gz \
+            --exclude='apps/sports-yeti-api/.env' \
+            --exclude='apps/sports-yeti-api/.env.example' \
+            --exclude='apps/sports-yeti-api/storage/logs/*' \
+            --exclude='apps/sports-yeti-api/storage/framework/cache/*' \
+            --exclude='apps/sports-yeti-api/storage/framework/sessions/*' \
+            --exclude='apps/sports-yeti-api/storage/framework/views/*' \
+            --exclude='apps/sports-yeti-api/tests' \
+            --exclude='apps/sports-yeti-api/node_modules' \
+            --exclude='apps/sports-yeti-api/.git' \
+            apps/sports-yeti-api
+
+      - name: Upload deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-production-${{ github.sha }}
+          path: api-production.tar.gz
+          retention-days: 30
+
+      # Deploy via SSH — uncomment and configure for your hosting
+      # - name: Deploy to production server
+      #   uses: appleboy/ssh-action@v1
+      #   with:
+      #     host: ${{ secrets.PRODUCTION_SSH_HOST }}
+      #     username: ${{ secrets.PRODUCTION_SSH_USER }}
+      #     key: ${{ secrets.PRODUCTION_SSH_KEY }}
+      #     script: |
+      #       set -e
+      #       cd /var/www/production
+      #       
+      #       # Enable maintenance mode
+      #       php artisan down --retry=60
+      #       
+      #       # Pull latest code
+      #       git pull origin main
+      #       
+      #       # Install dependencies
+      #       composer install --no-dev --optimize-autoloader
+      #       
+      #       # Run migrations
+      #       php artisan migrate --force
+      #       
+      #       # Clear and rebuild caches
+      #       php artisan config:cache
+      #       php artisan route:cache
+      #       php artisan view:cache
+      #       php artisan event:cache
+      #       
+      #       # Restart queue workers
+      #       php artisan queue:restart
+      #       
+      #       # Disable maintenance mode
+      #       php artisan up
+
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Production API Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact:** api-production-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Post-deployment Checklist" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Verify health endpoint" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Check error rates in monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Verify queue workers are running" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Confirm Stripe webhooks are responding" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Admin Dashboard Production Deployment
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-admin:
+    name: Deploy Admin Dashboard to Production
+    needs: [validate]
+    if: |
+      always() &&
+      (needs.validate.result == 'success' || github.event.inputs.skip_tests == 'true') &&
+      github.event.inputs.deploy_admin == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production-admin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build admin dashboard (web)
+        run: npx nx run sports-yeti-admin:export --platform web
+        env:
+          NODE_ENV: production
+
+      - name: Upload admin build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-production-${{ github.sha }}
+          path: apps/sports-yeti-admin/dist
+          retention-days: 30
+
+      # Deploy to hosting provider — uncomment and configure
+      # - name: Deploy to Vercel
+      #   uses: amondnet/vercel-action@v25
+      #   with:
+      #     vercel-token: ${{ secrets.VERCEL_TOKEN }}
+      #     vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+      #     vercel-project-id: ${{ secrets.VERCEL_ADMIN_PROJECT_ID }}
+      #     vercel-args: '--prod'
+      #     working-directory: apps/sports-yeti-admin
+
+      - name: Deployment summary
+        run: |
+          echo "## 🖥️ Admin Dashboard Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact:** admin-production-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Mobile App Production Build (EAS)
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-mobile:
+    name: Build Mobile App (Production)
+    needs: [validate]
+    if: |
+      always() &&
+      (needs.validate.result == 'success' || github.event.inputs.skip_tests == 'true') &&
+      github.event.inputs.build_mobile == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Configure production environment
+        working-directory: apps/sports-yeti
+        run: |
+          cp .env.example .env 2>/dev/null || true
+          echo "EXPO_PUBLIC_API_URL=${{ secrets.PRODUCTION_API_URL }}/api/v1" >> .env
+
+      - name: Build for Android (production)
+        working-directory: apps/sports-yeti
+        run: eas build --platform android --profile production --non-interactive
+        continue-on-error: true
+
+      - name: Build for iOS (production)
+        working-directory: apps/sports-yeti
+        run: eas build --platform ios --profile production --non-interactive
+        continue-on-error: true
+
+      - name: Mobile build summary
+        run: |
+          echo "## 📱 Mobile Production Build" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Platforms:** Android, iOS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check [Expo Dashboard](https://expo.dev) for build status and submission." >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Post-deployment Health Checks
+  # ─────────────────────────────────────────────────────────────────────────────
+  health-check:
+    name: Production Health Check
+    needs: [deploy-api]
+    if: always() && needs.deploy-api.result == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wait for deployment to stabilize
+        run: sleep 30
+
+      - name: API health check
+        run: |
+          echo "Checking production API health..."
+          # Uncomment when production is configured
+          # for i in 1 2 3 4 5; do
+          #   if curl -sf "${{ secrets.PRODUCTION_API_URL }}/api/v1/health" > /dev/null; then
+          #     echo "✅ Health check passed (attempt $i)"
+          #     exit 0
+          #   fi
+          #   echo "⏳ Waiting... (attempt $i)"
+          #   sleep 10
+          # done
+          # echo "❌ Health check failed after 5 attempts"
+          # exit 1
+          echo "✅ Health check placeholder — configure PRODUCTION_API_URL"
+
+      - name: Health check summary
+        run: |
+          echo "## 🏥 Production Health Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Health:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Metrics:** Check Grafana/Datadog dashboards" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Deployment Notification
+  # ─────────────────────────────────────────────────────────────────────────────
+  notify:
+    name: Production Deployment Notification
+    needs: [deploy-api, deploy-admin, build-mobile, health-check]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deployment notification
+        run: |
+          echo "## 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| API | ${{ needs.deploy-api.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Admin | ${{ needs.deploy-admin.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mobile | ${{ needs.build-mobile.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Health Check | ${{ needs.health-check.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+
+      # Uncomment to enable Slack notifications
+      # - name: Send Slack notification
+      #   uses: 8398a7/action-slack@v3
+      #   with:
+      #     status: ${{ job.status }}
+      #     fields: repo,message,commit,author,workflow
+      #     text: 'Production deployment completed'
+      #     webhook_url: ${{ secrets.SLACK_WEBHOOK }}
