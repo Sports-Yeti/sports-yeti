@@ -1,0 +1,148 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Laravel API (PHP-FPM + Nginx)
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./apps/sports-yeti-api
+      dockerfile: Dockerfile
+    container_name: sports-yeti-api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./apps/sports-yeti-api:/var/www/html
+      - api-vendor:/var/www/html/vendor
+      - api-node-modules:/var/www/html/node_modules
+    env_file:
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sports-yeti
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Queue Worker
+  # ---------------------------------------------------------------------------
+  queue-worker:
+    build:
+      context: ./apps/sports-yeti-api
+      dockerfile: Dockerfile
+    container_name: sports-yeti-queue
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    volumes:
+      - ./apps/sports-yeti-api:/var/www/html
+      - api-vendor:/var/www/html/vendor
+    env_file:
+      - .env.docker
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - sports-yeti
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Task Scheduler
+  # ---------------------------------------------------------------------------
+  scheduler:
+    build:
+      context: ./apps/sports-yeti-api
+      dockerfile: Dockerfile
+    container_name: sports-yeti-scheduler
+    command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"
+    volumes:
+      - ./apps/sports-yeti-api:/var/www/html
+      - api-vendor:/var/www/html/vendor
+    env_file:
+      - .env.docker
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - sports-yeti
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: sports-yeti-postgres
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-sports_yeti}
+      POSTGRES_USER: ${DB_USERNAME:-sports_yeti}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-sports_yeti}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sports-yeti
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: sports-yeti-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sports-yeti
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Mailpit (local email testing)
+  # ---------------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: sports-yeti-mailpit
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+    networks:
+      - sports-yeti
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Admin Dashboard (Expo Web)
+  # ---------------------------------------------------------------------------
+  admin:
+    build:
+      context: .
+      dockerfile: apps/sports-yeti-admin/Dockerfile
+    container_name: sports-yeti-admin
+    ports:
+      - "${ADMIN_PORT:-19006}:19006"
+    environment:
+      - EXPO_PUBLIC_API_URL=http://localhost:${API_PORT:-8000}/api/v1
+    networks:
+      - sports-yeti
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  api-vendor:
+  api-node-modules:
+
+networks:
+  sports-yeti:
+    driver: bridge
