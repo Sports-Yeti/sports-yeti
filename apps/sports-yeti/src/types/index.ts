@@ -275,3 +275,47 @@ export interface Notification {
   read_at: string | null;
   created_at: string;
 }
+
+// Highlight types
+export interface HighlightClip {
+  id: string;
+  highlight_id: string;
+  clip_path: string;
+  thumbnail_path: string | null;
+  clip_url: string;
+  thumbnail_url: string | null;
+  title: string;
+  description: string;
+  start_time: number;
+  end_time: number;
+  excitement_score: number;
+  sort_order: number;
+}
+
+export interface HighlightSummary {
+  id: string;
+  user_id: number;
+  post_id: string | null;
+  status: 'pending_payment' | 'processing' | 'completed' | 'failed';
+  source_video_path: string;
+  source_video_duration: number | null;
+  ai_cost: string;
+  error_message: string | null;
+  completed_at: string | null;
+  created_at: string;
+  clips_count: number;
+}
+
+export interface HighlightDetail extends HighlightSummary {
+  analysis: {
+    highlights: Array<{
+      title: string;
+      description: string;
+      start_time: number;
+      end_time: number;
+      excitement_score: number;
+    }>;
+    summary: string;
+  } | null;
+  clips: HighlightClip[];
+}

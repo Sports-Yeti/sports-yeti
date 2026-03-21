@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CommentController;
 use App\Http\Controllers\Api\V1\FacilityController;
 use App\Http\Controllers\Api\V1\GameController;
+use App\Http\Controllers\Api\V1\HighlightController;
 use App\Http\Controllers\Api\V1\LeagueController;
 use App\Http\Controllers\Api\V1\LeagueNewsController;
 use App\Http\Controllers\Api\V1\MetricsController;
@@ -198,6 +199,17 @@ Route::prefix('v1')->group(function () {
             Route::put('/{comment}', [CommentController::class, 'update']);
             Route::delete('/{comment}', [CommentController::class, 'destroy']);
             Route::get('/{comment}/replies', [CommentController::class, 'replies']);
+        });
+
+        // Highlights Studio
+        Route::prefix('highlights')->group(function () {
+            Route::get('/', [HighlightController::class, 'index']);
+            Route::post('/upload', [HighlightController::class, 'uploadVideo']);
+            Route::post('/generate', [HighlightController::class, 'generate']);
+            Route::get('/{highlight}', [HighlightController::class, 'show']);
+            Route::get('/{highlight}/clips/{clip}/download', [HighlightController::class, 'downloadClip']);
+            Route::post('/{highlight}/share', [HighlightController::class, 'shareToFeed']);
+            Route::delete('/{highlight}', [HighlightController::class, 'destroy']);
         });
 
         // League News (nested under leagues)

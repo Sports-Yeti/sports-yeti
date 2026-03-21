@@ -11,6 +11,8 @@ import type {
   Camp,
   Facility,
   Game,
+  HighlightDetail,
+  HighlightSummary,
   League,
   LoginCredentials,
   Player,
@@ -470,6 +472,107 @@ class ApiService {
 
   async updatePushToken(token: string): Promise<void> {
     await this.client.put('/notifications/push-token', { expo_push_token: token });
+  }
+
+  // Highlights Studio
+  async uploadVideo(
+    uri: string,
+    onProgress?: (progress: number) => void
+  ): Promise<{ video_path: string; price: number; currency: string }> {
+    const formData = new FormData();
+    formData.append('video', {
+      uri,
+      type: 'video/mp4',
+      name: 'upload.mp4',
+    } as unknown as Blob);
+
+    const response = await this.client.post<{
+      data: { video_path: string; price: number; currency: string };
+    }>('/highlights/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000,
+      onUploadProgress: (event) => {
+        if (onProgress && event.total) {
+          onProgress(Math.round((event.loaded * 100) / event.total));
+        }
+      },
+    });
+    return response.data.data;
+  }
+
+  async createHighlightPaymentIntent(amount: number): Promise<{
+    payment: { id: string; stripe_payment_intent_id: string };
+    client_secret: string;
+  }> {
+    const response = await this.client.post<{
+      data: {
+        payment: { id: string; stripe_payment_intent_id: string };
+        client_secret: string;
+      };
+    }>('/payments/intent', {
+      amount,
+      type: 'highlight_generation',
+      payable_type: 'App\\Models\\Highlight',
+      payable_id: '00000000-0000-0000-0000-000000000000',
+    });
+    return response.data.data;
+  }
+
+  async generateHighlights(
+    videoPath: string,
+    paymentIntentId: string
+  ): Promise<{ id: string; status: string }> {
+    const response = await this.client.post<{
+      data: { id: string; status: string };
+    }>('/highlights/generate', {
+      video_path: videoPath,
+      payment_intent_id: paymentIntentId,
+    });
+    return response.data.data;
+  }
+
+  async getHighlights(
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<HighlightSummary[]>> {
+    const response = await this.client.get<ApiResponse<HighlightSummary[]>>(
+      '/highlights',
+      { params }
+    );
+    return response.data;
+  }
+
+  async getHighlight(id: string): Promise<HighlightDetail> {
+    const response = await this.client.get<{ data: HighlightDetail }>(
+      `/highlights/${id}`
+    );
+    return response.data.data;
+  }
+
+  async getClipDownloadUrl(
+    highlightId: string,
+    clipId: string
+  ): Promise<{ download_url: string; expires_at: string; filename: string }> {
+    const response = await this.client.get<{
+      data: { download_url: string; expires_at: string; filename: string };
+    }>(`/highlights/${highlightId}/clips/${clipId}/download`);
+    return response.data.data;
+  }
+
+  async shareHighlightToFeed(
+    highlightId: string,
+    clipIds: string[],
+    caption?: string,
+    visibility?: string
+  ): Promise<{ id: string }> {
+    const response = await this.client.post<{ data: { id: string } }>(
+      `/highlights/${highlightId}/share`,
+      { clip_ids: clipIds, caption, visibility }
+    );
+    return response.data.data;
+  }
+
+  async deleteHighlight(id: string): Promise<void> {
+    await this.client.delete(`/highlights/${id}`);
   }
 }
 

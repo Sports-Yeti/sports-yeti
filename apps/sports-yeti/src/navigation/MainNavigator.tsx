@@ -17,12 +17,16 @@ import {
   CampDetailScreen,
   ChatScreen,
   ScannerScreen,
+  MyHighlightsScreen,
+  HighlightUploadScreen,
+  HighlightDetailScreen,
 } from '../screens';
 import { COLORS } from '../constants';
 
 export type MainTabParamList = {
   Dashboard: undefined;
   Games: undefined;
+  Highlights: undefined;
   Facilities: undefined;
   Profile: undefined;
 };
@@ -39,6 +43,8 @@ export type RootStackParamList = {
   Bookings: undefined;
   Scanner: undefined;
   Chat: { chatId: string; title?: string };
+  HighlightUpload: undefined;
+  HighlightDetail: { id: string };
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -48,6 +54,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
     Dashboard: '🏠',
     Games: '🏀',
+    Highlights: '🎬',
     Facilities: '🏟️',
     Profile: '👤',
   };
@@ -91,6 +98,14 @@ function MainTabs() {
         options={{
           title: 'Games',
           headerTitle: 'Games',
+        }}
+      />
+      <Tab.Screen
+        name="Highlights"
+        component={MyHighlightsScreen}
+        options={{
+          title: 'Highlights',
+          headerTitle: 'Highlights Studio',
         }}
       />
       <Tab.Screen
@@ -183,6 +198,16 @@ export function MainNavigator() {
         options={({ route }) => ({
           title: route.params?.title || 'Chat',
         })}
+      />
+      <Stack.Screen
+        name="HighlightUpload"
+        component={HighlightUploadScreen}
+        options={{ title: 'New Highlight' }}
+      />
+      <Stack.Screen
+        name="HighlightDetail"
+        component={HighlightDetailScreen}
+        options={{ title: 'Highlight Details' }}
       />
     </Stack.Navigator>
   );

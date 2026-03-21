@@ -33,3 +33,8 @@ export { ChatScreen } from './chat/ChatScreen';
 
 // Scanner screens
 export { ScannerScreen } from './scanner/ScannerScreen';
+
+// Highlights screens
+export { MyHighlightsScreen } from './highlights/MyHighlightsScreen';
+export { HighlightUploadScreen } from './highlights/HighlightUploadScreen';
+export { HighlightDetailScreen } from './highlights/HighlightDetailScreen';

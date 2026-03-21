@@ -39,6 +39,7 @@ FROM php:8.4-fpm-alpine
 RUN apk add --no-cache \
     nginx \
     supervisor \
+    ffmpeg \
     postgresql-dev \
     libpng-dev \
     libjpeg-turbo-dev \

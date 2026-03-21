@@ -66,7 +66,7 @@ class PaymentController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'amount' => ['required', 'numeric', 'min:1'],
-            'type' => ['required', 'string', 'in:league_registration,camp_registration,facility_booking'],
+            'type' => ['required', 'string', 'in:league_registration,camp_registration,facility_booking,highlight_generation'],
             'payable_type' => ['required', 'string'],
             'payable_id' => ['required', 'uuid'],
             'league_id' => ['nullable', 'uuid', 'exists:leagues,id'],
