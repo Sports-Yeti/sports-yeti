@@ -76,7 +76,7 @@ class AuthController extends Controller
 
     public function me(): JsonResponse
     {
-        $user = auth()->user();
+        $user = auth('api')->user();
         if (! $user) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/401',
@@ -106,7 +106,17 @@ class AuthController extends Controller
 
     public function refresh(): JsonResponse
     {
-        $token = JWTAuth::refresh(JWTAuth::getToken());
+        $currentToken = JWTAuth::getToken();
+        if (! $currentToken) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/401',
+                'title' => 'Unauthorized',
+                'status' => 401,
+                'detail' => 'Token not provided.',
+            ], 401);
+        }
+
+        $token = JWTAuth::refresh($currentToken);
 
         return response()->json([
             'data' => [
