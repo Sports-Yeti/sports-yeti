@@ -60,7 +60,7 @@ export function HighlightUploadScreen({
         setUploadProgress(progress);
       });
       setVideoPath(uploadResult.video_path);
-      setPrice(uploadResult.price);
+      setPrice(Number(uploadResult.price) || 0);
       setUploading(false);
       setStep('confirm');
     } catch {

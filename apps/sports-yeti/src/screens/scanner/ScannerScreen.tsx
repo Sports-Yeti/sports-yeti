@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { BarCodeScanner, BarCodeScannerResult } from 'expo-barcode-scanner';
+import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { COLORS, SPACING, FONT_SIZES } from '../../constants';
 import { api } from '../../services/api';
 
@@ -24,27 +24,24 @@ interface ScannerScreenProps {
 }
 
 export function ScannerScreen({ navigation, route }: ScannerScreenProps) {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const scanType = route.params?.type || 'booking';
 
   useEffect(() => {
-    const requestPermission = async () => {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
-      setHasPermission(status === 'granted');
-    };
-    requestPermission();
-  }, []);
+    if (!permission?.granted) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
 
-  const handleBarCodeScanned = async ({ data }: BarCodeScannerResult) => {
+  const handleBarcodeScanned = async ({ data }: BarcodeScanningResult) => {
     if (scanned || isProcessing) return;
 
     setScanned(true);
     setIsProcessing(true);
 
     try {
-      // Process the QR code based on type
       const result = await api.checkIn(data);
 
       Alert.alert(
@@ -93,7 +90,7 @@ export function ScannerScreen({ navigation, route }: ScannerScreenProps) {
     }
   };
 
-  if (hasPermission === null) {
+  if (!permission) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -102,7 +99,7 @@ export function ScannerScreen({ navigation, route }: ScannerScreenProps) {
     );
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorEmoji}>📷</Text>
@@ -122,10 +119,11 @@ export function ScannerScreen({ navigation, route }: ScannerScreenProps) {
 
   return (
     <View style={styles.container}>
-      <BarCodeScanner
-        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+      <CameraView
         style={StyleSheet.absoluteFillObject}
-        barCodeTypes={[BarCodeScanner.Constants.BarCodeType.qr]}
+        facing="back"
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
       />
 
       {/* Overlay */}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Models\Player;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -23,6 +24,11 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@sportsyeti.com',
         ]);
         $superAdmin->assignRole('super-admin');
+        Player::create([
+            'user_id' => $superAdmin->id,
+            'experience_level' => 'advanced',
+            'availability_status' => 'available',
+        ]);
 
         // Create a test league admin user
         $leagueAdmin = User::factory()->create([
@@ -30,6 +36,11 @@ class DatabaseSeeder extends Seeder
             'email' => 'leagueadmin@sportsyeti.com',
         ]);
         $leagueAdmin->assignRole('league-admin');
+        Player::create([
+            'user_id' => $leagueAdmin->id,
+            'experience_level' => 'intermediate',
+            'availability_status' => 'available',
+        ]);
 
         // Create a test player user
         $player = User::factory()->create([
@@ -37,5 +48,10 @@ class DatabaseSeeder extends Seeder
             'email' => 'player@sportsyeti.com',
         ]);
         $player->assignRole('player');
+        Player::create([
+            'user_id' => $player->id,
+            'experience_level' => 'beginner',
+            'availability_status' => 'available',
+        ]);
     }
 }

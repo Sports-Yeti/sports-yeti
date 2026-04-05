@@ -7,14 +7,14 @@ WORKDIR /app
 
 COPY composer.json composer.lock ./
 RUN composer install \
-    --no-dev \
     --no-scripts \
     --no-autoloader \
     --prefer-dist \
-    --no-interaction
+    --no-interaction \
+    --ignore-platform-reqs
 
 COPY . .
-RUN composer dump-autoload --optimize --no-dev
+RUN composer dump-autoload --optimize
 
 # =============================================================================
 # Stage 2: Frontend assets
@@ -23,8 +23,8 @@ FROM node:20-alpine AS node
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci
+COPY package.json ./
+RUN npm install
 
 COPY vite.config.js postcss.config.js tailwind.config.js ./
 COPY resources/ resources/
