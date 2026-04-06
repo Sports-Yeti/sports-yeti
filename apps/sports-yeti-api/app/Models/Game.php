@@ -103,4 +103,9 @@ class Game extends Model
     {
         return $this->hasOne(Chat::class);
     }
+
+    public function refereeAssignments(): HasMany
+    {
+        return $this->hasMany(RefereeAssignment::class);
+    }
 }
