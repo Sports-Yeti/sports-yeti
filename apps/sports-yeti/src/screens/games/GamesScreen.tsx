@@ -138,6 +138,13 @@ export function GamesScreen({ navigation }: GamesScreenProps) {
           <Text style={styles.emptyText}>No games scheduled</Text>
         }
       />
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('CreateGame')}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -236,5 +243,27 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     marginTop: SPACING.xl,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: SPACING.lg,
+    right: SPACING.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  fabText: {
+    color: COLORS.textLight,
+    fontSize: 28,
+    fontWeight: '400',
+    lineHeight: 30,
   },
 });

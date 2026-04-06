@@ -201,6 +201,53 @@ export interface Game {
   facility?: Facility;
 }
 
+// Referee types
+export interface Referee {
+  id: string;
+  user_id: number;
+  league_id: string | null;
+  sport_types: string[];
+  experience_level: string;
+  certification: string | null;
+  hourly_rate: number;
+  rating: number;
+  total_games: number;
+  is_available: boolean;
+  bio: string | null;
+  created_at: string;
+  user?: User;
+  league?: League;
+}
+
+export interface RefereeAssignment {
+  id: string;
+  referee_id: string;
+  game_id: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'completed';
+  assigned_rate: number;
+  is_bidding: boolean;
+  bid_amount: number | null;
+  admin_approved: boolean;
+  report: string | null;
+  rating_given: number | null;
+  referee?: Referee;
+  game?: Game;
+}
+
+export interface RefereeEarnings {
+  total_earned: number;
+  pending_payouts: number;
+  completed_games: number;
+  average_rating: number;
+  recent_earnings: Array<{
+    id: string;
+    game_id: string;
+    amount: number;
+    date: string;
+    game?: Game;
+  }>;
+}
+
 // Chat types
 export interface Chat {
   id: string;

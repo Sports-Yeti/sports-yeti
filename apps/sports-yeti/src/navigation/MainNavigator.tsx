@@ -8,6 +8,7 @@ import {
   FacilityDetailScreen,
   GamesScreen,
   GameDetailScreen,
+  CreateGameScreen,
   ProfileScreen,
   TeamsScreen,
   TeamDetailScreen,
@@ -20,31 +21,44 @@ import {
   MyHighlightsScreen,
   HighlightUploadScreen,
   HighlightDetailScreen,
+  MarketplaceScreen,
+  MessagesScreen,
+  AvailableGamesScreen,
+  MyAssignmentsScreen,
+  RefereeEarningsScreen,
+  RefereeProfileScreen,
 } from '../screens';
 import { COLORS } from '../constants';
 
 export type MainTabParamList = {
   Dashboard: undefined;
   Games: undefined;
-  Highlights: undefined;
-  Facilities: undefined;
+  Teams: undefined;
+  Marketplace: undefined;
+  Messages: undefined;
   Profile: undefined;
 };
 
 export type RootStackParamList = {
   MainTabs: undefined;
   GameDetails: { id: string };
+  CreateGame: undefined;
   FacilityDetails: { id: string };
   BookingDetails: { id: string };
   CampDetails: { id: string };
   TeamDetails: { id: string };
-  Teams: undefined;
   Camps: undefined;
-  Bookings: undefined;
+  Bookings: { spaceId?: string; facilityId?: string };
   Scanner: undefined;
   Chat: { chatId: string; title?: string };
   HighlightUpload: undefined;
   HighlightDetail: { id: string };
+  Highlights: undefined;
+  Facilities: undefined;
+  RefereeAvailableGames: undefined;
+  RefereeMyAssignments: undefined;
+  RefereeEarnings: undefined;
+  RefereeProfile: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -54,8 +68,9 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
     Dashboard: '🏠',
     Games: '🏀',
-    Highlights: '🎬',
-    Facilities: '🏟️',
+    Teams: '👥',
+    Marketplace: '🏪',
+    Messages: '💬',
     Profile: '👤',
   };
 
@@ -101,19 +116,27 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="Highlights"
-        component={MyHighlightsScreen}
+        name="Teams"
+        component={TeamsScreen}
         options={{
-          title: 'Highlights',
-          headerTitle: 'Highlights Studio',
+          title: 'Teams',
+          headerTitle: 'Teams',
         }}
       />
       <Tab.Screen
-        name="Facilities"
-        component={FacilitiesScreen}
+        name="Marketplace"
+        component={MarketplaceScreen}
         options={{
-          title: 'Facilities',
-          headerTitle: 'Facilities',
+          title: 'Marketplace',
+          headerTitle: 'Marketplace',
+        }}
+      />
+      <Tab.Screen
+        name="Messages"
+        component={MessagesScreen}
+        options={{
+          title: 'Messages',
+          headerTitle: 'Messages',
         }}
       />
       <Tab.Screen
@@ -153,6 +176,11 @@ export function MainNavigator() {
         options={{ title: 'Game Details' }}
       />
       <Stack.Screen
+        name="CreateGame"
+        component={CreateGameScreen}
+        options={{ title: 'Create Game' }}
+      />
+      <Stack.Screen
         name="FacilityDetails"
         component={FacilityDetailScreen}
         options={{ title: 'Facility Details' }}
@@ -171,11 +199,6 @@ export function MainNavigator() {
         name="TeamDetails"
         component={TeamDetailScreen}
         options={{ title: 'Team Details' }}
-      />
-      <Stack.Screen
-        name="Teams"
-        component={TeamsScreen}
-        options={{ title: 'Find Teams' }}
       />
       <Stack.Screen
         name="Camps"
@@ -208,6 +231,36 @@ export function MainNavigator() {
         name="HighlightDetail"
         component={HighlightDetailScreen}
         options={{ title: 'Highlight Details' }}
+      />
+      <Stack.Screen
+        name="Highlights"
+        component={MyHighlightsScreen}
+        options={{ title: 'Highlights Studio' }}
+      />
+      <Stack.Screen
+        name="Facilities"
+        component={FacilitiesScreen}
+        options={{ title: 'Facilities' }}
+      />
+      <Stack.Screen
+        name="RefereeAvailableGames"
+        component={AvailableGamesScreen}
+        options={{ title: 'Available Games' }}
+      />
+      <Stack.Screen
+        name="RefereeMyAssignments"
+        component={MyAssignmentsScreen}
+        options={{ title: 'My Assignments' }}
+      />
+      <Stack.Screen
+        name="RefereeEarnings"
+        component={RefereeEarningsScreen}
+        options={{ title: 'Earnings' }}
+      />
+      <Stack.Screen
+        name="RefereeProfile"
+        component={RefereeProfileScreen}
+        options={{ title: 'Referee Profile' }}
       />
     </Stack.Navigator>
   );

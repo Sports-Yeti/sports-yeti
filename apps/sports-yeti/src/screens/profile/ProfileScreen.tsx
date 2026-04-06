@@ -27,11 +27,15 @@ export function ProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Edit fields
   const [bio, setBio] = useState('');
   const [experienceLevel, setExperienceLevel] = useState('beginner');
   const [availabilityStatus, setAvailabilityStatus] = useState('available');
   const [isPrivate, setIsPrivate] = useState(false);
+  const [availableToSub, setAvailableToSub] = useState(false);
+  const [certifications, setCertifications] = useState('');
+  const [showStats, setShowStats] = useState(true);
+  const [showHighlights, setShowHighlights] = useState(true);
+  const [showTeams, setShowTeams] = useState(true);
 
   const loadPlayer = async () => {
     try {
@@ -41,6 +45,12 @@ export function ProfileScreen() {
       setExperienceLevel(playerData.experience_level);
       setAvailabilityStatus(playerData.availability_status);
       setIsPrivate(playerData.is_private);
+      const stats = playerData.stats as Record<string, unknown> | null;
+      setAvailableToSub(Boolean(stats?.available_to_sub));
+      setCertifications(String(stats?.certifications ?? ''));
+      setShowStats(stats?.show_stats !== false);
+      setShowHighlights(stats?.show_highlights !== false);
+      setShowTeams(stats?.show_teams !== false);
     } catch (error) {
       console.error('Failed to load player:', error);
     } finally {
@@ -62,11 +72,19 @@ export function ProfileScreen() {
         experience_level: experienceLevel as Player['experience_level'],
         availability_status: availabilityStatus as Player['availability_status'],
         is_private: isPrivate,
+        stats: {
+          ...(player.stats as Record<string, unknown> ?? {}),
+          available_to_sub: availableToSub,
+          certifications,
+          show_stats: showStats,
+          show_highlights: showHighlights,
+          show_teams: showTeams,
+        },
       });
       setPlayer(updatedPlayer);
       setIsEditing(false);
       Alert.alert('Success', 'Profile updated successfully');
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to update profile');
     } finally {
       setIsSaving(false);
@@ -104,13 +122,24 @@ export function ProfileScreen() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>0</Text>
+          <Text style={styles.statValue}>
+            {Number((player?.stats as Record<string, unknown>)?.games_played ?? 0)}
+          </Text>
           <Text style={styles.statLabel}>Games</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>0</Text>
+          <Text style={styles.statValue}>
+            {Number((player?.stats as Record<string, unknown>)?.camps_attended ?? 0)}
+          </Text>
           <Text style={styles.statLabel}>Camps</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>
+            {Number((player?.stats as Record<string, unknown>)?.highlights_count ?? 0)}
+          </Text>
+          <Text style={styles.statLabel}>Highlights</Text>
         </View>
       </View>
 
@@ -222,6 +251,30 @@ export function ProfileScreen() {
                 />
               </View>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.privacyToggle}
+              onPress={() => setAvailableToSub(!availableToSub)}
+            >
+              <Text style={styles.privacyLabel}>Available to Sub</Text>
+              <View
+                style={[styles.toggle, availableToSub && styles.toggleActive]}
+              >
+                <View
+                  style={[styles.toggleThumb, availableToSub && styles.toggleThumbActive]}
+                />
+              </View>
+            </TouchableOpacity>
+
+            <Text style={styles.inputLabel}>Certifications</Text>
+            <TextInput
+              style={styles.textArea}
+              value={certifications}
+              onChangeText={setCertifications}
+              placeholder="CPR, First Aid, Coaching License..."
+              multiline
+              numberOfLines={2}
+            />
           </>
         ) : (
           <>
@@ -251,6 +304,20 @@ export function ProfileScreen() {
             </View>
 
             <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Available to Sub</Text>
+              <Text style={[styles.infoValue, { color: availableToSub ? COLORS.success : COLORS.textSecondary }]}>
+                {availableToSub ? 'Yes' : 'No'}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Certifications</Text>
+              <Text style={styles.infoValue}>
+                {certifications || 'None'}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Profile</Text>
               <Text style={styles.infoValue}>
                 {player?.is_private ? 'Private' : 'Public'}
@@ -258,6 +325,29 @@ export function ProfileScreen() {
             </View>
           </>
         )}
+      </View>
+
+      {/* Profile Visibility */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Profile Visibility</Text>
+        <TouchableOpacity style={styles.privacyToggle} onPress={() => setShowStats(!showStats)}>
+          <Text style={styles.privacyLabel}>Show Stats</Text>
+          <View style={[styles.toggle, showStats && styles.toggleActive]}>
+            <View style={[styles.toggleThumb, showStats && styles.toggleThumbActive]} />
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.privacyToggle} onPress={() => setShowHighlights(!showHighlights)}>
+          <Text style={styles.privacyLabel}>Show Highlights</Text>
+          <View style={[styles.toggle, showHighlights && styles.toggleActive]}>
+            <View style={[styles.toggleThumb, showHighlights && styles.toggleThumbActive]} />
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.privacyToggle} onPress={() => setShowTeams(!showTeams)}>
+          <Text style={styles.privacyLabel}>Show Teams</Text>
+          <View style={[styles.toggle, showTeams && styles.toggleActive]}>
+            <View style={[styles.toggleThumb, showTeams && styles.toggleThumbActive]} />
+          </View>
+        </TouchableOpacity>
       </View>
 
       {/* Logout */}

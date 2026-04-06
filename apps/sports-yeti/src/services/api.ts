@@ -16,6 +16,9 @@ import type {
   League,
   LoginCredentials,
   Player,
+  Referee,
+  RefereeAssignment,
+  RefereeEarnings,
   RegisterData,
   Team,
   User,
@@ -385,6 +388,19 @@ class ApiService {
     await this.client.post(`/games/${gameId}/attendance`, { response });
   }
 
+  async createGame(data: {
+    league_id: string;
+    team1_id: string;
+    team2_id: string;
+    facility_id?: string;
+    space_id?: string;
+    scheduled_at: string;
+    game_type?: string;
+  }): Promise<Game> {
+    const response = await this.client.post<{ data: Game }>('/games', data);
+    return response.data.data;
+  }
+
   // Chats
   async getChat(chatId: string): Promise<{ data: { id: string; type: string; name: string } }> {
     const response = await this.client.get(`/chats/${chatId}`);
@@ -573,6 +589,91 @@ class ApiService {
 
   async deleteHighlight(id: string): Promise<void> {
     await this.client.delete(`/highlights/${id}`);
+  }
+
+  // Referees
+  async getRefereeProfile(): Promise<Referee> {
+    const response = await this.client.get<{ data: Referee }>('/referees/me');
+    return response.data.data;
+  }
+
+  async createRefereeProfile(
+    data: Partial<Referee>
+  ): Promise<Referee> {
+    const response = await this.client.post<{ data: Referee }>(
+      '/referees',
+      data
+    );
+    return response.data.data;
+  }
+
+  async updateRefereeProfile(
+    id: string,
+    data: Partial<Referee>
+  ): Promise<Referee> {
+    const response = await this.client.put<{ data: Referee }>(
+      `/referees/${id}`,
+      data
+    );
+    return response.data.data;
+  }
+
+  async getAvailableRefereeGames(
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<Game[]>> {
+    const response = await this.client.get<ApiResponse<Game[]>>(
+      '/referees/available-games',
+      { params }
+    );
+    return response.data;
+  }
+
+  async acceptRefereeAssignment(
+    assignmentId: string
+  ): Promise<RefereeAssignment> {
+    const response = await this.client.post<{ data: RefereeAssignment }>(
+      `/referees/assignments/${assignmentId}/accept`
+    );
+    return response.data.data;
+  }
+
+  async submitRefereeBid(
+    gameId: string,
+    data: { bid_amount: number }
+  ): Promise<RefereeAssignment> {
+    const response = await this.client.post<{ data: RefereeAssignment }>(
+      `/referees/games/${gameId}/bid`,
+      data
+    );
+    return response.data.data;
+  }
+
+  async getMyRefereeAssignments(
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<RefereeAssignment[]>> {
+    const response = await this.client.get<ApiResponse<RefereeAssignment[]>>(
+      '/referees/me/assignments',
+      { params }
+    );
+    return response.data;
+  }
+
+  async getRefereeEarnings(): Promise<RefereeEarnings> {
+    const response = await this.client.get<{ data: RefereeEarnings }>(
+      '/referees/me/earnings'
+    );
+    return response.data.data;
+  }
+
+  async submitRefereeReport(
+    assignmentId: string,
+    data: { report: string; rating?: number }
+  ): Promise<RefereeAssignment> {
+    const response = await this.client.post<{ data: RefereeAssignment }>(
+      `/referees/assignments/${assignmentId}/report`,
+      data
+    );
+    return response.data.data;
   }
 }
 
