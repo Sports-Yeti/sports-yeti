@@ -306,7 +306,7 @@ export function LeagueDetailScreen() {
               />
               <StatCard
                 title="Registration Fee"
-                value={`$${league.registration_fee?.toFixed(2) ?? '0.00'}`}
+                value={`$${Number(league.registration_fee ?? 0).toFixed(2)}`}
                 icon="💰"
                 color={COLORS.warning}
               />

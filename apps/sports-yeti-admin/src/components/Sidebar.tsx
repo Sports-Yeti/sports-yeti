@@ -114,20 +114,20 @@ const styles = StyleSheet.create({
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
     paddingHorizontal: SPACING.md,
     borderRadius: 8,
-    marginBottom: SPACING.xs,
+    marginBottom: 2,
   },
   navItemActive: {
     backgroundColor: COLORS.sidebarActive,
   },
   navIcon: {
-    fontSize: 20,
-    marginRight: SPACING.md,
+    fontSize: 18,
+    marginRight: SPACING.sm + 2,
   },
   navLabel: {
-    fontSize: FONT_SIZES.md,
+    fontSize: FONT_SIZES.sm,
     color: COLORS.textMuted,
     fontWeight: '500',
   },

@@ -96,15 +96,16 @@ export function DashboardScreen() {
   const totalLeagues = stats?.total_leagues ?? leaguesData?.meta?.total ?? 0;
   const totalTeams = stats?.total_teams ?? teamsData?.meta?.total ?? 0;
   const totalPlayers = stats?.total_players ?? playersData?.meta?.total ?? 0;
-  const totalBookings = stats?.total_bookings ?? 0;
-  const revenueThisMonth = stats?.revenue_this_month ?? 0;
-  const activeGames = stats?.active_games ?? 0;
+  const totalGames = stats?.total_games ?? 0;
+  const totalRevenue = stats?.total_revenue ?? 0;
+  const upcomingGames = stats?.upcoming_games ?? 0;
 
   const formatCurrency = (amount: number): string => {
-    if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(1)}k`;
+    const num = Number(amount) || 0;
+    if (num >= 1000) {
+      return `$${(num / 1000).toFixed(1)}k`;
     }
-    return `$${amount.toFixed(0)}`;
+    return `$${num.toFixed(0)}`;
   };
 
   const dashboardStats = [
@@ -130,23 +131,23 @@ export function DashboardScreen() {
       onPress: () => navigation.navigate('Players'),
     },
     {
-      title: 'Total Bookings',
-      value: isLoading ? '...' : totalBookings,
-      icon: '📅',
+      title: 'Total Games',
+      value: isLoading ? '...' : totalGames,
+      icon: '🎮',
       color: COLORS.warning,
-      onPress: () => navigation.navigate('Bookings'),
+      onPress: () => navigation.navigate('Schedule'),
     },
     {
-      title: 'Revenue (MTD)',
-      value: isLoading ? '...' : formatCurrency(revenueThisMonth),
+      title: 'Revenue',
+      value: isLoading ? '...' : formatCurrency(Number(totalRevenue)),
       icon: '💰',
       color: COLORS.accent,
-      onPress: () => navigation.navigate('Payments'),
+      onPress: () => navigation.navigate('Finance'),
     },
     {
-      title: 'Active Games',
-      value: isLoading ? '...' : activeGames,
-      icon: '🎮',
+      title: 'Upcoming Games',
+      value: isLoading ? '...' : upcomingGames,
+      icon: '📅',
       color: COLORS.error,
     },
   ];
