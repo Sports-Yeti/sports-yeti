@@ -7,14 +7,20 @@ import type {
   AuditLog,
   AuthTokens,
   Booking,
+  Camp,
   DashboardStats,
   Facility,
+  Game,
   League,
   LoginCredentials,
   Payment,
   Player,
+  Referee,
+  RefereeAssignment,
   Team,
   User,
+  Waiver,
+  WaiverSignature,
 } from '../types';
 
 const TOKEN_KEY = 'admin_auth_token';
@@ -170,7 +176,7 @@ class AdminApiService {
   // Dashboard
   async getDashboardStats(): Promise<DashboardStats> {
     const response = await this.client.get<{ data: DashboardStats }>(
-      '/admin/dashboard'
+      '/analytics/dashboard'
     );
     return response.data.data;
   }
@@ -401,6 +407,210 @@ class AdminApiService {
   async getAuditLog(id: string): Promise<AuditLog> {
     const response = await this.client.get<{ data: AuditLog }>(`/audit/${id}`);
     return response.data.data;
+  }
+
+  // Referees
+  async getReferees(
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<Referee[]>> {
+    const response = await this.client.get<ApiResponse<Referee[]>>(
+      '/referees',
+      { params }
+    );
+    return response.data;
+  }
+
+  async getReferee(id: string): Promise<Referee> {
+    const response = await this.client.get<{ data: Referee }>(
+      `/referees/${id}`
+    );
+    return response.data.data;
+  }
+
+  async getAvailableGamesForReferees(
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<Game[]>> {
+    const response = await this.client.get<ApiResponse<Game[]>>(
+      '/referees/available-games',
+      { params }
+    );
+    return response.data;
+  }
+
+  async assignReferee(
+    gameId: string,
+    data: { referee_id: string; rate: number; is_bidding?: boolean }
+  ): Promise<RefereeAssignment> {
+    const response = await this.client.post<{ data: RefereeAssignment }>(
+      `/referees/games/${gameId}/bid`,
+      data
+    );
+    return response.data.data;
+  }
+
+  async approveAssignment(assignmentId: string): Promise<RefereeAssignment> {
+    const response = await this.client.post<{ data: RefereeAssignment }>(
+      `/referees/assignments/${assignmentId}/accept`
+    );
+    return response.data.data;
+  }
+
+  async getRefereeAssignments(
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<RefereeAssignment[]>> {
+    const response = await this.client.get<ApiResponse<RefereeAssignment[]>>(
+      '/referees/assignments',
+      { params }
+    );
+    return response.data;
+  }
+
+  // Team status management
+  async updateTeamStatus(teamId: string, status: string): Promise<Team> {
+    const response = await this.client.patch<{ data: Team }>(`/teams/${teamId}/status`, { status });
+    return response.data.data;
+  }
+
+  // Waivers
+  async getWaivers(params?: Record<string, unknown>): Promise<ApiResponse<Waiver[]>> {
+    const response = await this.client.get<ApiResponse<Waiver[]>>('/waivers', { params });
+    return response.data;
+  }
+
+  async getWaiver(id: string): Promise<Waiver> {
+    const response = await this.client.get<{ data: Waiver }>(`/waivers/${id}`);
+    return response.data.data;
+  }
+
+  async createWaiver(data: { league_id: string; title: string; content: string; is_required?: boolean }): Promise<Waiver> {
+    const response = await this.client.post<{ data: Waiver }>('/waivers', data);
+    return response.data.data;
+  }
+
+  async updateWaiver(id: string, data: Partial<Waiver>): Promise<Waiver> {
+    const response = await this.client.put<{ data: Waiver }>(`/waivers/${id}`, data);
+    return response.data.data;
+  }
+
+  async getWaiverSignatures(waiverId: string): Promise<ApiResponse<WaiverSignature[]>> {
+    const response = await this.client.get<ApiResponse<WaiverSignature[]>>(`/waivers/${waiverId}/signatures`);
+    return response.data;
+  }
+
+  // Camps
+  async getCamps(params?: Record<string, unknown>): Promise<ApiResponse<Camp[]>> {
+    const response = await this.client.get<ApiResponse<Camp[]>>('/camps', { params });
+    return response.data;
+  }
+
+  async getCamp(id: string): Promise<Camp> {
+    const response = await this.client.get<{ data: Camp }>(`/camps/${id}`);
+    return response.data.data;
+  }
+
+  async createCamp(data: Partial<Camp>): Promise<Camp> {
+    const response = await this.client.post<{ data: Camp }>('/camps', data);
+    return response.data.data;
+  }
+
+  async updateCamp(id: string, data: Partial<Camp>): Promise<Camp> {
+    const response = await this.client.put<{ data: Camp }>(`/camps/${id}`, data);
+    return response.data.data;
+  }
+
+  async deleteCamp(id: string): Promise<void> {
+    await this.client.delete(`/camps/${id}`);
+  }
+
+  // Games / Schedule
+  async getGames(params?: Record<string, unknown>): Promise<ApiResponse<Game[]>> {
+    const response = await this.client.get<ApiResponse<Game[]>>('/games', { params });
+    return response.data;
+  }
+
+  async importGames(file: File): Promise<{ imported: number; errors: string[] }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await this.client.post<{ data: { imported: number; errors: string[] } }>('/games/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+  }
+
+  // Analytics / Finance
+  async getAnalyticsDashboard(): Promise<DashboardStats> {
+    const response = await this.client.get<{ data: DashboardStats }>('/analytics/dashboard');
+    return response.data.data;
+  }
+
+  async getRevenueAnalytics(params?: Record<string, unknown>): Promise<{
+    leagues: Array<{ league_id: string; league_name: string; revenue: number }>;
+    monthly: Array<{ month: string; revenue: number }>;
+  }> {
+    const response = await this.client.get<{
+      data: {
+        leagues: Array<{ league_id: string; league_name: string; revenue: number }>;
+        monthly: Array<{ month: string; revenue: number }>;
+      };
+    }>('/analytics/revenue', { params });
+    return response.data.data;
+  }
+
+  async getRegistrationAnalytics(): Promise<{
+    leagues: Array<{ league_id: string; league_name: string; registrations: number }>;
+  }> {
+    const response = await this.client.get<{
+      data: { leagues: Array<{ league_id: string; league_name: string; registrations: number }> };
+    }>('/analytics/registrations');
+    return response.data.data;
+  }
+
+  async getFacilityUtilization(): Promise<{
+    facilities: Array<{ facility_id: string; facility_name: string; utilization_percent: number; total_bookings: number }>;
+  }> {
+    const response = await this.client.get<{
+      data: { facilities: Array<{ facility_id: string; facility_name: string; utilization_percent: number; total_bookings: number }> };
+    }>('/analytics/facility-utilization');
+    return response.data.data;
+  }
+
+  async getGameStats(gameId: string): Promise<unknown[]> {
+    const response = await this.client.get(`/games/${gameId}/stats`);
+    return response.data.data;
+  }
+
+  async saveGameStats(
+    gameId: string,
+    stats: Array<{ player_id: string; points?: number; rebounds?: number; assists?: number; steals?: number; blocks?: number }>
+  ): Promise<void> {
+    await this.client.post(`/games/${gameId}/stats`, { stats });
+  }
+
+  async getHighlights(params?: Record<string, unknown>): Promise<ApiResponse<unknown[]>> {
+    const response = await this.client.get('/highlights', { params });
+    return response.data;
+  }
+
+  async getLeagueNews(leagueId: string, params?: Record<string, unknown>): Promise<ApiResponse<unknown[]>> {
+    const response = await this.client.get(`/leagues/${leagueId}/news`, { params });
+    return response.data;
+  }
+
+  async createLeagueNews(leagueId: string, data: { title: string; content: string; is_pinned?: boolean }): Promise<unknown> {
+    const response = await this.client.post(`/leagues/${leagueId}/news`, data);
+    return response.data.data;
+  }
+
+  async publishLeagueNews(leagueId: string, newsId: string): Promise<void> {
+    await this.client.post(`/leagues/${leagueId}/news/${newsId}/publish`);
+  }
+
+  async unpublishLeagueNews(leagueId: string, newsId: string): Promise<void> {
+    await this.client.post(`/leagues/${leagueId}/news/${newsId}/unpublish`);
+  }
+
+  async deleteLeagueNews(leagueId: string, newsId: string): Promise<void> {
+    await this.client.delete(`/leagues/${leagueId}/news/${newsId}`);
   }
 }
 

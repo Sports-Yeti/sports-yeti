@@ -23,9 +23,28 @@ interface TeamCardProps {
   team: Team;
   onPress: () => void;
   onDelete: () => void;
+  onApprove: () => void;
+  onReject: () => void;
 }
 
-function TeamCard({ team, onPress, onDelete }: TeamCardProps) {
+function RosterBar({ current, max }: { current: number; max: number }) {
+  const pct = max > 0 ? Math.min(current / max, 1) : 0;
+  const barColor = pct >= 1 ? COLORS.success : pct >= 0.5 ? COLORS.primary : COLORS.warning;
+
+  return (
+    <View style={styles.rosterBarContainer}>
+      <View style={styles.rosterBarLabelRow}>
+        <Text style={styles.rosterBarLabel}>Roster</Text>
+        <Text style={styles.rosterBarValue}>{current}/{max}</Text>
+      </View>
+      <View style={styles.rosterBarTrack}>
+        <View style={[styles.rosterBarFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
+      </View>
+    </View>
+  );
+}
+
+function TeamCard({ team, onPress, onDelete, onApprove, onReject }: TeamCardProps) {
   const statusColors: Record<string, string> = {
     approved: COLORS.success,
     pending: COLORS.warning,
@@ -33,23 +52,17 @@ function TeamCard({ team, onPress, onDelete }: TeamCardProps) {
     inactive: COLORS.textMuted,
   };
 
+  const isPending = team.status === 'pending';
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={styles.cardHeader}>
         <View style={styles.teamAvatarContainer}>
-          {team.logo_url ? (
-            <View style={styles.teamAvatar}>
-              <Text style={styles.teamAvatarText}>
-                {team.name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.teamAvatar}>
-              <Text style={styles.teamAvatarText}>
-                {team.name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <View style={styles.teamAvatar}>
+            <Text style={styles.teamAvatarText}>
+              {team.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
         </View>
         <View style={styles.cardTitleSection}>
           <Text style={styles.cardTitle}>{team.name}</Text>
@@ -78,6 +91,8 @@ function TeamCard({ team, onPress, onDelete }: TeamCardProps) {
         </Text>
       )}
 
+      <RosterBar current={team.players_count ?? 0} max={team.max_roster_size} />
+
       <View style={styles.cardStats}>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{team.players_count ?? 0}</Text>
@@ -96,24 +111,37 @@ function TeamCard({ team, onPress, onDelete }: TeamCardProps) {
       </View>
 
       <View style={styles.cardActions}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.viewButton]}
-          onPress={(e) => {
-            e.stopPropagation();
-            onPress();
-          }}
-        >
-          <Text style={styles.viewButtonText}>View Details</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-        >
-          <Text style={styles.deleteButtonText}>Delete</Text>
-        </TouchableOpacity>
+        {isPending ? (
+          <>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.approveButton]}
+              onPress={(e) => { e.stopPropagation(); onApprove(); }}
+            >
+              <Text style={styles.approveButtonText}>Approve</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.rejectButton]}
+              onPress={(e) => { e.stopPropagation(); onReject(); }}
+            >
+              <Text style={styles.rejectButtonText}>Reject</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.viewButton]}
+              onPress={(e) => { e.stopPropagation(); onPress(); }}
+            >
+              <Text style={styles.viewButtonText}>View Details</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteButton]}
+              onPress={(e) => { e.stopPropagation(); onDelete(); }}
+            >
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -156,6 +184,14 @@ export function TeamListScreen() {
     },
   });
 
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.updateTeamStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+  });
+
   const teams = data?.data ?? [];
   const meta: PaginationMeta | undefined = data?.meta;
 
@@ -177,6 +213,18 @@ export function TeamListScreen() {
   const handleDeleteTeam = async (team: Team) => {
     if (confirm(`Are you sure you want to delete "${team.name}"?`)) {
       await deleteMutation.mutateAsync(team.id);
+    }
+  };
+
+  const handleApproveTeam = async (team: Team) => {
+    if (confirm(`Approve team "${team.name}"?`)) {
+      await statusMutation.mutateAsync({ id: team.id, status: 'approved' });
+    }
+  };
+
+  const handleRejectTeam = async (team: Team) => {
+    if (confirm(`Reject team "${team.name}"?`)) {
+      await statusMutation.mutateAsync({ id: team.id, status: 'rejected' });
     }
   };
 
@@ -349,6 +397,8 @@ export function TeamListScreen() {
                   team={team}
                   onPress={() => handleTeamPress(team)}
                   onDelete={() => handleDeleteTeam(team)}
+                  onApprove={() => handleApproveTeam(team)}
+                  onReject={() => handleRejectTeam(team)}
                 />
               ))}
             </View>
@@ -612,6 +662,22 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     fontWeight: '600',
   },
+  approveButton: {
+    backgroundColor: COLORS.success + '15',
+  },
+  approveButtonText: {
+    color: COLORS.success,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
+  rejectButton: {
+    backgroundColor: COLORS.error + '15',
+  },
+  rejectButtonText: {
+    color: COLORS.error,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
   deleteButton: {
     backgroundColor: COLORS.error + '15',
   },
@@ -619,6 +685,34 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     fontSize: FONT_SIZES.sm,
     fontWeight: '600',
+  },
+  rosterBarContainer: {
+    marginBottom: SPACING.md,
+  },
+  rosterBarLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  rosterBarLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  rosterBarValue: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  rosterBarTrack: {
+    height: 6,
+    backgroundColor: COLORS.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  rosterBarFill: {
+    height: '100%',
+    borderRadius: 3,
   },
   emptyContainer: {
     flex: 1,

@@ -18,6 +18,22 @@ import {
   FacilityListScreen,
   FacilityDetailScreen,
   FacilityFormScreen,
+  RefereeListScreen,
+  RefereeDetailScreen,
+  RefereeAssignmentScreen,
+  WaiverListScreen,
+  WaiverDetailScreen,
+  WaiverFormScreen,
+  CampListScreen,
+  CampDetailScreen,
+  CampFormScreen,
+  ScheduleScreen,
+  FinancialDashboardScreen,
+  StatsScreen,
+  NewsScreen,
+  AnalyticsScreen,
+  SettingsScreen,
+  MarketplaceMonitorScreen,
 } from '../screens';
 import { COLORS, NavItemId } from '../constants';
 import { navigate as rootNavigate } from './RootNavigator';
@@ -36,15 +52,31 @@ const routeToId: Record<string, NavItemId> = {
   LeagueForm: 'leagues',
   Teams: 'teams',
   TeamDetail: 'teams',
-  Players: 'players',
-  PlayerDetail: 'players',
+  Players: 'teams',
+  PlayerDetail: 'teams',
   Facilities: 'facilities',
   FacilityDetail: 'facilities',
   FacilityForm: 'facilities',
-  Bookings: 'bookings',
+  Bookings: 'schedule',
+  Schedule: 'schedule',
+  Waivers: 'waivers',
+  WaiverDetail: 'waivers',
+  WaiverForm: 'waivers',
+  Camps: 'camps',
+  CampDetail: 'camps',
+  CampForm: 'camps',
+  Finance: 'finance',
+  Referees: 'referees',
+  RefereeDetail: 'referees',
+  RefereeAssignments: 'referees',
   Payments: 'payments',
   PaymentDetail: 'payments',
   AuditLogs: 'audit',
+  Stats: 'stats',
+  News: 'news',
+  Analytics: 'analytics',
+  Settings: 'settings',
+  MarketplaceMonitor: 'marketplace',
 };
 
 interface MainContentProps {
@@ -90,9 +122,46 @@ function MainContent({ onRouteChange }: MainContentProps) {
       <Stack.Screen name="FacilityDetail" component={FacilityDetailScreen} />
       <Stack.Screen name="FacilityForm" component={FacilityFormScreen} />
       <Stack.Screen name="Bookings" component={BookingCalendarScreen} />
+
+      {/* Schedule */}
+      <Stack.Screen name="Schedule" component={ScheduleScreen} />
+
+      {/* Waivers */}
+      <Stack.Screen name="Waivers" component={WaiverListScreen} />
+      <Stack.Screen name="WaiverDetail" component={WaiverDetailScreen} />
+      <Stack.Screen name="WaiverForm" component={WaiverFormScreen} />
+
+      {/* Camps */}
+      <Stack.Screen name="Camps" component={CampListScreen} />
+      <Stack.Screen name="CampDetail" component={CampDetailScreen} />
+      <Stack.Screen name="CampForm" component={CampFormScreen} />
+
+      {/* Finance */}
+      <Stack.Screen name="Finance" component={FinancialDashboardScreen} />
+
+      {/* Referees */}
+      <Stack.Screen name="Referees" component={RefereeListScreen} />
+      <Stack.Screen name="RefereeDetail" component={RefereeDetailScreen} />
+      <Stack.Screen name="RefereeAssignments" component={RefereeAssignmentScreen} />
+
       <Stack.Screen name="Payments" component={PaymentListScreen} />
       <Stack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
       <Stack.Screen name="AuditLogs" component={AuditLogScreen} />
+
+      {/* Stats & Highlights */}
+      <Stack.Screen name="Stats" component={StatsScreen} />
+
+      {/* News & Ads */}
+      <Stack.Screen name="News" component={NewsScreen} />
+
+      {/* Analytics */}
+      <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+
+      {/* Settings */}
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+
+      {/* Marketplace Monitor */}
+      <Stack.Screen name="MarketplaceMonitor" component={MarketplaceMonitorScreen} />
     </Stack.Navigator>
   );
 }

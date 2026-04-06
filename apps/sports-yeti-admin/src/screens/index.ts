@@ -24,5 +24,35 @@ export { FacilityFormScreen } from './facilities/FacilityFormScreen';
 // Payments - B4
 export { PaymentListScreen, PaymentDetailScreen } from './payments';
 
+// Referees
+export { RefereeListScreen, RefereeDetailScreen, RefereeAssignmentScreen } from './referees';
+
 // Audit - B4
 export { AuditLogScreen } from './audit';
+
+// Waivers
+export { WaiverListScreen, WaiverDetailScreen, WaiverFormScreen } from './waivers';
+
+// Camps
+export { CampListScreen, CampDetailScreen, CampFormScreen } from './camps';
+
+// Schedule
+export { ScheduleScreen } from './schedule';
+
+// Finance
+export { FinancialDashboardScreen } from './finance';
+
+// Stats
+export { StatsScreen } from './stats';
+
+// News
+export { NewsScreen } from './news';
+
+// Analytics
+export { AnalyticsScreen } from './analytics';
+
+// Settings
+export { SettingsScreen } from './settings';
+
+// Marketplace
+export { MarketplaceMonitorScreen } from './marketplace';

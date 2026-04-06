@@ -64,13 +64,21 @@ export const SIDEBAR_COLLAPSED_WIDTH = 72;
 // Admin navigation items
 export const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊', route: 'Dashboard' },
-  { id: 'leagues', label: 'Leagues', icon: '🏆', route: 'Leagues' },
+  { id: 'leagues', label: 'Divisions', icon: '🏆', route: 'Leagues' },
   { id: 'teams', label: 'Teams', icon: '👥', route: 'Teams' },
-  { id: 'players', label: 'Players', icon: '🏃', route: 'Players' },
+  { id: 'schedule', label: 'Schedule', icon: '📅', route: 'Schedule' },
   { id: 'facilities', label: 'Facilities', icon: '🏟️', route: 'Facilities' },
-  { id: 'bookings', label: 'Bookings', icon: '📅', route: 'Bookings' },
+  { id: 'referees', label: 'Referees', icon: '🏁', route: 'Referees' },
+  { id: 'camps', label: 'Camps', icon: '⛺', route: 'Camps' },
   { id: 'payments', label: 'Payments', icon: '💳', route: 'Payments' },
+  { id: 'waivers', label: 'Waivers', icon: '📝', route: 'Waivers' },
+  { id: 'news', label: 'News & Ads', icon: '📰', route: 'News' },
+  { id: 'marketplace', label: 'Marketplace', icon: '🏪', route: 'MarketplaceMonitor' },
+  { id: 'analytics', label: 'Analytics', icon: '📈', route: 'Analytics' },
+  { id: 'stats', label: 'Stats', icon: '📉', route: 'Stats' },
+  { id: 'finance', label: 'Finance', icon: '💰', route: 'Finance' },
   { id: 'audit', label: 'Audit Logs', icon: '📋', route: 'AuditLogs' },
+  { id: 'settings', label: 'Settings', icon: '⚙️', route: 'Settings' },
 ] as const;
 
 export type NavItemId = (typeof NAV_ITEMS)[number]['id'];
