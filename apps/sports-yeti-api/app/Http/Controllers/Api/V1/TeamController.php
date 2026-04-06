@@ -237,4 +237,28 @@ class TeamController extends Controller
 
         return response()->json(null, 204);
     }
+
+    public function updateStatus(Request $request, Team $team): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'status' => ['required', 'string', 'in:pending,approved,rejected,inactive'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/422',
+                'title' => 'Validation Error',
+                'status' => 422,
+                'detail' => 'The given data was invalid.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $team->update(['status' => $request->status]);
+        $team->load(['league:id,name', 'captain.user:id,name']);
+
+        return response()->json([
+            'data' => $team,
+        ]);
+    }
 }

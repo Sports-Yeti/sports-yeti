@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AnalyticsController;
 use App\Http\Controllers\Api\V1\AuditController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BookingController;
@@ -18,7 +19,9 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\PostController;
+use App\Http\Controllers\Api\V1\RefereeController;
 use App\Http\Controllers\Api\V1\TeamController;
+use App\Http\Controllers\Api\V1\WaiverController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -54,7 +57,6 @@ Route::prefix('v1')->group(function () {
             'version' => 'v1',
         ]);
     });
-    
     
     // Authentication routes (public) with strict rate limiting
     Route::prefix('auth')->middleware('throttle:auth')->group(function () {
@@ -97,6 +99,7 @@ Route::prefix('v1')->group(function () {
             Route::delete('/{team}', [TeamController::class, 'destroy']);
             Route::post('/{team}/members', [TeamController::class, 'addMember']);
             Route::delete('/{team}/members/{player}', [TeamController::class, 'removeMember']);
+            Route::patch('/{team}/status', [TeamController::class, 'updateStatus']);
         });
 
         // Facilities
@@ -106,6 +109,14 @@ Route::prefix('v1')->group(function () {
             Route::get('/{facility}', [FacilityController::class, 'show']);
             Route::put('/{facility}', [FacilityController::class, 'update']);
             Route::delete('/{facility}', [FacilityController::class, 'destroy']);
+        });
+
+        // Facility Spaces
+        Route::prefix('facilities/{facility}/spaces')->group(function () {
+            Route::get('/', [FacilityController::class, 'spaces']);
+            Route::post('/', [FacilityController::class, 'storeSpace']);
+            Route::put('/{space}', [FacilityController::class, 'updateSpace']);
+            Route::delete('/{space}', [FacilityController::class, 'destroySpace']);
         });
 
         // Bookings
@@ -132,10 +143,44 @@ Route::prefix('v1')->group(function () {
         Route::prefix('games')->group(function () {
             Route::get('/', [GameController::class, 'index']);
             Route::post('/', [GameController::class, 'store']);
+            Route::post('/import', [GameController::class, 'import']);
             Route::get('/{game}', [GameController::class, 'show']);
             Route::put('/{game}', [GameController::class, 'update']);
             Route::delete('/{game}', [GameController::class, 'destroy']);
             Route::post('/{game}/attendance', [GameController::class, 'respondAttendance']);
+            Route::get('/{game}/stats', [GameController::class, 'stats']);
+            Route::post('/{game}/stats', [GameController::class, 'storeStats']);
+        });
+
+        // Referees
+        Route::prefix('referees')->group(function () {
+            Route::get('/', [RefereeController::class, 'index']);
+            Route::post('/', [RefereeController::class, 'store']);
+            Route::get('/me/assignments', [RefereeController::class, 'myAssignments']);
+            Route::get('/me/earnings', [RefereeController::class, 'earnings']);
+            Route::get('/available-games', [RefereeController::class, 'availableGames']);
+            Route::get('/{referee}', [RefereeController::class, 'show']);
+            Route::put('/{referee}', [RefereeController::class, 'update']);
+            Route::post('/assignments/{assignment}/accept', [RefereeController::class, 'acceptAssignment']);
+            Route::post('/games/{game}/bid', [RefereeController::class, 'submitBid']);
+            Route::post('/assignments/{assignment}/report', [RefereeController::class, 'submitReport']);
+        });
+
+        // Waivers
+        Route::prefix('waivers')->group(function () {
+            Route::get('/', [WaiverController::class, 'index']);
+            Route::post('/', [WaiverController::class, 'store']);
+            Route::get('/{waiver}', [WaiverController::class, 'show']);
+            Route::post('/{waiver}/sign', [WaiverController::class, 'sign']);
+            Route::get('/{waiver}/signatures', [WaiverController::class, 'signatures']);
+        });
+
+        // Analytics
+        Route::prefix('analytics')->group(function () {
+            Route::get('/dashboard', [AnalyticsController::class, 'dashboard']);
+            Route::get('/revenue', [AnalyticsController::class, 'revenue']);
+            Route::get('/registrations', [AnalyticsController::class, 'registrations']);
+            Route::get('/facility-utilization', [AnalyticsController::class, 'facilityUtilization']);
         });
 
         // Chats

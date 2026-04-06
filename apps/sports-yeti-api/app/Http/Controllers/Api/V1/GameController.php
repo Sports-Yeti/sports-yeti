@@ -10,6 +10,7 @@ use App\Models\Game;
 use App\Models\GameParticipant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class GameController extends Controller
@@ -215,5 +216,142 @@ class GameController extends Controller
         return response()->json([
             'data' => $participant,
         ]);
+    }
+
+    public function stats(Game $game): JsonResponse
+    {
+        $participants = GameParticipant::where('game_id', $game->id)
+            ->whereNotNull('stats')
+            ->with(['player.user:id,name,avatar_url', 'team:id,name'])
+            ->get()
+            ->map(fn ($p) => [
+                'player' => $p->player,
+                'team' => $p->team,
+                'stats' => $p->stats,
+            ]);
+
+        return response()->json([
+            'data' => [
+                'game_id' => $game->id,
+                'participants' => $participants,
+            ],
+        ]);
+    }
+
+    public function storeStats(Request $request, Game $game): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'stats' => ['required', 'array', 'min:1'],
+            'stats.*.player_id' => ['required', 'uuid', 'exists:players,id'],
+            'stats.*.points' => ['nullable', 'integer', 'min:0'],
+            'stats.*.rebounds' => ['nullable', 'integer', 'min:0'],
+            'stats.*.assists' => ['nullable', 'integer', 'min:0'],
+            'stats.*.steals' => ['nullable', 'integer', 'min:0'],
+            'stats.*.blocks' => ['nullable', 'integer', 'min:0'],
+            'stats.*.turnovers' => ['nullable', 'integer', 'min:0'],
+            'stats.*.fouls' => ['nullable', 'integer', 'min:0'],
+            'stats.*.minutes_played' => ['nullable', 'integer', 'min:0'],
+            'stats.*.goals' => ['nullable', 'integer', 'min:0'],
+            'stats.*.yellow_cards' => ['nullable', 'integer', 'min:0'],
+            'stats.*.red_cards' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/422',
+                'title' => 'Validation Error',
+                'status' => 422,
+                'detail' => 'The given data was invalid.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $updated = [];
+        foreach ($request->stats as $stat) {
+            $participant = GameParticipant::where('game_id', $game->id)
+                ->where('player_id', $stat['player_id'])
+                ->first();
+
+            if ($participant) {
+                $statData = collect($stat)->except('player_id')->toArray();
+                $participant->update(['stats' => $statData]);
+                $updated[] = $participant;
+            }
+        }
+
+        return response()->json([
+            'data' => $updated,
+        ]);
+    }
+
+    public function import(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+            'league_id' => ['required', 'uuid', 'exists:leagues,id'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/422',
+                'title' => 'Validation Error',
+                'status' => 422,
+                'detail' => 'The given data was invalid.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $file = $request->file('file');
+        $rows = array_map('str_getcsv', file($file->getRealPath()));
+        $headers = array_map('strtolower', array_map('trim', array_shift($rows)));
+
+        $created = [];
+        $errors = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($rows as $index => $row) {
+                if (count($row) !== count($headers)) {
+                    $errors[] = ['row' => $index + 2, 'error' => 'Column count mismatch'];
+                    continue;
+                }
+
+                $data = array_combine($headers, $row);
+
+                $game = Game::create([
+                    'league_id' => $request->league_id,
+                    'team1_id' => $data['team1_id'] ?? null,
+                    'team2_id' => $data['team2_id'] ?? null,
+                    'facility_id' => $data['facility_id'] ?? null,
+                    'space_id' => $data['space_id'] ?? null,
+                    'scheduled_at' => $data['scheduled_at'] ?? null,
+                    'game_type' => $data['game_type'] ?? 'regular',
+                    'season_number' => $data['season_number'] ?? null,
+                    'week_number' => $data['week_number'] ?? null,
+                    'status' => 'scheduled',
+                ]);
+
+                $created[] = $game;
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'type' => 'https://httpstatuses.io/400',
+                'title' => 'Import Failed',
+                'status' => 400,
+                'detail' => 'Failed to import games: '.$e->getMessage(),
+            ], 400);
+        }
+
+        return response()->json([
+            'data' => [
+                'imported' => count($created),
+                'errors' => $errors,
+                'games' => $created,
+            ],
+        ], 201);
     }
 }
