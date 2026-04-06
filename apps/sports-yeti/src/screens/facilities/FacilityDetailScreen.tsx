@@ -237,7 +237,7 @@ export function FacilityDetailScreen({ route, navigation }: FacilityDetailScreen
                   </View>
                   <View style={styles.spacePrice}>
                     <Text style={styles.priceAmount}>
-                      ${space.hourly_rate.toFixed(2)}
+                      ${Number(space.hourly_rate).toFixed(2)}
                     </Text>
                     <Text style={styles.priceUnit}>/hour</Text>
                   </View>

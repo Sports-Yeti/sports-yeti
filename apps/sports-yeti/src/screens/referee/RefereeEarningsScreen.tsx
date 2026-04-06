@@ -53,12 +53,12 @@ export function RefereeEarningsScreen() {
     >
       <View style={styles.heroCard}>
         <Text style={styles.heroLabel}>Total Earned</Text>
-        <Text style={styles.heroAmount}>${(earnings?.total_earned ?? 0).toFixed(2)}</Text>
+        <Text style={styles.heroAmount}>${Number(earnings?.total_earned ?? 0).toFixed(2)}</Text>
       </View>
 
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
-          <Text style={styles.statAmount}>${(earnings?.pending_payouts ?? 0).toFixed(2)}</Text>
+          <Text style={styles.statAmount}>${Number(earnings?.pending_payouts ?? 0).toFixed(2)}</Text>
           <Text style={styles.statLabel}>Pending Payouts</Text>
         </View>
         <View style={styles.statCard}>
@@ -71,7 +71,7 @@ export function RefereeEarningsScreen() {
         <Text style={styles.ratingLabel}>Average Rating</Text>
         <View style={styles.ratingDisplay}>
           <StarRating rating={earnings?.average_rating ?? 0} />
-          <Text style={styles.ratingValue}>{(earnings?.average_rating ?? 0).toFixed(1)}</Text>
+          <Text style={styles.ratingValue}>{Number(earnings?.average_rating ?? 0).toFixed(1)}</Text>
         </View>
       </View>
 
@@ -92,7 +92,7 @@ export function RefereeEarningsScreen() {
                   {new Date(item.date).toLocaleDateString()}
                 </Text>
               </View>
-              <Text style={styles.earningAmount}>+${item.amount.toFixed(2)}</Text>
+              <Text style={styles.earningAmount}>+${Number(item.amount).toFixed(2)}</Text>
             </View>
           ))
         )}

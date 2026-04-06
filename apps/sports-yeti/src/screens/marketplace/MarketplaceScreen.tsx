@@ -186,7 +186,7 @@ export function MarketplaceScreen({ navigation }: MarketplaceScreenProps) {
 
       <View style={styles.priceRow}>
         <Text style={styles.priceText}>
-          ${item.space.hourly_rate.toFixed(2)}/hr
+          ${Number(item.space.hourly_rate).toFixed(2)}/hr
         </Text>
         <TouchableOpacity
           style={styles.actionButton}

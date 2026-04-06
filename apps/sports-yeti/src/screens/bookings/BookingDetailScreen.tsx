@@ -311,7 +311,7 @@ export function BookingDetailScreen({ route, navigation }: BookingDetailScreenPr
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Total Amount</Text>
             <Text style={styles.paymentAmount}>
-              ${booking.amount.toFixed(2)}
+              ${Number(booking.amount).toFixed(2)}
             </Text>
           </View>
           {booking.status === 'confirmed' && (

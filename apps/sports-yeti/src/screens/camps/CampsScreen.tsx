@@ -81,7 +81,7 @@ export function CampsScreen({ navigation }: CampsScreenProps) {
         </View>
         <View style={styles.priceTag}>
           <Text style={styles.priceText}>
-            ${item.price?.toFixed(2) || '0.00'}
+            ${Number(item.price ?? 0).toFixed(2)}
           </Text>
         </View>
       </View>

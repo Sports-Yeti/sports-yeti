@@ -78,7 +78,7 @@ export function CampDetailScreen({ route, navigation }: CampDetailScreenProps) {
 
     Alert.alert(
       'Register for Camp',
-      `Would you like to register for "${camp.name}"?\n\nRegistration Fee: $${camp.registration_fee.toFixed(2)}`,
+      `Would you like to register for "${camp.name}"?\n\nRegistration Fee: $${Number(camp.registration_fee).toFixed(2)}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -204,7 +204,7 @@ export function CampDetailScreen({ route, navigation }: CampDetailScreenProps) {
           </View>
           <View style={styles.priceContainer}>
             <Text style={styles.priceAmount}>
-              ${camp.registration_fee.toFixed(2)}
+              ${Number(camp.registration_fee).toFixed(2)}
             </Text>
             <Text style={styles.priceLabel}>per person</Text>
           </View>
@@ -343,7 +343,7 @@ export function CampDetailScreen({ route, navigation }: CampDetailScreenProps) {
               <>
                 <Text style={styles.registerButtonText}>
                   {isRegistrationOpen()
-                    ? `Register Now - $${camp.registration_fee.toFixed(2)}`
+                    ? `Register Now - $${Number(camp.registration_fee).toFixed(2)}`
                     : camp.status === 'open'
                     ? 'Camp is Full'
                     : 'Registration Closed'}

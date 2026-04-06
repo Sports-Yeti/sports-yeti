@@ -32,7 +32,7 @@ function ClipCard({
   highlightId: string;
   onShare: (clip: HighlightClip) => void;
 }) {
-  const duration = (clip.end_time - clip.start_time).toFixed(1);
+  const duration = (Number(clip.end_time) - Number(clip.start_time)).toFixed(1);
 
   return (
     <View style={styles.clipCard}>

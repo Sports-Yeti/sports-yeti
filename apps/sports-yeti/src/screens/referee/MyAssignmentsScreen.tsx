@@ -141,12 +141,12 @@ export function MyAssignmentsScreen() {
       <View style={styles.detailsRow}>
         <View style={styles.detailItem}>
           <Text style={styles.detailLabel}>Pay</Text>
-          <Text style={styles.detailValue}>${item.assigned_rate}</Text>
+          <Text style={styles.detailValue}>${Number(item.assigned_rate).toFixed(2)}</Text>
         </View>
         {item.bid_amount !== null && (
           <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>Your Bid</Text>
-            <Text style={styles.detailValue}>${item.bid_amount}</Text>
+            <Text style={styles.detailValue}>${Number(item.bid_amount).toFixed(2)}</Text>
           </View>
         )}
         <View style={styles.detailItem}>
