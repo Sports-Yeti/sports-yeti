@@ -20,9 +20,12 @@ use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\PostController;
 use App\Http\Controllers\Api\V1\RefereeController;
+use App\Http\Controllers\Api\V1\SubRequestController;
 use App\Http\Controllers\Api\V1\TeamController;
 use App\Http\Controllers\Api\V1\WaiverController;
 use App\Http\Controllers\Api\V1\WebhookController;
+use App\Http\Middleware\PrometheusMetrics;
+use App\Http\Middleware\TraceRequest;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -35,8 +38,8 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/metrics', MetricsController::class)->withoutMiddleware([
-    \App\Http\Middleware\TraceRequest::class,
-    \App\Http\Middleware\PrometheusMetrics::class,
+    TraceRequest::class,
+    PrometheusMetrics::class,
 ]);
 
 /*
@@ -57,7 +60,7 @@ Route::prefix('v1')->group(function () {
             'version' => 'v1',
         ]);
     });
-    
+
     // Authentication routes (public) with strict rate limiting
     Route::prefix('auth')->middleware('throttle:auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
@@ -100,6 +103,12 @@ Route::prefix('v1')->group(function () {
             Route::post('/{team}/members', [TeamController::class, 'addMember']);
             Route::delete('/{team}/members/{player}', [TeamController::class, 'removeMember']);
             Route::patch('/{team}/status', [TeamController::class, 'updateStatus']);
+            Route::get('/{team}/invitations', [TeamController::class, 'invitations']);
+            Route::post('/{team}/invitations', [TeamController::class, 'invite']);
+            Route::post('/{team}/invitations/{invitation}/respond', [TeamController::class, 'respondToInvitation']);
+            Route::post('/{team}/payment', [TeamController::class, 'createPaymentIntent']);
+            Route::get('/{team}/payment-summary', [TeamController::class, 'paymentSummary']);
+            Route::post('/{team}/payment-intent', [TeamController::class, 'paymentIntent']);
         });
 
         // Facilities
@@ -126,6 +135,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/{booking}', [BookingController::class, 'show']);
             Route::post('/{booking}/cancel', [BookingController::class, 'cancel']);
             Route::post('/check-in', [BookingController::class, 'checkIn']);
+            Route::put('/{booking}', [BookingController::class, 'update']);
         });
 
         // Camps
@@ -144,12 +154,16 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [GameController::class, 'index']);
             Route::post('/', [GameController::class, 'store']);
             Route::post('/import', [GameController::class, 'import']);
+            Route::post('/publish', [GameController::class, 'publishSchedule']);
             Route::get('/{game}', [GameController::class, 'show']);
             Route::put('/{game}', [GameController::class, 'update']);
             Route::delete('/{game}', [GameController::class, 'destroy']);
             Route::post('/{game}/attendance', [GameController::class, 'respondAttendance']);
             Route::get('/{game}/stats', [GameController::class, 'stats']);
             Route::post('/{game}/stats', [GameController::class, 'storeStats']);
+            Route::post('/{game}/join', [GameController::class, 'join']);
+            Route::post('/{game}/sub-requests', [SubRequestController::class, 'store']);
+            Route::get('/{game}/sub-requests', [SubRequestController::class, 'index']);
         });
 
         // Referees
@@ -162,6 +176,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/{referee}', [RefereeController::class, 'show']);
             Route::put('/{referee}', [RefereeController::class, 'update']);
             Route::post('/assignments/{assignment}/accept', [RefereeController::class, 'acceptAssignment']);
+            Route::post('/assignments/{assignment}/decline', [RefereeController::class, 'declineAssignment']);
+            Route::post('/assignments/{assignment}/select-bid', [RefereeController::class, 'selectBid']);
+            Route::post('/assign', [RefereeController::class, 'directAssign']);
             Route::post('/games/{game}/bid', [RefereeController::class, 'submitBid']);
             Route::post('/assignments/{assignment}/report', [RefereeController::class, 'submitReport']);
         });
@@ -182,6 +199,10 @@ Route::prefix('v1')->group(function () {
             Route::get('/registrations', [AnalyticsController::class, 'registrations']);
             Route::get('/facility-utilization', [AnalyticsController::class, 'facilityUtilization']);
         });
+
+        // Sub Requests
+        Route::get('/sub-requests/available', [SubRequestController::class, 'available']);
+        Route::post('/sub-requests/{subRequest}/accept', [SubRequestController::class, 'accept']);
 
         // Chats
         Route::prefix('chats')->group(function () {

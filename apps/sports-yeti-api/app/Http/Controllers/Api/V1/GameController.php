@@ -8,10 +8,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Chat;
 use App\Models\Game;
 use App\Models\GameParticipant;
+use App\Models\Player;
+use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class GameController extends Controller
 {
@@ -61,15 +65,18 @@ class GameController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'league_id' => ['required', 'uuid', 'exists:leagues,id'],
-            'team1_id' => ['required', 'uuid', 'exists:teams,id'],
-            'team2_id' => ['required', 'uuid', 'exists:teams,id', 'different:team1_id'],
+            'league_id' => ['nullable', 'uuid', 'exists:leagues,id'],
+            'team1_id' => ['nullable', 'uuid', 'exists:teams,id'],
+            'team2_id' => ['nullable', 'uuid', 'exists:teams,id', 'different:team1_id'],
             'facility_id' => ['nullable', 'uuid', 'exists:facilities,id'],
             'space_id' => ['nullable', 'uuid', 'exists:spaces,id'],
             'scheduled_at' => ['required', 'date', 'after:now'],
             'game_type' => ['nullable', 'string', 'in:regular,playoff,friendly'],
             'season_number' => ['nullable', 'integer'],
             'week_number' => ['nullable', 'integer'],
+            'max_players' => ['nullable', 'integer', 'min:2', 'max:50'],
+            'referee_required' => ['nullable', 'boolean'],
+            'is_open_play' => ['nullable', 'boolean'],
         ]);
 
         if ($validator->fails()) {
@@ -92,17 +99,22 @@ class GameController extends Controller
             'game_type' => $request->game_type ?? 'regular',
             'season_number' => $request->season_number,
             'week_number' => $request->week_number,
+            'max_players' => $request->max_players,
+            'referee_required' => $request->boolean('referee_required'),
+            'is_open_play' => $request->boolean('is_open_play'),
+            'is_published' => true,
             'status' => 'scheduled',
         ]);
 
-        // Create game chat
-        Chat::create([
-            'game_id' => $game->id,
-            'league_id' => $game->league_id,
-            'type' => 'game',
-            'name' => $game->team1->name.' vs '.$game->team2->name,
-            'is_active' => true,
-        ]);
+        if ($game->team1_id && $game->team2_id) {
+            Chat::create([
+                'game_id' => $game->id,
+                'league_id' => $game->league_id,
+                'type' => 'game',
+                'name' => $game->team1->name.' vs '.$game->team2->name,
+                'is_active' => true,
+            ]);
+        }
 
         $game->load([
             'league:id,name',
@@ -311,12 +323,45 @@ class GameController extends Controller
         DB::beginTransaction();
         try {
             foreach ($rows as $index => $row) {
+                $rowNumber = $index + 2;
+
                 if (count($row) !== count($headers)) {
-                    $errors[] = ['row' => $index + 2, 'error' => 'Column count mismatch'];
+                    $errors[] = ['row' => $rowNumber, 'error' => 'Column count mismatch'];
+
                     continue;
                 }
 
                 $data = array_combine($headers, $row);
+
+                $rowValidator = Validator::make($data, [
+                    'team1_id' => [
+                        'required',
+                        'uuid',
+                        Rule::exists('teams', 'id')->where('league_id', $request->league_id),
+                    ],
+                    'team2_id' => [
+                        'required',
+                        'uuid',
+                        'different:team1_id',
+                        Rule::exists('teams', 'id')->where('league_id', $request->league_id),
+                    ],
+                    'facility_id' => ['nullable', 'uuid', 'exists:facilities,id'],
+                    'space_id' => ['nullable', 'uuid', 'exists:spaces,id'],
+                    'scheduled_at' => ['required', 'date'],
+                    'game_type' => ['nullable', 'string', 'in:regular,playoff,friendly'],
+                    'season_number' => ['nullable', 'integer'],
+                    'week_number' => ['nullable', 'integer'],
+                ]);
+
+                if ($rowValidator->fails()) {
+                    $errors[] = [
+                        'row' => $rowNumber,
+                        'error' => 'Validation failed',
+                        'details' => $rowValidator->errors()->toArray(),
+                    ];
+
+                    continue;
+                }
 
                 $game = Game::create([
                     'league_id' => $request->league_id,
@@ -353,5 +398,115 @@ class GameController extends Controller
                 'games' => $created,
             ],
         ], 201);
+    }
+
+    public function join(Game $game): JsonResponse
+    {
+        $userId = auth()->id();
+        $player = Player::where('user_id', $userId)->first();
+
+        if (! $player) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/404',
+                'title' => 'Not Found',
+                'status' => 404,
+                'detail' => 'Player profile not found.',
+            ], 404);
+        }
+
+        if ($game->max_players) {
+            $current = GameParticipant::where('game_id', $game->id)->count();
+            if ($current >= $game->max_players) {
+                return response()->json([
+                    'type' => 'https://httpstatuses.io/409',
+                    'title' => 'Game Full',
+                    'status' => 409,
+                    'detail' => 'This game has reached its maximum number of players.',
+                ], 409);
+            }
+        }
+
+        $existing = GameParticipant::where('game_id', $game->id)
+            ->where('player_id', $player->id)
+            ->first();
+
+        if ($existing) {
+            return response()->json(['data' => $existing]);
+        }
+
+        $participant = GameParticipant::create([
+            'game_id' => $game->id,
+            'player_id' => $player->id,
+            'team_id' => $game->team1_id,
+            'attendance_confirmed' => true,
+            'attendance_response' => 'yes',
+        ]);
+
+        return response()->json(['data' => $participant], 201);
+    }
+
+    public function publishSchedule(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'league_id' => ['required', 'uuid', 'exists:leagues,id'],
+            'season_number' => ['nullable', 'integer'],
+            'week_number' => ['nullable', 'integer'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/422',
+                'title' => 'Validation Error',
+                'status' => 422,
+                'detail' => 'The given data was invalid.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $query = Game::withoutGlobalScopes()
+            ->where('league_id', $request->league_id)
+            ->where('is_published', false);
+
+        if ($request->season_number) {
+            $query->where('season_number', $request->season_number);
+        }
+        if ($request->week_number) {
+            $query->where('week_number', $request->week_number);
+        }
+
+        $games = $query->with(['team1.captain.user', 'team2.captain.user'])->get();
+        $count = $games->count();
+
+        $notif = app(NotificationService::class);
+
+        foreach ($games as $game) {
+            $game->update(['is_published' => true]);
+
+            $userIds = collect();
+            if ($game->team1?->captain?->user) {
+                $userIds->push($game->team1->captain->user->id);
+            }
+            if ($game->team2?->captain?->user) {
+                $userIds->push($game->team2->captain->user->id);
+            }
+
+            foreach ($userIds->unique() as $userId) {
+                $user = User::find($userId);
+                if ($user) {
+                    $notif->send(
+                        $user,
+                        'schedule_published',
+                        'Schedule Published',
+                        'Game schedule has been published. Check your upcoming games.',
+                        ['game_id' => $game->id],
+                        "/games/{$game->id}"
+                    );
+                }
+            }
+        }
+
+        return response()->json([
+            'data' => ['published_count' => $count],
+        ]);
     }
 }

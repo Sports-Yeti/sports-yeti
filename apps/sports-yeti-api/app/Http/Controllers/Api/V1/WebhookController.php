@@ -6,6 +6,9 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\Player;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -114,6 +117,16 @@ class WebhookController extends Controller
             (float) $payment->amount,
             $payment->description ?? $payment->type
         );
+
+        // If this is a league_registration payment, mark team member as paid.
+        if ($payment->type === 'league_registration' && $payment->payable_type === Team::class) {
+            $teamMember = TeamMember::where('team_id', $payment->payable_id)
+                ->where('player_id', Player::where('user_id', $payment->user_id)->value('id'))
+                ->first();
+            if ($teamMember) {
+                $teamMember->update(['payment_status' => 'paid']);
+            }
+        }
 
         Log::info('Payment completed via webhook', ['payment_id' => $payment->id]);
     }

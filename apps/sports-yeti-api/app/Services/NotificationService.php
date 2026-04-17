@@ -145,6 +145,43 @@ class NotificationService
         );
     }
 
+    public function sendBookingStatusUpdate(
+        User $user,
+        string $bookingId,
+        string $newStatus,
+        string $facilityName
+    ): Notification {
+        $statusLabel = ucfirst($newStatus);
+
+        return $this->send(
+            $user,
+            'booking_status',
+            "Booking {$statusLabel}",
+            "Your booking at {$facilityName} has been {$newStatus}.",
+            [
+                'booking_id' => $bookingId,
+                'status' => $newStatus,
+            ],
+            "/bookings/{$bookingId}"
+        );
+    }
+
+    public function sendPaymentReminder(
+        User $user,
+        string $description,
+        float $amount,
+        ?array $data = null
+    ): Notification {
+        return $this->send(
+            $user,
+            'payment_reminder',
+            'Payment Reminder',
+            "You have an outstanding payment of \${$amount} for {$description}.",
+            $data,
+            '/payments'
+        );
+    }
+
     private function sendPushNotification(
         User $user,
         string $title,

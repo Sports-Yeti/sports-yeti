@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Models\Referee;
 use App\Models\RefereeAssignment;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -320,6 +321,94 @@ class RefereeController extends Controller
                 'average_rating' => number_format((float) $referee->rating, 2, '.', ''),
             ],
         ]);
+    }
+
+    public function declineAssignment(RefereeAssignment $assignment): JsonResponse
+    {
+        $assignment->update(['status' => 'rejected']);
+
+        return response()->json(['data' => $assignment]);
+    }
+
+    public function directAssign(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'game_id' => ['required', 'uuid', 'exists:games,id'],
+            'referee_id' => ['required', 'uuid', 'exists:referees,id'],
+            'rate' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/422',
+                'title' => 'Validation Error',
+                'status' => 422,
+                'detail' => 'The given data was invalid.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $assignment = RefereeAssignment::create([
+            'referee_id' => $request->referee_id,
+            'game_id' => $request->game_id,
+            'status' => 'pending',
+            'assigned_rate' => $request->rate,
+            'is_bidding' => false,
+            'admin_approved' => true,
+        ]);
+
+        $referee = Referee::with('user')->find($request->referee_id);
+        $game = Game::withoutGlobalScopes()->find($request->game_id);
+        if ($referee?->user && $game) {
+            app(NotificationService::class)->send(
+                $referee->user,
+                'referee_assignment',
+                'New Referee Assignment',
+                "You have been assigned to officiate a game on {$game->scheduled_at->format('M j, g:i A')}.",
+                ['game_id' => $game->id, 'assignment_id' => $assignment->id, 'rate' => $request->rate],
+                "/referee/assignments/{$assignment->id}"
+            );
+        }
+
+        return response()->json(['data' => $assignment], 201);
+    }
+
+    public function selectBid(RefereeAssignment $assignment): JsonResponse
+    {
+        if (! $assignment->is_bidding) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/400',
+                'title' => 'Bad Request',
+                'status' => 400,
+                'detail' => 'This assignment is not a bid.',
+            ], 400);
+        }
+
+        $assignment->update([
+            'status' => 'accepted',
+            'admin_approved' => true,
+            'assigned_rate' => $assignment->bid_amount,
+        ]);
+
+        // Reject other bids on the same game.
+        RefereeAssignment::where('game_id', $assignment->game_id)
+            ->where('id', '!=', $assignment->id)
+            ->where('is_bidding', true)
+            ->update(['status' => 'rejected']);
+
+        $referee = Referee::with('user')->find($assignment->referee_id);
+        if ($referee?->user) {
+            app(NotificationService::class)->send(
+                $referee->user,
+                'referee_bid_selected',
+                'Bid Selected',
+                "Your bid of \${$assignment->assigned_rate} has been selected!",
+                ['game_id' => $assignment->game_id, 'assignment_id' => $assignment->id],
+                "/referee/assignments/{$assignment->id}"
+            );
+        }
+
+        return response()->json(['data' => $assignment]);
     }
 
     public function submitReport(Request $request, RefereeAssignment $assignment): JsonResponse
