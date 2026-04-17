@@ -26,8 +26,13 @@ class AuthController extends Controller
             'phone' => $validated['phone'] ?? null,
         ]);
 
-        // Assign default player role
-        $user->assignRole('player');
+        $roles = $validated['roles'] ?? ['player'];
+        if (empty($roles)) {
+            $roles = ['player'];
+        }
+        foreach ($roles as $role) {
+            $user->assignRole($role);
+        }
 
         // Create a player profile for the user
         Player::create([
@@ -35,6 +40,10 @@ class AuthController extends Controller
             'experience_level' => 'beginner',
             'availability_status' => 'available',
         ]);
+
+        if (app()->environment('local', 'testing')) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
 
         $token = JWTAuth::fromUser($user);
 
