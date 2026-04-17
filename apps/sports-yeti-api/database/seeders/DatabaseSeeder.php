@@ -18,6 +18,8 @@ use App\Models\Game;
 use App\Models\GameParticipant;
 use App\Models\GameReport;
 use App\Models\League;
+use App\Models\SubRequest;
+use App\Models\TeamInvitation;
 use App\Models\LeagueAdmin;
 use App\Models\LeagueNews;
 use App\Models\Notification;
@@ -169,16 +171,15 @@ class DatabaseSeeder extends Seeder
             'sport_type' => 'basketball',
             'location' => 'New York, NY',
             'timezone' => 'America/New_York',
+            'season_start_date' => now()->toDateString(),
+            'season_end_date' => now()->addMonths(3)->toDateString(),
+            'registration_open_date' => now()->subMonth()->toDateString(),
+            'registration_close_date' => now()->addMonth()->toDateString(),
+            'max_teams' => 16,
             'registration_fee' => 150.00,
             'is_active' => true,
-            'settings' => [
-                'max_teams' => 16,
-                'registration_open' => now()->subMonth()->toDateString(),
-                'registration_close' => now()->addMonth()->toDateString(),
-                'season_start' => now()->toDateString(),
-                'season_end' => now()->addMonths(3)->toDateString(),
-                'games_per_week' => 2,
-            ],
+            'status' => 'published',
+            'settings' => ['games_per_week' => 2],
         ]);
 
         $citySoccer = League::create([
@@ -188,13 +189,14 @@ class DatabaseSeeder extends Seeder
             'sport_type' => 'soccer',
             'location' => 'Brooklyn, NY',
             'timezone' => 'America/New_York',
+            'season_start_date' => now()->addWeeks(2)->toDateString(),
+            'season_end_date' => now()->addMonths(4)->toDateString(),
+            'registration_open_date' => now()->subWeeks(2)->toDateString(),
+            'registration_close_date' => now()->addWeeks(3)->toDateString(),
+            'max_teams' => 12,
             'registration_fee' => 120.00,
             'is_active' => true,
-            'settings' => [
-                'max_teams' => 12,
-                'registration_open' => now()->subWeeks(2)->toDateString(),
-                'registration_close' => now()->addWeeks(3)->toDateString(),
-            ],
+            'status' => 'published',
         ]);
 
         $eliteVolleyball = League::create([
@@ -204,9 +206,14 @@ class DatabaseSeeder extends Seeder
             'sport_type' => 'volleyball',
             'location' => 'Queens, NY',
             'timezone' => 'America/New_York',
+            'season_start_date' => now()->addMonth()->toDateString(),
+            'season_end_date' => now()->addMonths(4)->toDateString(),
+            'registration_open_date' => now()->subWeek()->toDateString(),
+            'registration_close_date' => now()->addWeeks(2)->toDateString(),
+            'max_teams' => 8,
             'registration_fee' => 100.00,
             'is_active' => true,
-            'settings' => ['max_teams' => 8],
+            'status' => 'draft',
         ]);
 
         $leagues = collect([$metroBasketball, $citySoccer, $eliteVolleyball]);
@@ -502,6 +509,30 @@ class DatabaseSeeder extends Seeder
             ]));
         }
 
+        // ─── Open Play Games ─────────────────────────────────────────
+        $openGames = collect();
+        $openGames->push(Game::withoutGlobalScopes()->create([
+            'league_id' => null, 'team1_id' => null, 'team2_id' => null,
+            'facility_id' => $eastside->id, 'space_id' => $eastsideCourt2->id,
+            'scheduled_at' => now()->addDays(2)->setHour(19),
+            'status' => 'scheduled', 'game_type' => 'friendly',
+            'max_players' => 10, 'referee_required' => true, 'is_open_play' => true, 'is_published' => true,
+        ]));
+        $openGames->push(Game::withoutGlobalScopes()->create([
+            'league_id' => null, 'team1_id' => null, 'team2_id' => null,
+            'facility_id' => $riverside->id, 'space_id' => $riversideField2->id,
+            'scheduled_at' => now()->addDays(4)->setHour(18),
+            'status' => 'scheduled', 'game_type' => 'friendly',
+            'max_players' => 14, 'referee_required' => false, 'is_open_play' => true, 'is_published' => true,
+        ]));
+        $openGames->push(Game::withoutGlobalScopes()->create([
+            'league_id' => null, 'team1_id' => null, 'team2_id' => null,
+            'facility_id' => $summit->id, 'space_id' => $summitIndoor->id,
+            'scheduled_at' => now()->addDays(6)->setHour(20),
+            'status' => 'scheduled', 'game_type' => 'friendly',
+            'max_players' => 12, 'referee_required' => true, 'is_open_play' => true, 'is_published' => true,
+        ]));
+
         // ─── Game Participants ───────────────────────────────────────
         foreach ($games as $game) {
             $seenPlayerIds = [];
@@ -618,6 +649,7 @@ class DatabaseSeeder extends Seeder
         $refSports = [['basketball', 'soccer'], ['basketball'], ['soccer', 'volleyball'], ['volleyball']];
         $refCerts = ['NFHS Certified', 'USSF Grade 8', 'USAV Regional', 'AAU Certified'];
         $refRates = [45.00, 55.00, 40.00, 50.00];
+        $refRadii = [25, 40, 15, 30];
         foreach ($refereeUsers as $i => $user) {
             $referee = Referee::create([
                 'user_id' => $user->id,
@@ -625,10 +657,17 @@ class DatabaseSeeder extends Seeder
                 'sport_types' => $refSports[$i],
                 'experience_level' => 'advanced',
                 'certification' => $refCerts[$i],
+                'radius_miles' => $refRadii[$i],
                 'hourly_rate' => $refRates[$i],
                 'rating' => round(rand(35, 50) / 10, 2),
                 'total_games' => rand(20, 80),
                 'is_available' => true,
+                'availability' => [
+                    'monday' => ['18:00', '22:00'],
+                    'wednesday' => ['18:00', '22:00'],
+                    'saturday' => ['08:00', '20:00'],
+                    'sunday' => ['10:00', '18:00'],
+                ],
                 'bio' => fake()->sentence(12),
             ]);
             $referees->push($referee);
@@ -1066,6 +1105,79 @@ class DatabaseSeeder extends Seeder
             'content' => 'Agreed! But we\'re coming for that streak next week.',
             'parent_id' => $parentComment->id,
         ]);
+
+        // ─── Team Invitations ─────────────────────────────────────────
+        $approvedTeams = $teams->where('status', 'approved')->values();
+        if ($approvedTeams->count() >= 2) {
+            $invitingTeam = $approvedTeams->first();
+            $captain = Player::find($invitingTeam->captain_id);
+            $captainUserId = $captain?->user_id ?? $playerUsers[0]->id;
+
+            TeamInvitation::create([
+                'team_id' => $invitingTeam->id,
+                'player_id' => $players[18]->id,
+                'invited_by' => $captainUserId,
+                'status' => 'pending',
+                'message' => 'We could use a strong power forward. Interested in joining?',
+            ]);
+            TeamInvitation::create([
+                'team_id' => $invitingTeam->id,
+                'player_id' => $players[22]->id,
+                'invited_by' => $captainUserId,
+                'status' => 'accepted',
+                'message' => 'Welcome to the team!',
+            ]);
+            TeamInvitation::create([
+                'team_id' => $approvedTeams->get(1)->id,
+                'player_id' => $players[19]->id,
+                'invited_by' => Player::find($approvedTeams->get(1)->captain_id)?->user_id ?? $playerUsers[4]->id,
+                'status' => 'declined',
+                'message' => 'Looking for a shooting guard for the season.',
+            ]);
+        }
+
+        // ─── Sub Requests ────────────────────────────────────────────
+        $upcomingScheduled = $games->where('status', 'scheduled')->values();
+        if ($upcomingScheduled->isNotEmpty()) {
+            $subGame = $upcomingScheduled->first();
+            $subCaptain = Team::withoutGlobalScopes()->find($subGame->team1_id);
+            $captainPlayer = $subCaptain ? Player::find($subCaptain->captain_id) : null;
+
+            SubRequest::create([
+                'game_id' => $subGame->id,
+                'team_id' => $subGame->team1_id,
+                'requested_by' => $captainPlayer?->user_id ?? $playerUsers[0]->id,
+                'position' => 'Point Guard',
+                'message' => 'Our starting PG is injured. Need a sub for the upcoming game.',
+                'status' => 'open',
+            ]);
+
+            if ($upcomingScheduled->count() > 1) {
+                $subGame2 = $upcomingScheduled->get(1);
+                SubRequest::create([
+                    'game_id' => $subGame2->id,
+                    'team_id' => $subGame2->team2_id,
+                    'requested_by' => Player::find(Team::withoutGlobalScopes()->find($subGame2->team2_id)?->captain_id)?->user_id ?? $playerUsers[4]->id,
+                    'position' => null,
+                    'message' => 'Short on players this week. Anyone available?',
+                    'status' => 'open',
+                ]);
+            }
+        }
+
+        // Filled sub request on a completed game
+        $completedForSub = $completedGames->first();
+        if ($completedForSub) {
+            SubRequest::create([
+                'game_id' => $completedForSub->id,
+                'team_id' => $completedForSub->team1_id,
+                'requested_by' => Player::find(Team::withoutGlobalScopes()->find($completedForSub->team1_id)?->captain_id)?->user_id ?? $playerUsers[0]->id,
+                'position' => 'Center',
+                'message' => 'Needed a sub for last week.',
+                'status' => 'filled',
+                'filled_by' => $players[15]->id,
+            ]);
+        }
 
         // ─── Notifications ───────────────────────────────────────────
         $notificationData = [
