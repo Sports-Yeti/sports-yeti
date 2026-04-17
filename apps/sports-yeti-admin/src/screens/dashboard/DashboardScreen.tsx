@@ -92,6 +92,30 @@ export function DashboardScreen() {
     staleTime: 60000,
   });
 
+  const { data: pendingTeamsData } = useQuery({
+    queryKey: ['teams', { status: 'pending', per_page: 1 }],
+    queryFn: () => api.getTeams({ status: 'pending', per_page: 1 }),
+    staleTime: 60000,
+  });
+
+  const { data: pendingBookingsData } = useQuery({
+    queryKey: ['bookings', { status: 'pending', per_page: 1 }],
+    queryFn: () => api.getBookings({ status: 'pending', per_page: 1 }),
+    staleTime: 60000,
+  });
+
+  const { data: facilitiesSummary } = useQuery({
+    queryKey: ['facilities', { per_page: 100 }],
+    queryFn: () => api.getFacilities({ per_page: 100 }),
+    staleTime: 60000,
+  });
+
+  const { data: waiversSummary } = useQuery({
+    queryKey: ['waivers', { per_page: 100 }],
+    queryFn: () => api.getWaivers({ per_page: 100 }),
+    staleTime: 60000,
+  });
+
   // Use API stats if available, fall back to pagination meta
   const totalLeagues = stats?.total_leagues ?? leaguesData?.meta?.total ?? 0;
   const totalTeams = stats?.total_teams ?? teamsData?.meta?.total ?? 0;
@@ -99,6 +123,23 @@ export function DashboardScreen() {
   const totalGames = stats?.total_games ?? 0;
   const totalRevenue = stats?.total_revenue ?? 0;
   const upcomingGames = stats?.upcoming_games ?? 0;
+  const pendingTeams = pendingTeamsData?.meta?.total ?? 0;
+  const pendingBookings = pendingBookingsData?.meta?.total ?? 0;
+  const totalSpaces =
+    facilitiesSummary?.data.reduce(
+      (acc, facility) => acc + Number(facility.spaces_count ?? 0),
+      0
+    ) ?? 0;
+
+  const waivers = waiversSummary?.data ?? [];
+  const waiverSignedSum = waivers.reduce(
+    (acc, w) => acc + Number(w.signatures_count ?? 0),
+    0
+  );
+  const waiverCompletionRate =
+    waivers.length > 0
+      ? Math.round((waiverSignedSum / Math.max(waivers.length * Math.max(totalPlayers, 1), 1)) * 100)
+      : 0;
 
   const formatCurrency = (amount: number): string => {
     const num = Number(amount) || 0;
@@ -152,6 +193,37 @@ export function DashboardScreen() {
     },
   ];
 
+  const operationsWidgets = [
+    {
+      title: 'Pending Team Applications',
+      value: pendingTeams,
+      icon: '🛡️',
+      color: COLORS.warning,
+      onPress: () => navigation.navigate('Teams'),
+    },
+    {
+      title: 'Open Facility Slots',
+      value: totalSpaces,
+      icon: '🏟️',
+      color: COLORS.primary,
+      onPress: () => navigation.navigate('Facilities'),
+    },
+    {
+      title: 'Pending Bookings',
+      value: pendingBookings,
+      icon: '📆',
+      color: COLORS.accent,
+      onPress: () => navigation.navigate('Bookings'),
+    },
+    {
+      title: 'Waiver Completion Rate',
+      value: `${waiverCompletionRate}%`,
+      icon: '📝',
+      color: COLORS.success,
+      onPress: () => navigation.navigate('Waivers'),
+    },
+  ];
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
@@ -178,6 +250,22 @@ export function DashboardScreen() {
             onPress={stat.onPress}
           />
         ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Operations</Text>
+        <View style={styles.statsGrid}>
+          {operationsWidgets.map((stat, index) => (
+            <StatCard
+              key={index}
+              title={stat.title}
+              value={stat.value}
+              icon={stat.icon}
+              color={stat.color}
+              onPress={stat.onPress}
+            />
+          ))}
+        </View>
       </View>
 
       <View style={styles.section}>

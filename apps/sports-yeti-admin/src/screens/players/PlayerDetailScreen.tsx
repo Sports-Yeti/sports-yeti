@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,18 +7,28 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, SPACING, FONT_SIZES } from '../../constants';
 import { api } from '../../services/api';
-import type { Team } from '../../types';
+import type { Game, Team } from '../../types';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
 type RouteProps = RouteProp<MainStackParamList, 'PlayerDetail'>;
 
-type TabId = 'overview' | 'teams';
+type TabId = 'overview' | 'teams' | 'stats';
+
+interface PlayerGameStats {
+  player_id?: string;
+  points?: number | string;
+  rebounds?: number | string;
+  assists?: number | string;
+  steals?: number | string;
+  blocks?: number | string;
+  [key: string]: unknown;
+}
 
 interface TabButtonProps {
   id: TabId;
@@ -116,6 +126,40 @@ export function PlayerDetailScreen() {
   });
 
   const teams = player?.teams ?? [];
+  const teamIds = useMemo(() => teams.map((t) => t.id), [teams]);
+
+  const { data: gamesData } = useQuery({
+    queryKey: ['player-games', id, teamIds],
+    queryFn: async () => {
+      if (teamIds.length === 0) return { data: [] as Game[] };
+      const params: Record<string, unknown> = {
+        per_page: 5,
+        team_id: teamIds[0],
+        sort: '-scheduled_at',
+        status: 'completed',
+      };
+      return api.getGames(params);
+    },
+    enabled: activeTab === 'stats' && teamIds.length > 0,
+  });
+
+  const recentGames: Game[] = gamesData?.data ?? [];
+
+  const statsQueries = useQueries({
+    queries: recentGames.map((game) => ({
+      queryKey: ['game-stats', game.id],
+      queryFn: () => api.getGameStats(game.id),
+      enabled: activeTab === 'stats',
+    })),
+  });
+
+  const playerStatsByGameId: Record<string, PlayerGameStats | null> = {};
+  recentGames.forEach((game, idx) => {
+    const result = statsQueries[idx];
+    const allStats = (result?.data as PlayerGameStats[] | undefined) ?? [];
+    const playerStats = allStats.find((s) => s.player_id === id) ?? null;
+    playerStatsByGameId[game.id] = playerStats;
+  });
 
   const handleBack = () => {
     navigation.goBack();
@@ -280,6 +324,12 @@ export function PlayerDetailScreen() {
           isActive={activeTab === 'teams'}
           onPress={() => setActiveTab('teams')}
         />
+        <TabButton
+          id="stats"
+          label="Game Stats"
+          isActive={activeTab === 'stats'}
+          onPress={() => setActiveTab('stats')}
+        />
       </View>
 
       {/* Content */}
@@ -362,6 +412,89 @@ export function PlayerDetailScreen() {
                   </View>
                   <Text style={styles.leagueArrow}>→</Text>
                 </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'stats' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Recent Game Stats</Text>
+            {teamIds.length === 0 ? (
+              <View style={styles.emptyTabContainer}>
+                <Text style={styles.emptyTabIcon}>📊</Text>
+                <Text style={styles.emptyTabTitle}>No teams yet</Text>
+                <Text style={styles.emptyTabText}>
+                  This player needs to join a team before stats are tracked.
+                </Text>
+              </View>
+            ) : recentGames.length === 0 ? (
+              <View style={styles.emptyTabContainer}>
+                <Text style={styles.emptyTabIcon}>📊</Text>
+                <Text style={styles.emptyTabTitle}>No completed games</Text>
+                <Text style={styles.emptyTabText}>
+                  Stats will appear here after completed games.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.statsList}>
+                {recentGames.map((game) => {
+                  const stats = playerStatsByGameId[game.id];
+                  const opponentName =
+                    game.team1?.id === teamIds[0]
+                      ? game.team2?.name ?? 'Opponent'
+                      : game.team1?.name ?? 'Opponent';
+                  return (
+                    <View key={game.id} style={styles.statCard}>
+                      <View style={styles.statCardHeader}>
+                        <Text style={styles.statCardTitle}>vs {opponentName}</Text>
+                        <Text style={styles.statCardDate}>
+                          {new Date(game.scheduled_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </Text>
+                      </View>
+                      {stats ? (
+                        <View style={styles.statValuesRow}>
+                          <View style={styles.statValueItem}>
+                            <Text style={styles.statValueNumber}>
+                              {Number(stats.points ?? 0)}
+                            </Text>
+                            <Text style={styles.statValueLabel}>PTS</Text>
+                          </View>
+                          <View style={styles.statValueItem}>
+                            <Text style={styles.statValueNumber}>
+                              {Number(stats.rebounds ?? 0)}
+                            </Text>
+                            <Text style={styles.statValueLabel}>REB</Text>
+                          </View>
+                          <View style={styles.statValueItem}>
+                            <Text style={styles.statValueNumber}>
+                              {Number(stats.assists ?? 0)}
+                            </Text>
+                            <Text style={styles.statValueLabel}>AST</Text>
+                          </View>
+                          <View style={styles.statValueItem}>
+                            <Text style={styles.statValueNumber}>
+                              {Number(stats.steals ?? 0)}
+                            </Text>
+                            <Text style={styles.statValueLabel}>STL</Text>
+                          </View>
+                          <View style={styles.statValueItem}>
+                            <Text style={styles.statValueNumber}>
+                              {Number(stats.blocks ?? 0)}
+                            </Text>
+                            <Text style={styles.statValueLabel}>BLK</Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <Text style={styles.statEmpty}>No stats recorded for this game.</Text>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -720,5 +853,54 @@ const styles = StyleSheet.create({
   emptyTabText: {
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
+  },
+  statsList: {
+    gap: SPACING.md,
+  },
+  statCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  statCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  statCardTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  statCardDate: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+  },
+  statValuesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statValueItem: {
+    alignItems: 'center',
+  },
+  statValueNumber: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  statValueLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textMuted,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  statEmpty: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });

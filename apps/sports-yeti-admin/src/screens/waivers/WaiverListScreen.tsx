@@ -53,7 +53,7 @@ function WaiverCard({ waiver, onPress }: WaiverCardProps) {
 
       <View style={styles.cardStats}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{waiver.signatures_count ?? 0}</Text>
+          <Text style={styles.statValue}>{Number(waiver.signatures_count ?? 0)}</Text>
           <Text style={styles.statLabel}>Signatures</Text>
         </View>
         <View style={styles.statItem}>

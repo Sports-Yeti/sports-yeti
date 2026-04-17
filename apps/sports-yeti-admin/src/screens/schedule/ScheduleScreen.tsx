@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,14 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  TextInput,
+  Switch,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { COLORS, SPACING, FONT_SIZES } from '../../constants';
 import { api } from '../../services/api';
-import type { Game, League } from '../../types';
+import type { Game, League, Team, Facility } from '../../types';
 
 type ViewMode = 'list' | 'week';
 
@@ -22,6 +25,8 @@ const GAME_TYPE_COLORS: Record<string, string> = {
   friendly: COLORS.success,
   scrimmage: COLORS.textMuted,
 };
+
+const GAME_TYPES = ['regular', 'playoff', 'friendly'] as const;
 
 function getWeekDates(baseDate: Date): Date[] {
   const start = new Date(baseDate);
@@ -37,11 +42,17 @@ function formatDateKey(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
-interface GameCardProps {
-  game: Game;
+function toLocalDateTimeInputValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function GameCard({ game }: GameCardProps) {
+interface GameCardProps {
+  game: Game;
+  onEnterResult: () => void;
+}
+
+function GameCard({ game, onEnterResult }: GameCardProps) {
   const typeColor = GAME_TYPE_COLORS[game.game_type] || COLORS.textMuted;
   const statusColors: Record<string, string> = {
     scheduled: COLORS.primary,
@@ -51,6 +62,7 @@ function GameCard({ game }: GameCardProps) {
     postponed: COLORS.textMuted,
   };
   const statusColor = statusColors[game.status] || COLORS.textMuted;
+  const canEnterResult = game.status === 'scheduled' || game.status === 'in_progress';
 
   return (
     <View style={styles.gameCard}>
@@ -79,7 +91,382 @@ function GameCard({ game }: GameCardProps) {
           <Text style={styles.scoreText}>{game.team1_score} - {game.team2_score}</Text>
         </View>
       )}
+
+      {canEnterResult && (
+        <View style={styles.gameActions}>
+          <TouchableOpacity style={styles.resultButton} onPress={onEnterResult}>
+            <Text style={styles.resultButtonText}>Enter Result</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
+  );
+}
+
+interface CreateGameModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+  leagues: League[];
+  defaultLeagueId?: string;
+}
+
+function CreateGameModal({ visible, onClose, onCreated, leagues, defaultLeagueId }: CreateGameModalProps) {
+  const [leagueId, setLeagueId] = useState<string>(defaultLeagueId ?? '');
+  const [team1Id, setTeam1Id] = useState<string>('');
+  const [team2Id, setTeam2Id] = useState<string>('');
+  const [facilityId, setFacilityId] = useState<string>('');
+  const [scheduledAt, setScheduledAt] = useState<string>(() => {
+    const d = new Date();
+    d.setMinutes(0, 0, 0);
+    d.setHours(d.getHours() + 1);
+    return toLocalDateTimeInputValue(d);
+  });
+  const [gameType, setGameType] = useState<string>('regular');
+  const [seasonNumber, setSeasonNumber] = useState<string>('');
+  const [weekNumber, setWeekNumber] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      setLeagueId(defaultLeagueId ?? '');
+      setTeam1Id('');
+      setTeam2Id('');
+      setFacilityId('');
+      setGameType('regular');
+      setSeasonNumber('');
+      setWeekNumber('');
+      setErrorMsg(null);
+    }
+  }, [visible, defaultLeagueId]);
+
+  const { data: teamsData } = useQuery({
+    queryKey: ['teams-for-league', leagueId],
+    queryFn: () => api.getTeams({ league_id: leagueId, per_page: 100 }),
+    enabled: visible && !!leagueId,
+  });
+  const teams: Team[] = teamsData?.data ?? [];
+
+  const { data: facilitiesData } = useQuery({
+    queryKey: ['facilities-all'],
+    queryFn: () => api.getFacilities({ per_page: 100 }),
+    enabled: visible,
+  });
+  const facilities: Facility[] = facilitiesData?.data ?? [];
+
+  const handleSave = async () => {
+    setErrorMsg(null);
+    if (!leagueId) return setErrorMsg('League is required');
+    if (!team1Id) return setErrorMsg('Team 1 is required');
+    if (!team2Id) return setErrorMsg('Team 2 is required');
+    if (team1Id === team2Id) return setErrorMsg('Team 1 and Team 2 must differ');
+    if (!scheduledAt) return setErrorMsg('Scheduled date/time is required');
+
+    setIsSaving(true);
+    try {
+      await api.createGame({
+        league_id: leagueId,
+        team1_id: team1Id,
+        team2_id: team2Id,
+        facility_id: facilityId || undefined,
+        scheduled_at: new Date(scheduledAt).toISOString(),
+        game_type: gameType,
+        season_number: seasonNumber ? Number(seasonNumber) : undefined,
+        week_number: weekNumber ? Number(weekNumber) : undefined,
+      });
+      onCreated();
+      onClose();
+    } catch (err) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      setErrorMsg(e.response?.data?.detail ?? 'Failed to create game');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.modal}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>New Game</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={modalStyles.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={modalStyles.body} contentContainerStyle={modalStyles.bodyContent}>
+            <Text style={modalStyles.label}>League *</Text>
+            <View style={modalStyles.selectGrid}>
+              {leagues.map((l) => (
+                <TouchableOpacity
+                  key={l.id}
+                  style={[modalStyles.selectChip, leagueId === l.id && modalStyles.selectChipActive]}
+                  onPress={() => { setLeagueId(l.id); setTeam1Id(''); setTeam2Id(''); }}
+                >
+                  <Text style={[modalStyles.selectChipText, leagueId === l.id && modalStyles.selectChipTextActive]}>{l.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={modalStyles.label}>Team 1 *</Text>
+            <View style={modalStyles.selectGrid}>
+              {!leagueId ? (
+                <Text style={modalStyles.hint}>Select a league first</Text>
+              ) : teams.length === 0 ? (
+                <Text style={modalStyles.hint}>No approved teams in this league</Text>
+              ) : (
+                teams.map((t) => (
+                  <TouchableOpacity
+                    key={t.id}
+                    style={[modalStyles.selectChip, team1Id === t.id && modalStyles.selectChipActive]}
+                    onPress={() => setTeam1Id(t.id)}
+                  >
+                    <Text style={[modalStyles.selectChipText, team1Id === t.id && modalStyles.selectChipTextActive]}>{t.name}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+
+            <Text style={modalStyles.label}>Team 2 *</Text>
+            <View style={modalStyles.selectGrid}>
+              {!leagueId ? (
+                <Text style={modalStyles.hint}>Select a league first</Text>
+              ) : teams.length === 0 ? (
+                <Text style={modalStyles.hint}>No approved teams in this league</Text>
+              ) : (
+                teams
+                  .filter((t) => t.id !== team1Id)
+                  .map((t) => (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={[modalStyles.selectChip, team2Id === t.id && modalStyles.selectChipActive]}
+                      onPress={() => setTeam2Id(t.id)}
+                    >
+                      <Text style={[modalStyles.selectChipText, team2Id === t.id && modalStyles.selectChipTextActive]}>{t.name}</Text>
+                    </TouchableOpacity>
+                  ))
+              )}
+            </View>
+
+            <Text style={modalStyles.label}>Facility</Text>
+            <View style={modalStyles.selectGrid}>
+              <TouchableOpacity
+                style={[modalStyles.selectChip, !facilityId && modalStyles.selectChipActive]}
+                onPress={() => setFacilityId('')}
+              >
+                <Text style={[modalStyles.selectChipText, !facilityId && modalStyles.selectChipTextActive]}>None</Text>
+              </TouchableOpacity>
+              {facilities.map((f) => (
+                <TouchableOpacity
+                  key={f.id}
+                  style={[modalStyles.selectChip, facilityId === f.id && modalStyles.selectChipActive]}
+                  onPress={() => setFacilityId(f.id)}
+                >
+                  <Text style={[modalStyles.selectChipText, facilityId === f.id && modalStyles.selectChipTextActive]}>{f.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={modalStyles.label}>Scheduled Date / Time *</Text>
+            <TextInput
+              style={modalStyles.input}
+              value={scheduledAt}
+              onChangeText={setScheduledAt}
+              // @ts-expect-error web-only HTMLInput attribute
+              type="datetime-local"
+              placeholder="YYYY-MM-DDTHH:mm"
+              placeholderTextColor={COLORS.textMuted}
+            />
+
+            <Text style={modalStyles.label}>Game Type</Text>
+            <View style={modalStyles.selectGrid}>
+              {GAME_TYPES.map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[modalStyles.selectChip, gameType === t && modalStyles.selectChipActive]}
+                  onPress={() => setGameType(t)}
+                >
+                  <Text style={[modalStyles.selectChipText, gameType === t && modalStyles.selectChipTextActive]}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={modalStyles.row}>
+              <View style={modalStyles.col}>
+                <Text style={modalStyles.label}>Season #</Text>
+                <TextInput
+                  style={modalStyles.input}
+                  value={seasonNumber}
+                  onChangeText={setSeasonNumber}
+                  keyboardType="numeric"
+                  placeholder="Optional"
+                  placeholderTextColor={COLORS.textMuted}
+                />
+              </View>
+              <View style={modalStyles.col}>
+                <Text style={modalStyles.label}>Week #</Text>
+                <TextInput
+                  style={modalStyles.input}
+                  value={weekNumber}
+                  onChangeText={setWeekNumber}
+                  keyboardType="numeric"
+                  placeholder="Optional"
+                  placeholderTextColor={COLORS.textMuted}
+                />
+              </View>
+            </View>
+
+            {errorMsg && <Text style={modalStyles.errorText}>{errorMsg}</Text>}
+          </ScrollView>
+
+          <View style={modalStyles.footer}>
+            <TouchableOpacity style={modalStyles.cancelBtn} onPress={onClose} disabled={isSaving}>
+              <Text style={modalStyles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[modalStyles.saveBtn, isSaving && modalStyles.saveBtnDisabled]}
+              onPress={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color={COLORS.textLight} />
+              ) : (
+                <Text style={modalStyles.saveBtnText}>Create Game</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+interface EnterResultModalProps {
+  visible: boolean;
+  game: Game | null;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function EnterResultModal({ visible, game, onClose, onSaved }: EnterResultModalProps) {
+  const [team1Score, setTeam1Score] = useState<string>('');
+  const [team2Score, setTeam2Score] = useState<string>('');
+  const [markCompleted, setMarkCompleted] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (visible && game) {
+      setTeam1Score(game.team1_score !== null ? String(game.team1_score) : '');
+      setTeam2Score(game.team2_score !== null ? String(game.team2_score) : '');
+      setMarkCompleted(true);
+      setErrorMsg(null);
+    }
+  }, [visible, game]);
+
+  if (!game) return null;
+
+  const handleSave = async () => {
+    setErrorMsg(null);
+    const t1 = Number(team1Score);
+    const t2 = Number(team2Score);
+    if (Number.isNaN(t1) || Number.isNaN(t2)) {
+      setErrorMsg('Both scores must be numbers');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        team1_score: t1,
+        team2_score: t2,
+      };
+      if (markCompleted) payload.status = 'completed';
+      await api.updateGame(game.id, payload);
+      onSaved();
+      onClose();
+    } catch (err) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      setErrorMsg(e.response?.data?.detail ?? 'Failed to save result');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={modalStyles.overlay}>
+        <View style={[modalStyles.modal, modalStyles.modalSmall]}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Enter Result</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={modalStyles.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={modalStyles.body} contentContainerStyle={modalStyles.bodyContent}>
+            <Text style={modalStyles.matchupText}>
+              {game.team1?.name ?? 'Team 1'} vs {game.team2?.name ?? 'Team 2'}
+            </Text>
+
+            <View style={modalStyles.row}>
+              <View style={modalStyles.col}>
+                <Text style={modalStyles.label}>{game.team1?.name ?? 'Team 1'} Score</Text>
+                <TextInput
+                  style={modalStyles.input}
+                  value={team1Score}
+                  onChangeText={setTeam1Score}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                />
+              </View>
+              <View style={modalStyles.col}>
+                <Text style={modalStyles.label}>{game.team2?.name ?? 'Team 2'} Score</Text>
+                <TextInput
+                  style={modalStyles.input}
+                  value={team2Score}
+                  onChangeText={setTeam2Score}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                />
+              </View>
+            </View>
+
+            <View style={modalStyles.toggleRow}>
+              <Text style={modalStyles.label}>Mark as Completed</Text>
+              <Switch
+                value={markCompleted}
+                onValueChange={setMarkCompleted}
+                trackColor={{ false: COLORS.border, true: COLORS.primary + '80' }}
+                thumbColor={markCompleted ? COLORS.primary : COLORS.textMuted}
+              />
+            </View>
+
+            {errorMsg && <Text style={modalStyles.errorText}>{errorMsg}</Text>}
+          </ScrollView>
+
+          <View style={modalStyles.footer}>
+            <TouchableOpacity style={modalStyles.cancelBtn} onPress={onClose} disabled={isSaving}>
+              <Text style={modalStyles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[modalStyles.saveBtn, isSaving && modalStyles.saveBtnDisabled]}
+              onPress={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color={COLORS.textLight} />
+              ) : (
+                <Text style={modalStyles.saveBtnText}>Save Result</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -89,6 +476,10 @@ export function ScheduleScreen() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [weekOffset, setWeekOffset] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [resultGame, setResultGame] = useState<Game | null>(null);
 
   const baseDate = useMemo(() => {
     const d = new Date();
@@ -139,25 +530,51 @@ export function ScheduleScreen() {
     setRefreshing(false);
   }, [refetch]);
 
+  const handlePublishSchedule = async () => {
+    if (!selectedLeague) {
+      alert('Please select a league before publishing.');
+      return;
+    }
+    setIsPublishing(true);
+    try {
+      const result = await api.publishSchedule({ league_id: selectedLeague });
+      alert(`Published ${result.published_count} game(s).`);
+      refetch();
+    } catch {
+      alert('Failed to publish schedule');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const handleImportCSV = () => {
+    if (!selectedLeague) {
+      alert('Please select a league before importing.');
+      return;
+    }
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.csv';
     input.onchange = async (e: Event) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
+      setIsImporting(true);
       try {
-        const result = await api.importGames(file);
-        alert(`Imported ${result.imported} games. ${result.errors.length > 0 ? `Errors: ${result.errors.join(', ')}` : ''}`);
+        const result = await api.importGames(file, selectedLeague);
+        alert(`Imported ${result.imported} games.${result.errors.length > 0 ? `\nErrors: ${result.errors.join(', ')}` : ''}`);
         refetch();
       } catch {
         alert('Failed to import games');
+      } finally {
+        setIsImporting(false);
       }
     };
     input.click();
   };
 
   const statuses = ['scheduled', 'in_progress', 'completed', 'cancelled', 'postponed'];
+  const importDisabled = isImporting || !selectedLeague;
+  const publishDisabled = isPublishing || !selectedLeague;
 
   return (
     <View style={styles.container}>
@@ -167,11 +584,44 @@ export function ScheduleScreen() {
           <Text style={styles.subtitle}>Manage games and schedules</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.importButton} onPress={handleImportCSV}>
-            <Text style={styles.importButtonText}>Import CSV</Text>
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={() => setCreateOpen(true)}
+          >
+            <Text style={styles.createButtonText}>+ New Game</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.publishButton, publishDisabled && styles.buttonDisabled]}
+            onPress={handlePublishSchedule}
+            disabled={publishDisabled}
+          >
+            {isPublishing ? (
+              <ActivityIndicator size="small" color={COLORS.textLight} />
+            ) : (
+              <Text style={styles.publishButtonText}>Publish Schedule</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.importButton, importDisabled && styles.buttonDisabled]}
+            onPress={handleImportCSV}
+            disabled={importDisabled}
+          >
+            {isImporting ? (
+              <ActivityIndicator size="small" color={COLORS.text} />
+            ) : (
+              <Text style={styles.importButtonText}>Import CSV</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
+
+      {!selectedLeague && (
+        <View style={styles.notice}>
+          <Text style={styles.noticeText}>
+            Select a league below to enable Import CSV, Publish Schedule, and create new games.
+          </Text>
+        </View>
+      )}
 
       <View style={styles.filtersContainer}>
         <View style={styles.viewToggle}>
@@ -278,7 +728,9 @@ export function ScheduleScreen() {
                       {dayGames.length === 0 ? (
                         <Text style={styles.noGames}>—</Text>
                       ) : (
-                        dayGames.map((game) => <GameCard key={game.id} game={game} />)
+                        dayGames.map((game) => (
+                          <GameCard key={game.id} game={game} onEnterResult={() => setResultGame(game)} />
+                        ))
                       )}
                     </View>
                   );
@@ -302,7 +754,7 @@ export function ScheduleScreen() {
                       })}
                     </Text>
                     {gamesByDate[dateKey].map((game) => (
-                      <GameCard key={game.id} game={game} />
+                      <GameCard key={game.id} game={game} onEnterResult={() => setResultGame(game)} />
                     ))}
                   </View>
                 ))
@@ -311,6 +763,21 @@ export function ScheduleScreen() {
           )}
         </ScrollView>
       )}
+
+      <CreateGameModal
+        visible={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => refetch()}
+        leagues={leagues}
+        defaultLeagueId={selectedLeague || undefined}
+      />
+
+      <EnterResultModal
+        visible={!!resultGame}
+        game={resultGame}
+        onClose={() => setResultGame(null)}
+        onSaved={() => refetch()}
+      />
     </View>
   );
 }
@@ -323,12 +790,30 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: FONT_SIZES.xxl, fontWeight: '700', color: COLORS.text, marginBottom: SPACING.xs },
   subtitle: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary },
-  headerActions: { flexDirection: 'row', gap: SPACING.sm },
+  headerActions: { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap' },
+  createButton: {
+    backgroundColor: COLORS.primaryDark, paddingVertical: SPACING.sm + 2, paddingHorizontal: SPACING.lg,
+    borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+  },
+  createButtonText: { color: COLORS.textLight, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  publishButton: {
+    backgroundColor: COLORS.primary, paddingVertical: SPACING.sm + 2, paddingHorizontal: SPACING.lg,
+    borderRadius: 8, minWidth: 140, alignItems: 'center', justifyContent: 'center',
+  },
+  publishButtonText: { color: COLORS.textLight, fontSize: FONT_SIZES.md, fontWeight: '600' },
   importButton: {
     backgroundColor: COLORS.surface, paddingVertical: SPACING.sm + 2, paddingHorizontal: SPACING.lg,
     borderRadius: 8, borderWidth: 1, borderColor: COLORS.border,
+    minWidth: 120, alignItems: 'center', justifyContent: 'center',
   },
   importButtonText: { color: COLORS.text, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  buttonDisabled: { opacity: 0.5 },
+  notice: {
+    marginHorizontal: SPACING.lg, marginBottom: SPACING.md,
+    padding: SPACING.md, borderRadius: 8,
+    backgroundColor: COLORS.warning + '15', borderWidth: 1, borderColor: COLORS.warning + '40',
+  },
+  noticeText: { fontSize: FONT_SIZES.sm, color: COLORS.text },
   filtersContainer: { paddingHorizontal: SPACING.lg, marginBottom: SPACING.md, gap: SPACING.sm },
   viewToggle: {
     flexDirection: 'row', backgroundColor: COLORS.surface, borderRadius: 8,
@@ -392,8 +877,75 @@ const styles = StyleSheet.create({
   gameStatus: { fontSize: FONT_SIZES.xs, fontWeight: '500', textTransform: 'capitalize' },
   scoreRow: { marginTop: SPACING.sm, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.border },
   scoreText: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text, textAlign: 'center' },
+  gameActions: { marginTop: SPACING.sm, flexDirection: 'row', gap: SPACING.sm },
+  resultButton: {
+    backgroundColor: COLORS.primaryLight, paddingVertical: SPACING.xs + 2,
+    paddingHorizontal: SPACING.md, borderRadius: 6,
+  },
+  resultButtonText: { color: COLORS.primary, fontSize: FONT_SIZES.xs, fontWeight: '600' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: SPACING.xxl * 2 },
   emptyIcon: { fontSize: 64, marginBottom: SPACING.lg },
   emptyTitle: { fontSize: FONT_SIZES.xl, fontWeight: '600', color: COLORS.text, marginBottom: SPACING.sm },
   emptyText: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, textAlign: 'center', maxWidth: 300 },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center', alignItems: 'center', padding: SPACING.lg,
+  },
+  modal: {
+    backgroundColor: COLORS.surface, borderRadius: 12,
+    width: '100%', maxWidth: 640, maxHeight: '90%',
+    overflow: 'hidden',
+  },
+  modalSmall: { maxWidth: 480 },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: SPACING.lg, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  title: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text },
+  close: { fontSize: FONT_SIZES.lg, color: COLORS.textMuted, paddingHorizontal: SPACING.sm },
+  body: { maxHeight: 480 },
+  bodyContent: { padding: SPACING.lg, gap: SPACING.sm },
+  label: { fontSize: FONT_SIZES.sm, fontWeight: '600', color: COLORS.text, marginTop: SPACING.sm, marginBottom: SPACING.xs },
+  hint: { fontSize: FONT_SIZES.sm, color: COLORS.textMuted, paddingVertical: SPACING.sm },
+  selectGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
+  selectChip: {
+    backgroundColor: COLORS.background, borderRadius: 16,
+    paddingVertical: SPACING.xs + 2, paddingHorizontal: SPACING.md,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  selectChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  selectChipText: { fontSize: FONT_SIZES.sm, color: COLORS.text, textTransform: 'capitalize' },
+  selectChipTextActive: { color: COLORS.textLight, fontWeight: '600' },
+  input: {
+    backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 8, paddingVertical: SPACING.sm + 2, paddingHorizontal: SPACING.md,
+    fontSize: FONT_SIZES.md, color: COLORS.text,
+  },
+  row: { flexDirection: 'row', gap: SPACING.md },
+  col: { flex: 1 },
+  toggleRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginTop: SPACING.md, paddingVertical: SPACING.sm,
+  },
+  matchupText: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.text, textAlign: 'center', marginBottom: SPACING.md },
+  errorText: { color: COLORS.error, fontSize: FONT_SIZES.sm, marginTop: SPACING.sm },
+  footer: {
+    flexDirection: 'row', justifyContent: 'flex-end', gap: SPACING.sm,
+    padding: SPACING.lg, borderTopWidth: 1, borderTopColor: COLORS.border,
+  },
+  cancelBtn: {
+    paddingVertical: SPACING.sm + 2, paddingHorizontal: SPACING.lg,
+    borderRadius: 8, borderWidth: 1, borderColor: COLORS.border,
+  },
+  cancelBtnText: { color: COLORS.text, fontSize: FONT_SIZES.md, fontWeight: '600' },
+  saveBtn: {
+    backgroundColor: COLORS.primary, paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.lg, borderRadius: 8, minWidth: 140,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnText: { color: COLORS.textLight, fontSize: FONT_SIZES.md, fontWeight: '600' },
 });

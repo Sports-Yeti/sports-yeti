@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -33,6 +34,7 @@ function SummaryCard({ title, value, icon, color }: SummaryCardProps) {
 
 export function MarketplaceMonitorScreen() {
   const [refreshing, setRefreshing] = useState(false);
+  const [selectingBidId, setSelectingBidId] = useState<string | null>(null);
 
   const { data: gamesData, isLoading: isLoadingGames, refetch: refetchGames } = useQuery({
     queryKey: ['marketplace-games'],
@@ -65,6 +67,21 @@ export function MarketplaceMonitorScreen() {
     await Promise.all([refetchGames(), refetchFacilities(), refetchAssignments()]);
     setRefreshing(false);
   }, [refetchGames, refetchFacilities, refetchAssignments]);
+
+  const handleSelectBid = useCallback(
+    async (assignmentId: string) => {
+      setSelectingBidId(assignmentId);
+      try {
+        await api.selectBid(assignmentId);
+        await Promise.all([refetchGames(), refetchAssignments()]);
+      } catch (e) {
+        alert((e as Error).message ?? 'Failed to select bid');
+      } finally {
+        setSelectingBidId(null);
+      }
+    },
+    [refetchGames, refetchAssignments]
+  );
 
   if (isLoading) {
     return (
@@ -148,30 +165,55 @@ export function MarketplaceMonitorScreen() {
           {assignments.length === 0 ? (
             <Text style={styles.emptyText}>No pending referee bids</Text>
           ) : (
-            assignments.map((assignment) => (
-              <View key={assignment.id} style={styles.listRow}>
-                <View style={styles.listRowInfo}>
-                  <Text style={styles.listRowName}>
-                    {assignment.referee?.user?.name ?? 'Referee'}
-                  </Text>
-                  <Text style={styles.listRowSub}>
-                    {assignment.is_bidding ? `Bid: $${assignment.bid_amount ?? 0}` : `Rate: $${assignment.assigned_rate}`}
-                    {' · '}{assignment.status}
-                  </Text>
+            assignments.map((assignment) => {
+              const isPending = assignment.status === 'pending';
+              const isSelecting = selectingBidId === assignment.id;
+              return (
+                <View key={assignment.id} style={styles.listRow}>
+                  <View style={styles.listRowInfo}>
+                    <Text style={styles.listRowName}>
+                      {assignment.referee?.user?.name ?? 'Referee'}
+                    </Text>
+                    <Text style={styles.listRowSub}>
+                      {assignment.is_bidding
+                        ? `Bid: $${Number(assignment.bid_amount ?? 0).toFixed(2)}`
+                        : `Rate: $${Number(assignment.assigned_rate ?? 0).toFixed(2)}`}
+                      {' · '}{assignment.status}
+                    </Text>
+                  </View>
+                  <View style={styles.bidActions}>
+                    <View
+                      style={[
+                        styles.badge,
+                        { backgroundColor: (assignment.is_bidding ? COLORS.warning : COLORS.primary) + '20' },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.badgeText,
+                          { color: assignment.is_bidding ? COLORS.warning : COLORS.primary },
+                        ]}
+                      >
+                        {assignment.is_bidding ? 'Bidding' : 'Assigned'}
+                      </Text>
+                    </View>
+                    {isPending && (
+                      <TouchableOpacity
+                        style={[styles.selectBidButton, isSelecting && styles.selectBidButtonDisabled]}
+                        onPress={() => handleSelectBid(assignment.id)}
+                        disabled={isSelecting}
+                      >
+                        {isSelecting ? (
+                          <ActivityIndicator size="small" color={COLORS.textLight} />
+                        ) : (
+                          <Text style={styles.selectBidButtonText}>Select Bid</Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-                <View style={[
-                  styles.badge,
-                  { backgroundColor: (assignment.is_bidding ? COLORS.warning : COLORS.primary) + '20' },
-                ]}>
-                  <Text style={[
-                    styles.badgeText,
-                    { color: assignment.is_bidding ? COLORS.warning : COLORS.primary },
-                  ]}>
-                    {assignment.is_bidding ? 'Bidding' : 'Assigned'}
-                  </Text>
-                </View>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
       </View>
@@ -218,5 +260,16 @@ const styles = StyleSheet.create({
   listRowSub: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginTop: 2 },
   badge: { paddingVertical: 4, paddingHorizontal: SPACING.sm, borderRadius: 6 },
   badgeText: { fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
+  bidActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  selectBidButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.xs + 2,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 6,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  selectBidButtonDisabled: { opacity: 0.5 },
+  selectBidButtonText: { color: COLORS.textLight, fontSize: FONT_SIZES.xs, fontWeight: '600' },
   bottomPadding: { height: SPACING.xxl },
 });

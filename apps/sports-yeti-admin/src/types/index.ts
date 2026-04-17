@@ -83,6 +83,12 @@ export interface League {
   is_active: boolean;
   settings: Record<string, unknown> | null;
   created_at: string;
+  season_start_date?: string | null;
+  season_end_date?: string | null;
+  registration_open_date?: string | null;
+  registration_close_date?: string | null;
+  max_teams?: number | null;
+  status?: 'draft' | 'published' | null;
   admin?: User;
   teams_count?: number;
   players_count?: number;

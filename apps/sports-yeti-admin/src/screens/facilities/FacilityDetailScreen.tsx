@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Modal,
+  TextInput,
+  Switch,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, FONT_SIZES } from '../../constants';
@@ -15,6 +18,206 @@ import type { Facility, Space, Booking } from '../../types';
 
 interface RouteParams {
   id: string;
+}
+
+interface SpaceFormState {
+  name: string;
+  sport_type: string;
+  capacity: string;
+  hourly_rate: string;
+  surface_type: string;
+  is_indoor: boolean;
+  is_active: boolean;
+}
+
+const EMPTY_SPACE_FORM: SpaceFormState = {
+  name: '',
+  sport_type: 'Basketball',
+  capacity: '0',
+  hourly_rate: '0',
+  surface_type: '',
+  is_indoor: true,
+  is_active: true,
+};
+
+interface SpaceFormModalProps {
+  visible: boolean;
+  facilityId: string;
+  editingSpace: Space | null;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function SpaceFormModal({
+  visible,
+  facilityId,
+  editingSpace,
+  onClose,
+  onSaved,
+}: SpaceFormModalProps) {
+  const [form, setForm] = useState<SpaceFormState>(EMPTY_SPACE_FORM);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (editingSpace) {
+      setForm({
+        name: editingSpace.name,
+        sport_type: editingSpace.sport_type ?? 'Basketball',
+        capacity: String(Number(editingSpace.capacity ?? 0)),
+        hourly_rate: String(Number(editingSpace.hourly_rate ?? 0)),
+        surface_type: editingSpace.surface_type ?? '',
+        is_indoor: editingSpace.is_indoor,
+        is_active: editingSpace.is_active,
+      });
+    } else {
+      setForm(EMPTY_SPACE_FORM);
+    }
+    setErrorMsg(null);
+  }, [visible, editingSpace]);
+
+  const updateForm = <K extends keyof SpaceFormState>(key: K, value: SpaceFormState[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      setErrorMsg('Name is required');
+      return;
+    }
+    setIsSaving(true);
+    setErrorMsg(null);
+    try {
+      const payload: Record<string, unknown> = {
+        name: form.name.trim(),
+        sport_type: form.sport_type.trim(),
+        capacity: parseInt(form.capacity, 10) || 0,
+        hourly_rate: parseFloat(form.hourly_rate) || 0,
+        surface_type: form.surface_type.trim() || null,
+        is_indoor: form.is_indoor,
+        is_active: form.is_active,
+      };
+      if (editingSpace) {
+        await api.updateSpace(facilityId, editingSpace.id, payload);
+      } else {
+        await api.createSpace(facilityId, payload);
+      }
+      onSaved();
+      onClose();
+    } catch (e) {
+      setErrorMsg((e as Error).message ?? 'Failed to save space');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {editingSpace ? 'Edit Space' : 'Add Space'}
+            </Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalScroll}>
+            <Text style={styles.modalLabel}>Name *</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={form.name}
+              onChangeText={(v) => updateForm('name', v)}
+              placeholder="e.g. Court A"
+              placeholderTextColor={COLORS.textMuted}
+            />
+
+            <Text style={styles.modalLabel}>Sport Type</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={form.sport_type}
+              onChangeText={(v) => updateForm('sport_type', v)}
+              placeholder="e.g. Basketball"
+              placeholderTextColor={COLORS.textMuted}
+            />
+
+            <Text style={styles.modalLabel}>Capacity</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={form.capacity}
+              onChangeText={(v) => updateForm('capacity', v)}
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="number-pad"
+            />
+
+            <Text style={styles.modalLabel}>Hourly Rate ($)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={form.hourly_rate}
+              onChangeText={(v) => updateForm('hourly_rate', v)}
+              placeholder="0.00"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={styles.modalLabel}>Surface Type</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={form.surface_type}
+              onChangeText={(v) => updateForm('surface_type', v)}
+              placeholder="e.g. Hardwood, Turf"
+              placeholderTextColor={COLORS.textMuted}
+            />
+
+            <View style={styles.toggleRow}>
+              <Text style={styles.modalLabel}>Indoor</Text>
+              <Switch
+                value={form.is_indoor}
+                onValueChange={(v) => updateForm('is_indoor', v)}
+                trackColor={{ false: COLORS.border, true: COLORS.primary + '80' }}
+                thumbColor={form.is_indoor ? COLORS.primary : COLORS.textMuted}
+              />
+            </View>
+
+            <View style={styles.toggleRow}>
+              <Text style={styles.modalLabel}>Active</Text>
+              <Switch
+                value={form.is_active}
+                onValueChange={(v) => updateForm('is_active', v)}
+                trackColor={{ false: COLORS.border, true: COLORS.success + '80' }}
+                thumbColor={form.is_active ? COLORS.success : COLORS.textMuted}
+              />
+            </View>
+
+            {errorMsg && <Text style={styles.modalError}>{errorMsg}</Text>}
+          </ScrollView>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalCancel} onPress={onClose}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalSave, isSaving && styles.modalSaveDisabled]}
+              onPress={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color={COLORS.textLight} />
+              ) : (
+                <Text style={styles.modalSaveText}>
+                  {editingSpace ? 'Save Changes' : 'Create Space'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 export function FacilityDetailScreen() {
@@ -26,6 +229,8 @@ export function FacilityDetailScreen() {
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'spaces' | 'bookings' | 'info'>('spaces');
+  const [showSpaceModal, setShowSpaceModal] = useState(false);
+  const [editingSpace, setEditingSpace] = useState<Space | null>(null);
 
   const loadFacility = useCallback(async () => {
     setIsLoading(true);
@@ -33,7 +238,6 @@ export function FacilityDetailScreen() {
       const facilityData = await api.getFacility(id);
       setFacility(facilityData);
 
-      // Load upcoming bookings for this facility
       const today = new Date().toISOString().split('T')[0];
       const bookingsResponse = await api.getBookings({
         facility_id: id,
@@ -70,6 +274,26 @@ export function FacilityDetailScreen() {
     });
   }
 
+  const handleAddSpace = () => {
+    setEditingSpace(null);
+    setShowSpaceModal(true);
+  };
+
+  const handleEditSpace = (space: Space) => {
+    setEditingSpace(space);
+    setShowSpaceModal(true);
+  };
+
+  const handleDeleteSpace = async (space: Space) => {
+    if (!confirm(`Delete space "${space.name}"? This cannot be undone.`)) return;
+    try {
+      await api.deleteSpace(id, space.id);
+      await loadFacility();
+    } catch (e) {
+      alert((e as Error).message ?? 'Failed to delete space');
+    }
+  };
+
   function renderSpaceCard(space: Space) {
     return (
       <View key={space.id} style={styles.spaceCard}>
@@ -99,11 +323,15 @@ export function FacilityDetailScreen() {
         <View style={styles.spaceDetails}>
           <View style={styles.spaceDetailItem}>
             <Text style={styles.spaceDetailLabel}>Hourly Rate</Text>
-            <Text style={styles.spaceDetailValue}>${space.hourly_rate}</Text>
+            <Text style={styles.spaceDetailValue}>
+              ${Number(space.hourly_rate ?? 0).toFixed(2)}
+            </Text>
           </View>
           <View style={styles.spaceDetailItem}>
             <Text style={styles.spaceDetailLabel}>Capacity</Text>
-            <Text style={styles.spaceDetailValue}>{space.capacity} people</Text>
+            <Text style={styles.spaceDetailValue}>
+              {Number(space.capacity ?? 0)} people
+            </Text>
           </View>
           <View style={styles.spaceDetailItem}>
             <Text style={styles.spaceDetailLabel}>Type</Text>
@@ -130,13 +358,17 @@ export function FacilityDetailScreen() {
         )}
 
         <View style={styles.spaceActions}>
-          <TouchableOpacity style={styles.spaceActionButton}>
-            <Text style={styles.spaceActionText}>View Schedule</Text>
+          <TouchableOpacity
+            style={styles.spaceActionButton}
+            onPress={() => handleEditSpace(space)}
+          >
+            <Text style={styles.spaceActionText}>Edit</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.spaceActionButton, styles.spaceActionButtonPrimary]}
+            style={[styles.spaceActionButton, styles.spaceActionButtonDanger]}
+            onPress={() => handleDeleteSpace(space)}
           >
-            <Text style={styles.spaceActionTextPrimary}>Book Now</Text>
+            <Text style={styles.spaceActionTextDanger}>Delete</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -191,7 +423,6 @@ export function FacilityDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -207,7 +438,6 @@ export function FacilityDetailScreen() {
       </View>
 
       <ScrollView style={styles.content}>
-        {/* Hero Section */}
         <View style={styles.heroSection}>
           {facility.image_url ? (
             <Image source={{ uri: facility.image_url }} style={styles.heroImage} />
@@ -245,7 +475,6 @@ export function FacilityDetailScreen() {
           </View>
         </View>
 
-        {/* Quick Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{facility.spaces?.length || 0}</Text>
@@ -263,7 +492,6 @@ export function FacilityDetailScreen() {
           )}
         </View>
 
-        {/* Tabs */}
         <View style={styles.tabs}>
           {(['spaces', 'bookings', 'info'] as const).map((tab) => (
             <TouchableOpacity
@@ -283,10 +511,15 @@ export function FacilityDetailScreen() {
           ))}
         </View>
 
-        {/* Tab Content */}
         <View style={styles.tabContent}>
           {activeTab === 'spaces' && (
             <View style={styles.spacesSection}>
+              <View style={styles.spacesHeader}>
+                <Text style={styles.sectionTitle}>Spaces</Text>
+                <TouchableOpacity style={styles.addSpaceButton} onPress={handleAddSpace}>
+                  <Text style={styles.addSpaceButtonText}>+ Add Space</Text>
+                </TouchableOpacity>
+              </View>
               {facility.spaces && facility.spaces.length > 0 ? (
                 facility.spaces.map(renderSpaceCard)
               ) : (
@@ -370,6 +603,14 @@ export function FacilityDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <SpaceFormModal
+        visible={showSpaceModal}
+        facilityId={id}
+        editingSpace={editingSpace}
+        onClose={() => setShowSpaceModal(false)}
+        onSaved={loadFacility}
+      />
     </View>
   );
 }
@@ -532,9 +773,25 @@ const styles = StyleSheet.create({
   tabContent: {
     padding: SPACING.md,
   },
-  // Spaces section
   spacesSection: {
     gap: SPACING.md,
+  },
+  spacesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  addSpaceButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 8,
+  },
+  addSpaceButtonText: {
+    color: COLORS.textLight,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
   },
   spaceCard: {
     backgroundColor: COLORS.surface,
@@ -635,20 +892,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.background,
   },
-  spaceActionButtonPrimary: {
-    backgroundColor: COLORS.primary,
+  spaceActionButtonDanger: {
+    backgroundColor: COLORS.error + '15',
   },
   spaceActionText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.text,
     fontWeight: '500',
   },
-  spaceActionTextPrimary: {
+  spaceActionTextDanger: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.textLight,
+    color: COLORS.error,
     fontWeight: '600',
   },
-  // Bookings section
   bookingsSection: {
     gap: SPACING.md,
   },
@@ -694,7 +950,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'capitalize',
   },
-  // Info section
   infoSection: {
     gap: SPACING.lg,
   },
@@ -756,4 +1011,86 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
   },
+  // Modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text },
+  modalClose: { fontSize: FONT_SIZES.lg, color: COLORS.textMuted },
+  modalScroll: { padding: SPACING.lg },
+  modalLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  modalInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.md,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: SPACING.md,
+  },
+  modalError: {
+    color: COLORS.error,
+    fontSize: FONT_SIZES.sm,
+    marginTop: SPACING.md,
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: SPACING.md,
+    padding: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  modalCancel: {
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalCancelText: { color: COLORS.text, fontSize: FONT_SIZES.md, fontWeight: '500' },
+  modalSave: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: 8,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  modalSaveDisabled: { opacity: 0.5 },
+  modalSaveText: { color: COLORS.textLight, fontSize: FONT_SIZES.md, fontWeight: '600' },
 });

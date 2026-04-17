@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, SPACING, FONT_SIZES } from '../../constants';
@@ -19,8 +19,17 @@ import type { MainStackParamList } from '../../navigation/MainNavigator';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
+interface TeamPaymentSummary {
+  paid_count: number;
+  pending_count: number;
+  roster_count: number;
+  is_complete: boolean;
+}
+
 interface TeamCardProps {
   team: Team;
+  paymentSummary?: TeamPaymentSummary | null;
+  isPaymentLoading?: boolean;
   onPress: () => void;
   onDelete: () => void;
   onApprove: () => void;
@@ -44,7 +53,38 @@ function RosterBar({ current, max }: { current: number; max: number }) {
   );
 }
 
-function TeamCard({ team, onPress, onDelete, onApprove, onReject }: TeamCardProps) {
+function PaymentProgress({ summary, isLoading }: { summary?: TeamPaymentSummary | null; isLoading?: boolean }) {
+  if (isLoading) {
+    return (
+      <View style={styles.paymentRow}>
+        <Text style={styles.paymentLabel}>Payments</Text>
+        <Text style={styles.paymentValue}>Loading…</Text>
+      </View>
+    );
+  }
+  if (!summary) return null;
+
+  const paid = Number(summary.paid_count ?? 0);
+  const total = Number(summary.roster_count ?? 0);
+  const pct = total > 0 ? Math.min(paid / total, 1) : 0;
+  const barColor = summary.is_complete ? COLORS.success : pct >= 0.5 ? COLORS.warning : COLORS.error;
+
+  return (
+    <View style={styles.paymentBlock}>
+      <View style={styles.paymentRow}>
+        <Text style={styles.paymentLabel}>Payments</Text>
+        <Text style={[styles.paymentValue, summary.is_complete && { color: COLORS.success }]}>
+          {paid}/{total} paid
+        </Text>
+      </View>
+      <View style={styles.paymentTrack}>
+        <View style={[styles.paymentFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
+      </View>
+    </View>
+  );
+}
+
+function TeamCard({ team, paymentSummary, isPaymentLoading, onPress, onDelete, onApprove, onReject }: TeamCardProps) {
   const statusColors: Record<string, string> = {
     approved: COLORS.success,
     pending: COLORS.warning,
@@ -92,6 +132,10 @@ function TeamCard({ team, onPress, onDelete, onApprove, onReject }: TeamCardProp
       )}
 
       <RosterBar current={team.players_count ?? 0} max={team.max_roster_size} />
+
+      {isPending && (
+        <PaymentProgress summary={paymentSummary} isLoading={isPaymentLoading} />
+      )}
 
       <View style={styles.cardStats}>
         <View style={styles.statItem}>
@@ -194,6 +238,23 @@ export function TeamListScreen() {
 
   const teams = data?.data ?? [];
   const meta: PaginationMeta | undefined = data?.meta;
+
+  const pendingTeams = teams.filter((t) => t.status === 'pending');
+  const paymentQueries = useQueries({
+    queries: pendingTeams.map((team) => ({
+      queryKey: ['team-payment-summary', team.id],
+      queryFn: () => api.getTeamPaymentSummary(team.id),
+      staleTime: 30_000,
+    })),
+  });
+  const paymentSummariesByTeamId: Record<string, { summary: TeamPaymentSummary | null; isLoading: boolean }> = {};
+  pendingTeams.forEach((team, idx) => {
+    const result = paymentQueries[idx];
+    paymentSummariesByTeamId[team.id] = {
+      summary: result?.data ?? null,
+      isLoading: !!result?.isLoading,
+    };
+  });
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -391,16 +452,21 @@ export function TeamListScreen() {
             </View>
           ) : (
             <View style={styles.gridContainer}>
-              {teams.map((team) => (
-                <TeamCard
-                  key={team.id}
-                  team={team}
-                  onPress={() => handleTeamPress(team)}
-                  onDelete={() => handleDeleteTeam(team)}
-                  onApprove={() => handleApproveTeam(team)}
-                  onReject={() => handleRejectTeam(team)}
-                />
-              ))}
+              {teams.map((team) => {
+                const paymentInfo = paymentSummariesByTeamId[team.id];
+                return (
+                  <TeamCard
+                    key={team.id}
+                    team={team}
+                    paymentSummary={paymentInfo?.summary}
+                    isPaymentLoading={paymentInfo?.isLoading}
+                    onPress={() => handleTeamPress(team)}
+                    onDelete={() => handleDeleteTeam(team)}
+                    onApprove={() => handleApproveTeam(team)}
+                    onReject={() => handleRejectTeam(team)}
+                  />
+                );
+              })}
             </View>
           )}
 
@@ -711,6 +777,34 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   rosterBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  paymentBlock: {
+    marginBottom: SPACING.md,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  paymentLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  paymentValue: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  paymentTrack: {
+    height: 6,
+    backgroundColor: COLORS.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  paymentFill: {
     height: '100%',
     borderRadius: 3,
   },

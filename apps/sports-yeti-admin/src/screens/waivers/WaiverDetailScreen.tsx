@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, SPACING, FONT_SIZES } from '../../constants';
 import { api } from '../../services/api';
-import type { WaiverSignature, MainStackParamList } from '../../types';
+import type { Player, WaiverSignature, MainStackParamList } from '../../types';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
@@ -32,7 +32,37 @@ export function WaiverDetailScreen() {
     enabled: !!waiver,
   });
 
-  const signatures = signaturesData?.data ?? [];
+  const { data: leaguePlayersData, isLoading: isLoadingPlayers } = useQuery({
+    queryKey: ['waiver-league-players', waiver?.league_id],
+    queryFn: () => api.getPlayers({ league_id: waiver?.league_id, per_page: 500 }),
+    enabled: !!waiver?.league_id,
+  });
+
+  const signatures: WaiverSignature[] = useMemo(
+    () => signaturesData?.data ?? [],
+    [signaturesData]
+  );
+  const leaguePlayers: Player[] = useMemo(
+    () => leaguePlayersData?.data ?? [],
+    [leaguePlayersData]
+  );
+
+  const signedPlayerIds = useMemo(
+    () => new Set(signatures.map((s) => s.player_id)),
+    [signatures]
+  );
+
+  const unsignedPlayers = useMemo(
+    () => leaguePlayers.filter((p) => !signedPlayerIds.has(p.id)),
+    [leaguePlayers, signedPlayerIds]
+  );
+
+  const totalExpected = leaguePlayers.length;
+  const signedCount = signatures.length;
+  const unsignedCount = unsignedPlayers.length;
+  const completionPct = totalExpected > 0
+    ? Math.round((signedCount / totalExpected) * 100)
+    : 0;
 
   if (isLoading) {
     return (
@@ -52,9 +82,6 @@ export function WaiverDetailScreen() {
       </View>
     );
   }
-
-  const totalExpected = waiver.signatures_count ?? signatures.length;
-  const completionPct = totalExpected > 0 ? Math.round((signatures.length / totalExpected) * 100) : 0;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -88,6 +115,25 @@ export function WaiverDetailScreen() {
         </View>
       </View>
 
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryValue}>{signedCount}</Text>
+          <Text style={styles.summaryLabel}>Signed</Text>
+        </View>
+        <View style={[styles.summaryCard, unsignedCount > 0 && styles.summaryCardAlert]}>
+          <Text style={[styles.summaryValue, unsignedCount > 0 && styles.summaryValueAlert]}>
+            {unsignedCount}
+          </Text>
+          <Text style={[styles.summaryLabel, unsignedCount > 0 && styles.summaryLabelAlert]}>
+            Unsigned
+          </Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryValue}>{completionPct}%</Text>
+          <Text style={styles.summaryLabel}>Complete</Text>
+        </View>
+      </View>
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Content</Text>
         <View style={styles.contentCard}>
@@ -97,13 +143,59 @@ export function WaiverDetailScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Signatures</Text>
+          <Text style={styles.sectionTitle}>Completion Progress</Text>
           <Text style={styles.completionText}>{completionPct}% signed</Text>
         </View>
-
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${completionPct}%` }]} />
         </View>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Unsigned Players</Text>
+          {unsignedCount > 0 && (
+            <View style={styles.alertBadge}>
+              <Text style={styles.alertBadgeText}>{unsignedCount} unsigned</Text>
+            </View>
+          )}
+        </View>
+
+        {isLoadingPlayers ? (
+          <View style={styles.loadingInline}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+          </View>
+        ) : unsignedPlayers.length === 0 ? (
+          <View style={styles.emptyAllSigned}>
+            <Text style={styles.emptyAllSignedText}>✓ All players have signed</Text>
+          </View>
+        ) : (
+          unsignedPlayers.map((player) => (
+            <View key={player.id} style={styles.unsignedRow}>
+              <View style={styles.unsignedAvatar}>
+                <Text style={styles.unsignedAvatarText}>
+                  {player.user?.name?.charAt(0) ?? '?'}
+                </Text>
+              </View>
+              <View style={styles.unsignedInfo}>
+                <Text style={styles.unsignedName}>{player.user?.name ?? 'Unknown Player'}</Text>
+                <Text style={styles.unsignedSub}>
+                  {player.user?.email ?? 'No email'}
+                  {player.teams && player.teams.length > 0
+                    ? ` · ${player.teams.map((t) => t.name).join(', ')}`
+                    : ''}
+                </Text>
+              </View>
+              <View style={styles.unsignedBadge}>
+                <Text style={styles.unsignedBadgeText}>Unsigned</Text>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Signatures ({signedCount})</Text>
 
         {signatures.length === 0 ? (
           <Text style={styles.emptyText}>No signatures yet</Text>
@@ -133,6 +225,7 @@ export function WaiverDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingInline: { paddingVertical: SPACING.lg, alignItems: 'center' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
   errorText: { fontSize: FONT_SIZES.md, color: COLORS.error, marginBottom: SPACING.md },
   retryButton: { backgroundColor: COLORS.primary, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.lg, borderRadius: 8 },
@@ -146,10 +239,29 @@ const styles = StyleSheet.create({
   editButtonText: { color: COLORS.primary, fontSize: FONT_SIZES.sm, fontWeight: '600' },
   titleSection: { paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg },
   title: { fontSize: FONT_SIZES.xxl, fontWeight: '700', color: COLORS.text, marginBottom: SPACING.sm },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flexWrap: 'wrap' },
   badge: { paddingVertical: 4, paddingHorizontal: SPACING.sm, borderRadius: 4 },
   badgeText: { fontSize: FONT_SIZES.xs, fontWeight: '600' },
   metaText: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
+
+  summaryRow: {
+    flexDirection: 'row', gap: SPACING.md,
+    paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg,
+  },
+  summaryCard: {
+    flex: 1, backgroundColor: COLORS.surface, borderRadius: 12,
+    padding: SPACING.lg, alignItems: 'center',
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  summaryCardAlert: {
+    backgroundColor: COLORS.error + '10',
+    borderColor: COLORS.error + '40',
+  },
+  summaryValue: { fontSize: FONT_SIZES.xxl, fontWeight: '700', color: COLORS.text },
+  summaryValueAlert: { color: COLORS.error },
+  summaryLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginTop: 4 },
+  summaryLabelAlert: { color: COLORS.error, fontWeight: '600' },
+
   section: { paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
   sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text, marginBottom: SPACING.sm },
@@ -164,7 +276,44 @@ const styles = StyleSheet.create({
     overflow: 'hidden', marginBottom: SPACING.lg,
   },
   progressFill: { height: '100%', backgroundColor: COLORS.success, borderRadius: 4 },
+
+  alertBadge: {
+    backgroundColor: COLORS.error,
+    paddingVertical: 4, paddingHorizontal: SPACING.md,
+    borderRadius: 12,
+  },
+  alertBadgeText: { color: COLORS.textLight, fontSize: FONT_SIZES.xs, fontWeight: '700' },
+
   emptyText: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, textAlign: 'center', paddingVertical: SPACING.xl },
+  emptyAllSigned: {
+    backgroundColor: COLORS.success + '15',
+    padding: SPACING.lg, borderRadius: 8,
+    borderWidth: 1, borderColor: COLORS.success + '30',
+  },
+  emptyAllSignedText: {
+    color: COLORS.success, fontSize: FONT_SIZES.md, fontWeight: '600', textAlign: 'center',
+  },
+
+  unsignedRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface,
+    padding: SPACING.md, borderRadius: 8, marginBottom: SPACING.sm,
+    borderWidth: 1, borderLeftWidth: 4, borderColor: COLORS.border, borderLeftColor: COLORS.error,
+  },
+  unsignedAvatar: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.error + '20',
+    justifyContent: 'center', alignItems: 'center', marginRight: SPACING.md,
+  },
+  unsignedAvatarText: { color: COLORS.error, fontWeight: '700', fontSize: FONT_SIZES.md },
+  unsignedInfo: { flex: 1 },
+  unsignedName: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.text },
+  unsignedSub: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginTop: 2 },
+  unsignedBadge: {
+    backgroundColor: COLORS.error + '15',
+    paddingVertical: 4, paddingHorizontal: SPACING.sm,
+    borderRadius: 4,
+  },
+  unsignedBadgeText: { fontSize: FONT_SIZES.xs, color: COLORS.error, fontWeight: '600' },
+
   signatureRow: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface,
     padding: SPACING.md, borderRadius: 8, marginBottom: SPACING.sm,

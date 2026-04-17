@@ -28,12 +28,19 @@ interface FormData {
   timezone: string;
   registration_fee: string;
   is_active: boolean;
+  season_start_date: string;
+  season_end_date: string;
+  registration_open_date: string;
+  registration_close_date: string;
+  max_teams: string;
+  status: 'draft' | 'published';
 }
 
 interface FormErrors {
   name?: string;
   sport_type?: string;
   registration_fee?: string;
+  max_teams?: string;
 }
 
 const SPORT_TYPES = [
@@ -74,6 +81,12 @@ export function LeagueFormScreen() {
     timezone: 'America/New_York',
     registration_fee: '0',
     is_active: true,
+    season_start_date: '',
+    season_end_date: '',
+    registration_open_date: '',
+    registration_close_date: '',
+    max_teams: '',
+    status: 'draft',
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -96,8 +109,14 @@ export function LeagueFormScreen() {
         sport_type: existingLeague.sport_type ?? 'Basketball',
         location: existingLeague.location ?? '',
         timezone: existingLeague.timezone ?? 'America/New_York',
-        registration_fee: String(existingLeague.registration_fee ?? 0),
+        registration_fee: String(Number(existingLeague.registration_fee ?? 0)),
         is_active: existingLeague.is_active,
+        season_start_date: existingLeague.season_start_date ?? '',
+        season_end_date: existingLeague.season_end_date ?? '',
+        registration_open_date: existingLeague.registration_open_date ?? '',
+        registration_close_date: existingLeague.registration_close_date ?? '',
+        max_teams: existingLeague.max_teams != null ? String(existingLeague.max_teams) : '',
+        status: existingLeague.status === 'published' ? 'published' : 'draft',
       });
     }
   }, [existingLeague]);
@@ -137,6 +156,13 @@ export function LeagueFormScreen() {
       newErrors.registration_fee = 'Registration fee must be a valid number';
     }
 
+    if (formData.max_teams.trim()) {
+      const maxTeams = parseInt(formData.max_teams, 10);
+      if (isNaN(maxTeams) || maxTeams < 0) {
+        newErrors.max_teams = 'Max teams must be a positive number';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -152,6 +178,12 @@ export function LeagueFormScreen() {
       timezone: formData.timezone,
       registration_fee: parseFloat(formData.registration_fee),
       is_active: formData.is_active,
+      season_start_date: formData.season_start_date.trim() || null,
+      season_end_date: formData.season_end_date.trim() || null,
+      registration_open_date: formData.registration_open_date.trim() || null,
+      registration_close_date: formData.registration_close_date.trim() || null,
+      max_teams: formData.max_teams.trim() ? parseInt(formData.max_teams, 10) : null,
+      status: formData.status,
     };
 
     if (isEditing) {
@@ -368,6 +400,88 @@ export function LeagueFormScreen() {
                 onValueChange={(value) => updateField('is_active', value)}
                 trackColor={{ false: COLORS.border, true: COLORS.primary + '80' }}
                 thumbColor={formData.is_active ? COLORS.primary : COLORS.textMuted}
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Season & Registration</Text>
+
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Season Start Date</Text>
+            <TextInput
+              style={styles.textInput}
+              value={formData.season_start_date}
+              onChangeText={(value) => updateField('season_start_date', value)}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={COLORS.textMuted}
+            />
+          </View>
+
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Season End Date</Text>
+            <TextInput
+              style={styles.textInput}
+              value={formData.season_end_date}
+              onChangeText={(value) => updateField('season_end_date', value)}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={COLORS.textMuted}
+            />
+          </View>
+
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Registration Opens</Text>
+            <TextInput
+              style={styles.textInput}
+              value={formData.registration_open_date}
+              onChangeText={(value) => updateField('registration_open_date', value)}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={COLORS.textMuted}
+            />
+          </View>
+
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Registration Closes</Text>
+            <TextInput
+              style={styles.textInput}
+              value={formData.registration_close_date}
+              onChangeText={(value) => updateField('registration_close_date', value)}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={COLORS.textMuted}
+            />
+          </View>
+
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Max Teams</Text>
+            <TextInput
+              style={[styles.textInput, errors.max_teams && styles.textInputError]}
+              value={formData.max_teams}
+              onChangeText={(value) => updateField('max_teams', value)}
+              placeholder="Leave blank for unlimited"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="number-pad"
+            />
+            {errors.max_teams && (
+              <Text style={styles.errorText}>{errors.max_teams}</Text>
+            )}
+          </View>
+
+          <View style={styles.fieldContainer}>
+            <View style={styles.switchRow}>
+              <View>
+                <Text style={styles.fieldLabel}>Publish League</Text>
+                <Text style={styles.fieldHint}>
+                  Drafts are hidden from players. Published leagues are visible.
+                </Text>
+              </View>
+              <Switch
+                value={formData.status === 'published'}
+                onValueChange={(value) =>
+                  updateField('status', value ? 'published' : 'draft')
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.primary + '80' }}
+                thumbColor={formData.status === 'published' ? COLORS.primary : COLORS.textMuted}
               />
             </View>
           </View>

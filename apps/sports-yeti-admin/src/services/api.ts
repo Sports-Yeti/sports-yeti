@@ -528,12 +528,114 @@ class AdminApiService {
     return response.data;
   }
 
-  async importGames(file: File): Promise<{ imported: number; errors: string[] }> {
+  async publishSchedule(data: {
+    league_id: string;
+    season_number?: number;
+    week_number?: number;
+  }): Promise<{ published_count: number }> {
+    const response = await this.client.post<{ data: { published_count: number } }>(
+      '/games/publish',
+      data
+    );
+    return response.data.data;
+  }
+
+  async importGames(
+    file: File | Blob,
+    leagueId: string
+  ): Promise<{ imported: number; errors: string[] }> {
     const formData = new FormData();
-    formData.append('file', file);
-    const response = await this.client.post<{ data: { imported: number; errors: string[] } }>('/games/import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    formData.append('file', file as Blob);
+    formData.append('league_id', leagueId);
+    const response = await this.client.post<{ data: { imported: number; errors: string[] } }>(
+      '/games/import',
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
+    );
+    return response.data.data;
+  }
+
+  async createGame(data: {
+    league_id: string;
+    team1_id: string;
+    team2_id: string;
+    facility_id?: string;
+    space_id?: string;
+    scheduled_at: string;
+    game_type?: string;
+    season_number?: number;
+    week_number?: number;
+  }): Promise<unknown> {
+    const response = await this.client.post('/games', data);
+    return response.data.data;
+  }
+
+  async updateGame(id: string, data: Record<string, unknown>): Promise<unknown> {
+    const response = await this.client.put(`/games/${id}`, data);
+    return response.data.data;
+  }
+
+  // Facility Spaces
+  async getSpaces(facilityId: string): Promise<unknown[]> {
+    const response = await this.client.get<{ data: unknown[] }>(
+      `/facilities/${facilityId}/spaces`
+    );
+    return response.data.data;
+  }
+
+  async createSpace(facilityId: string, data: Record<string, unknown>): Promise<unknown> {
+    const response = await this.client.post(`/facilities/${facilityId}/spaces`, data);
+    return response.data.data;
+  }
+
+  async updateSpace(
+    facilityId: string,
+    spaceId: string,
+    data: Record<string, unknown>
+  ): Promise<unknown> {
+    const response = await this.client.put(`/facilities/${facilityId}/spaces/${spaceId}`, data);
+    return response.data.data;
+  }
+
+  async deleteSpace(facilityId: string, spaceId: string): Promise<void> {
+    await this.client.delete(`/facilities/${facilityId}/spaces/${spaceId}`);
+  }
+
+  // Referee bid selection
+  async selectBid(assignmentId: string): Promise<unknown> {
+    const response = await this.client.post(
+      `/referees/assignments/${assignmentId}/select-bid`
+    );
+    return response.data.data;
+  }
+
+  // Team payment summary
+  async getTeamPaymentSummary(teamId: string): Promise<{
+    team_id: string;
+    team_name: string;
+    league_name: string;
+    total_fee: number;
+    per_player_share: number;
+    roster_count: number;
+    paid_count: number;
+    pending_count: number;
+    is_complete: boolean;
+  }> {
+    const response = await this.client.get<{
+      data: {
+        team_id: string;
+        team_name: string;
+        league_name: string;
+        total_fee: number;
+        per_player_share: number;
+        roster_count: number;
+        paid_count: number;
+        pending_count: number;
+        is_complete: boolean;
+      };
+    }>(`/teams/${teamId}/payment-summary`);
     return response.data.data;
   }
 
