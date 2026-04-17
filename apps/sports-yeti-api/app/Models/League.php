@@ -30,6 +30,12 @@ class League extends Model
         'registration_fee',
         'is_active',
         'settings',
+        'season_start_date',
+        'season_end_date',
+        'registration_open_date',
+        'registration_close_date',
+        'max_teams',
+        'status',
     ];
 
     protected function casts(): array
@@ -38,6 +44,11 @@ class League extends Model
             'registration_fee' => 'decimal:2',
             'is_active' => 'boolean',
             'settings' => 'array',
+            'season_start_date' => 'date',
+            'season_end_date' => 'date',
+            'registration_open_date' => 'date',
+            'registration_close_date' => 'date',
+            'max_teams' => 'integer',
         ];
     }
 

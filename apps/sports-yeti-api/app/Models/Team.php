@@ -25,6 +25,8 @@ class Team extends Model
 
     protected $fillable = [
         'name',
+        'sport',
+        'skill_level',
         'league_id',
         'captain_id',
         'description',

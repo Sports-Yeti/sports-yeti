@@ -30,6 +30,8 @@ class Referee extends Model
         'total_games',
         'is_available',
         'bio',
+        'radius_miles',
+        'availability',
     ];
 
     protected function casts(): array
@@ -40,6 +42,8 @@ class Referee extends Model
             'rating' => 'decimal:2',
             'total_games' => 'integer',
             'is_available' => 'boolean',
+            'radius_miles' => 'integer',
+            'availability' => 'array',
         ];
     }
 
