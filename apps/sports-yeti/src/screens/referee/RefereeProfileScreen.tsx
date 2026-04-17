@@ -15,7 +15,7 @@ import { api } from '../../services/api';
 import type { Referee } from '../../types';
 
 const ALL_SPORT_TYPES = ['basketball', 'soccer', 'football', 'baseball', 'volleyball', 'hockey', 'tennis', 'softball'];
-const EXPERIENCE_LEVELS = ['beginner', 'intermediate', 'advanced', 'expert'];
+const EXPERIENCE_LEVELS = ['beginner', 'intermediate', 'advanced', 'pro'];
 
 export function RefereeProfileScreen() {
   const queryClient = useQueryClient();
@@ -24,6 +24,7 @@ export function RefereeProfileScreen() {
   const [certification, setCertification] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
   const [bio, setBio] = useState('');
+  const [radiusMiles, setRadiusMiles] = useState('');
   const [isAvailable, setIsAvailable] = useState(true);
   const [hasProfile, setHasProfile] = useState(false);
   const [profileId, setProfileId] = useState('');
@@ -39,16 +40,22 @@ export function RefereeProfileScreen() {
       setHasProfile(true);
       setProfileId(profile.id);
       setSportTypes(profile.sport_types);
-      setExperienceLevel(profile.experience_level);
+      const level =
+        profile.experience_level === 'expert' ? 'pro' : profile.experience_level;
+      setExperienceLevel(level);
       setCertification(profile.certification ?? '');
-      setHourlyRate(profile.hourly_rate.toString());
+      setHourlyRate(Number(profile.hourly_rate).toString());
       setBio(profile.bio ?? '');
+      setRadiusMiles(
+        profile.radius_miles != null ? String(profile.radius_miles) : ''
+      );
       setIsAvailable(profile.is_available);
     }
   }, [profile]);
 
   const createMutation = useMutation({
-    mutationFn: (data: Partial<Referee>) => api.createRefereeProfile(data),
+    mutationFn: (data: Partial<Referee> & { radius_miles?: number }) =>
+      api.createRefereeProfile(data),
     onSuccess: (newProfile) => {
       setHasProfile(true);
       setProfileId(newProfile.id);
@@ -57,7 +64,8 @@ export function RefereeProfileScreen() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<Referee>) => api.updateRefereeProfile(profileId, data),
+    mutationFn: (data: Partial<Referee> & { radius_miles?: number }) =>
+      api.updateRefereeProfile(profileId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['referee-profile'] });
     },
@@ -70,7 +78,8 @@ export function RefereeProfileScreen() {
   };
 
   const handleSave = () => {
-    const data: Partial<Referee> = {
+    const parsedRadius = parseInt(radiusMiles, 10);
+    const data: Partial<Referee> & { radius_miles?: number } = {
       sport_types: sportTypes,
       experience_level: experienceLevel,
       certification: certification || null,
@@ -78,6 +87,10 @@ export function RefereeProfileScreen() {
       bio: bio || null,
       is_available: isAvailable,
     };
+
+    if (!Number.isNaN(parsedRadius) && parsedRadius > 0) {
+      data.radius_miles = parsedRadius;
+    }
 
     if (hasProfile) {
       updateMutation.mutate(data);
@@ -153,6 +166,18 @@ export function RefereeProfileScreen() {
           placeholder="Enter your hourly rate"
           placeholderTextColor={COLORS.textSecondary}
           keyboardType="numeric"
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Travel Radius (miles)</Text>
+        <TextInput
+          style={styles.input}
+          value={radiusMiles}
+          onChangeText={setRadiusMiles}
+          placeholder="e.g. 25"
+          placeholderTextColor={COLORS.textSecondary}
+          keyboardType="number-pad"
         />
       </View>
 

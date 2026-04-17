@@ -21,13 +21,27 @@ interface RegisterScreenProps {
   };
 }
 
+const ROLE_OPTIONS: Array<{ key: string; label: string }> = [
+  { key: 'player', label: 'Player' },
+  { key: 'referee', label: 'Referee' },
+  { key: 'league_admin', label: 'League Admin' },
+  { key: 'facility_manager', label: 'Facility Manager' },
+];
+
 export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [roles, setRoles] = useState<string[]>(['player']);
   const { register, isLoading, error, clearError } = useAuthStore();
+
+  const toggleRole = (role: string) => {
+    setRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    );
+  };
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
@@ -45,8 +59,20 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
       return;
     }
 
+    if (roles.length === 0) {
+      Alert.alert('Error', 'Please select at least one role');
+      return;
+    }
+
     try {
-      await register({ name, email, password, password_confirmation: confirmPassword, phone: phone || undefined });
+      await register({
+        name,
+        email,
+        password,
+        password_confirmation: confirmPassword,
+        phone: phone || undefined,
+        roles,
+      });
     } catch {
       Alert.alert('Registration Failed', error || 'Please try again');
     }
@@ -122,6 +148,31 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
               secureTextEntry
             />
 
+            <Text style={styles.rolesLabel}>I want to join as *</Text>
+            <Text style={styles.rolesHint}>Select all that apply</Text>
+            <View style={styles.rolesContainer}>
+              {ROLE_OPTIONS.map((role) => {
+                const selected = roles.includes(role.key);
+                return (
+                  <TouchableOpacity
+                    key={role.key}
+                    style={[styles.roleChip, selected && styles.roleChipActive]}
+                    onPress={() => toggleRole(role.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.roleChipText,
+                        selected && styles.roleChipTextActive,
+                      ]}
+                    >
+                      {role.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <TouchableOpacity
@@ -196,6 +247,43 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  rolesLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginTop: SPACING.xs,
+  },
+  rolesHint: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+  },
+  rolesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  roleChip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: 20,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  roleChipActive: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+  },
+  roleChipText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+  },
+  roleChipTextActive: {
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   button: {
     backgroundColor: COLORS.primary,

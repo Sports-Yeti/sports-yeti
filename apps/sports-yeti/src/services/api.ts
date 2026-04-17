@@ -389,13 +389,16 @@ class ApiService {
   }
 
   async createGame(data: {
-    league_id: string;
-    team1_id: string;
-    team2_id: string;
+    league_id?: string;
+    team1_id?: string;
+    team2_id?: string;
     facility_id?: string;
     space_id?: string;
     scheduled_at: string;
     game_type?: string;
+    max_players?: number;
+    referee_required?: boolean;
+    is_open_play?: boolean;
   }): Promise<Game> {
     const response = await this.client.post<{ data: Game }>('/games', data);
     return response.data.data;
@@ -598,7 +601,7 @@ class ApiService {
   }
 
   async createRefereeProfile(
-    data: Partial<Referee>
+    data: Partial<Referee> & { radius_miles?: number }
   ): Promise<Referee> {
     const response = await this.client.post<{ data: Referee }>(
       '/referees',
@@ -609,7 +612,7 @@ class ApiService {
 
   async updateRefereeProfile(
     id: string,
-    data: Partial<Referee>
+    data: Partial<Referee> & { radius_miles?: number }
   ): Promise<Referee> {
     const response = await this.client.put<{ data: Referee }>(
       `/referees/${id}`,
@@ -633,6 +636,15 @@ class ApiService {
   ): Promise<RefereeAssignment> {
     const response = await this.client.post<{ data: RefereeAssignment }>(
       `/referees/assignments/${assignmentId}/accept`
+    );
+    return response.data.data;
+  }
+
+  async declineRefereeAssignment(
+    assignmentId: string
+  ): Promise<RefereeAssignment> {
+    const response = await this.client.post<{ data: RefereeAssignment }>(
+      `/referees/assignments/${assignmentId}/decline`
     );
     return response.data.data;
   }
@@ -673,6 +685,136 @@ class ApiService {
       `/referees/assignments/${assignmentId}/report`,
       data
     );
+    return response.data.data;
+  }
+
+  async joinGame(gameId: string): Promise<unknown> {
+    const response = await this.client.post(`/games/${gameId}/join`);
+    return response.data.data;
+  }
+
+  async getTeamInvitations(teamId: string): Promise<ApiResponse<Array<{
+    id: string;
+    team_id: string;
+    player_id: string;
+    status: string;
+    message: string | null;
+    player?: Player;
+    created_at: string;
+  }>>> {
+    const response = await this.client.get(`/teams/${teamId}/invitations`);
+    return response.data;
+  }
+
+  async invitePlayerToTeam(teamId: string, playerId: string, message?: string): Promise<void> {
+    await this.client.post(`/teams/${teamId}/invitations`, { player_id: playerId, message });
+  }
+
+  async invitePlayer(teamId: string, playerId: string, message?: string): Promise<unknown> {
+    const response = await this.client.post(`/teams/${teamId}/invitations`, {
+      player_id: playerId,
+      message,
+    });
+    return response.data.data;
+  }
+
+  async respondToInvitation(
+    teamId: string,
+    invitationId: string,
+    accept: boolean | 'accepted' | 'declined'
+  ): Promise<void> {
+    const response =
+      typeof accept === 'boolean' ? (accept ? 'accepted' : 'declined') : accept;
+    await this.client.post(`/teams/${teamId}/invitations/${invitationId}/respond`, {
+      response,
+      accept: typeof accept === 'boolean' ? accept : accept === 'accepted',
+    });
+  }
+
+  async getTeamPaymentSummary(teamId: string): Promise<{
+    team_id: string;
+    team_name: string;
+    league_name: string;
+    total_fee: number;
+    per_player_share: number;
+    roster_count: number;
+    paid_count: number;
+    pending_count: number;
+    is_complete: boolean;
+    members: Array<{
+      id: string;
+      player_id: string;
+      name: string;
+      avatar_url: string | null;
+      payment_status: string;
+      role: string;
+    }>;
+  }> {
+    const response = await this.client.get(`/teams/${teamId}/payment-summary`);
+    return response.data.data;
+  }
+
+  async createTeamPaymentIntent(teamId: string): Promise<{
+    payment: { id: string };
+    client_secret: string;
+    amount: number;
+    currency?: string;
+    roster_size?: number;
+    total_fee?: number;
+  }> {
+    const response = await this.client.post<{
+      data: {
+        payment: { id: string };
+        client_secret: string;
+        amount: number;
+        currency?: string;
+        roster_size?: number;
+        total_fee?: number;
+      };
+    }>(`/teams/${teamId}/payment-intent`);
+    return response.data.data;
+  }
+
+  async getAvailableSubRequests(params?: Record<string, unknown>): Promise<ApiResponse<Array<{
+    id: string;
+    game_id: string;
+    team_id: string;
+    position: string | null;
+    message: string | null;
+    status: string;
+    game?: Game;
+    team?: Team;
+    created_at: string;
+  }>>> {
+    const response = await this.client.get('/sub-requests/available', { params });
+    return response.data;
+  }
+
+  async createSubRequest(
+    gameId: string,
+    data: { team_id?: string; position?: string; message?: string }
+  ): Promise<unknown> {
+    const response = await this.client.post(`/games/${gameId}/sub-requests`, data);
+    return response.data.data;
+  }
+
+  async getSubRequestsForGame(gameId: string): Promise<unknown[]> {
+    const response = await this.client.get(`/games/${gameId}/sub-requests`);
+    return response.data.data;
+  }
+
+  async acceptSubRequest(subRequestId: string): Promise<unknown> {
+    const response = await this.client.post(`/sub-requests/${subRequestId}/accept`);
+    return response.data.data;
+  }
+
+  async getWaivers(params?: Record<string, unknown>): Promise<unknown[]> {
+    const response = await this.client.get('/waivers', { params });
+    return response.data.data;
+  }
+
+  async signWaiver(waiverId: string): Promise<unknown> {
+    const response = await this.client.post(`/waivers/${waiverId}/sign`);
     return response.data.data;
   }
 }

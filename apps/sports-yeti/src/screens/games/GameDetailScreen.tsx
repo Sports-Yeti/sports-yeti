@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { api } from '../../services/api';
 import { COLORS, SPACING, FONT_SIZES, GAME_STATUS } from '../../constants';
@@ -30,6 +33,11 @@ export function GameDetailScreen({ route, navigation }: GameDetailScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSubModalVisible, setIsSubModalVisible] = useState(false);
+  const [subPosition, setSubPosition] = useState('');
+  const [subMessage, setSubMessage] = useState('');
+  const [isSubmittingSub, setIsSubmittingSub] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
 
   const loadGame = async () => {
     try {
@@ -93,6 +101,40 @@ export function GameDetailScreen({ route, navigation }: GameDetailScreenProps) {
     navigation.navigate('Chat', { chatId: `game-${id}`, title: 'Game Chat' });
   };
 
+  const handleRequestSub = async () => {
+    if (!game) return;
+    setIsSubmittingSub(true);
+    try {
+      await api.createSubRequest(game.id, {
+        team_id: game.team1_id ?? undefined,
+        position: subPosition.trim() || undefined,
+        message: subMessage.trim() || undefined,
+      });
+      setIsSubModalVisible(false);
+      setSubPosition('');
+      setSubMessage('');
+      Alert.alert('Success', 'Sub request submitted!');
+    } catch {
+      Alert.alert('Error', 'Failed to submit sub request.');
+    } finally {
+      setIsSubmittingSub(false);
+    }
+  };
+
+  const handleJoinGame = async () => {
+    if (!game) return;
+    setIsJoining(true);
+    try {
+      await api.joinGame(game.id);
+      Alert.alert('Success', 'You have joined the game!');
+      loadGame();
+    } catch {
+      Alert.alert('Error', 'Failed to join game. You may already be a participant or the game is full.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   const handleTeamPress = (teamId: string) => {
     navigation.navigate('TeamDetails', { id: teamId });
   };
@@ -152,7 +194,7 @@ export function GameDetailScreen({ route, navigation }: GameDetailScreenProps) {
       <View style={styles.matchupCard}>
         <TouchableOpacity
           style={styles.teamSection}
-          onPress={() => game.team1 && handleTeamPress(game.team1_id)}
+          onPress={() => game.team1 && game.team1_id && handleTeamPress(game.team1_id)}
           disabled={!game.team1}
         >
           <View style={styles.teamAvatar}>
@@ -187,7 +229,7 @@ export function GameDetailScreen({ route, navigation }: GameDetailScreenProps) {
 
         <TouchableOpacity
           style={styles.teamSection}
-          onPress={() => game.team2 && handleTeamPress(game.team2_id)}
+          onPress={() => game.team2 && game.team2_id && handleTeamPress(game.team2_id)}
           disabled={!game.team2}
         >
           <View style={styles.teamAvatar}>
@@ -271,6 +313,42 @@ export function GameDetailScreen({ route, navigation }: GameDetailScreenProps) {
         </View>
       )}
 
+      {/* Join Game Button (open play) */}
+      {(game.is_open_play ||
+        (game.game_type === 'friendly' && !game.team1_id && !game.team2_id)) &&
+        game.status === 'scheduled' && (
+          <View style={styles.section}>
+            {game.max_players != null && (
+              <Text style={styles.playerCountText}>
+                {game.current_players ?? 0} / {Number(game.max_players)} players
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[styles.joinGameButton, isJoining && styles.joinGameButtonDisabled]}
+              onPress={handleJoinGame}
+              disabled={
+                isJoining ||
+                (game.max_players != null &&
+                  (game.current_players ?? 0) >= Number(game.max_players))
+              }
+            >
+              {isJoining ? (
+                <ActivityIndicator size="small" color={COLORS.textLight} />
+              ) : (
+                <>
+                  <Text style={styles.joinGameButtonIcon}>🏀</Text>
+                  <Text style={styles.joinGameButtonText}>
+                    {game.max_players != null &&
+                    (game.current_players ?? 0) >= Number(game.max_players)
+                      ? 'Game Full'
+                      : 'Join Game'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
       {/* Chat Button */}
       <View style={styles.section}>
         <TouchableOpacity style={styles.chatButton} onPress={handleOpenChat}>
@@ -279,7 +357,77 @@ export function GameDetailScreen({ route, navigation }: GameDetailScreenProps) {
         </TouchableOpacity>
       </View>
 
+      {/* Request Sub Button */}
+      {game.status === 'scheduled' && (
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.subButton}
+            onPress={() => setIsSubModalVisible(true)}
+          >
+            <Text style={styles.subButtonIcon}>🔄</Text>
+            <Text style={styles.subButtonText}>Request Sub</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.bottomPadding} />
+
+      <Modal
+        visible={isSubModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsSubModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Request a Sub</Text>
+            <Text style={styles.modalSubtitle}>
+              Find a substitute player for this game
+            </Text>
+
+            <Text style={styles.modalLabel}>Position (optional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. Point Guard, Midfielder"
+              placeholderTextColor={COLORS.textSecondary}
+              value={subPosition}
+              onChangeText={setSubPosition}
+            />
+
+            <Text style={styles.modalLabel}>Message (optional)</Text>
+            <TextInput
+              style={[styles.modalInput, styles.modalTextArea]}
+              placeholder="Any additional details..."
+              placeholderTextColor={COLORS.textSecondary}
+              value={subMessage}
+              onChangeText={setSubMessage}
+              multiline
+              numberOfLines={3}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setIsSubModalVisible(false)}
+                disabled={isSubmittingSub}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSubmitButton, isSubmittingSub && styles.modalSubmitDisabled]}
+                onPress={handleRequestSub}
+                disabled={isSubmittingSub}
+              >
+                {isSubmittingSub ? (
+                  <ActivityIndicator size="small" color={COLORS.surface} />
+                ) : (
+                  <Text style={styles.modalSubmitText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -511,6 +659,126 @@ const styles = StyleSheet.create({
   },
   chatButtonText: {
     color: COLORS.textLight,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+  joinGameButton: {
+    backgroundColor: COLORS.success,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.md,
+    borderRadius: 12,
+    gap: SPACING.sm,
+  },
+  joinGameButtonDisabled: {
+    opacity: 0.6,
+  },
+  joinGameButtonIcon: {
+    fontSize: 20,
+  },
+  joinGameButtonText: {
+    color: COLORS.textLight,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '700',
+  },
+  playerCountText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  subButton: {
+    backgroundColor: COLORS.secondary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.md,
+    borderRadius: 12,
+    gap: SPACING.sm,
+  },
+  subButtonIcon: {
+    fontSize: 20,
+  },
+  subButtonText: {
+    color: COLORS.textLight,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xxl,
+  },
+  modalTitle: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  modalSubtitle: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
+  },
+  modalLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  modalInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  modalTextArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalCancelText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  modalSubmitButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.sm,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalSubmitDisabled: {
+    opacity: 0.6,
+  },
+  modalSubmitText: {
+    color: COLORS.surface,
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
   },

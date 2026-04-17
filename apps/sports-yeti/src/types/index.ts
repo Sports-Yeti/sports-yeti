@@ -50,6 +50,7 @@ export interface RegisterData {
   password: string;
   password_confirmation: string;
   phone?: string;
+  roles?: string[];
 }
 
 // Player types
@@ -184,9 +185,9 @@ export interface Camp {
 // Game types
 export interface Game {
   id: string;
-  league_id: string;
-  team1_id: string;
-  team2_id: string;
+  league_id: string | null;
+  team1_id: string | null;
+  team2_id: string | null;
   facility_id: string | null;
   space_id: string | null;
   scheduled_at: string;
@@ -195,6 +196,10 @@ export interface Game {
   team2_score: number | null;
   winner_team_id: string | null;
   game_type: 'regular' | 'playoff' | 'friendly';
+  is_open_play?: boolean;
+  max_players?: number | null;
+  current_players?: number;
+  referee_required?: boolean;
   league?: League;
   team1?: Team;
   team2?: Team;
@@ -214,6 +219,7 @@ export interface Referee {
   total_games: number;
   is_available: boolean;
   bio: string | null;
+  radius_miles?: number | null;
   created_at: string;
   user?: User;
   league?: League;
@@ -351,6 +357,18 @@ export interface HighlightSummary {
   completed_at: string | null;
   created_at: string;
   clips_count: number;
+}
+
+// Waiver types
+export interface Waiver {
+  id: string;
+  league_id: string;
+  title: string;
+  content: string;
+  is_required: boolean;
+  is_signed?: boolean;
+  signed_at?: string | null;
+  league?: League;
 }
 
 export interface HighlightDetail extends HighlightSummary {

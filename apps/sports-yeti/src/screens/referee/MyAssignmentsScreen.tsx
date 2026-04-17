@@ -112,6 +112,27 @@ export function MyAssignmentsScreen() {
     },
   });
 
+  const acceptMutation = useMutation({
+    mutationFn: (id: string) => api.acceptRefereeAssignment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-referee-assignments'] });
+    },
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: (id: string) => api.declineRefereeAssignment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-referee-assignments'] });
+    },
+  });
+
+  const respondingId =
+    acceptMutation.isPending && acceptMutation.variables
+      ? acceptMutation.variables
+      : declineMutation.isPending && declineMutation.variables
+        ? declineMutation.variables
+        : null;
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -154,6 +175,39 @@ export function MyAssignmentsScreen() {
           <Text style={styles.detailValue}>{item.is_bidding ? 'Bid' : 'Fixed'}</Text>
         </View>
       </View>
+
+      {item.status === 'pending' && (
+        <View style={styles.responseRow}>
+          <TouchableOpacity
+            style={[
+              styles.acceptButton,
+              respondingId === item.id && styles.responseButtonDisabled,
+            ]}
+            onPress={() => acceptMutation.mutate(item.id)}
+            disabled={respondingId === item.id}
+          >
+            {respondingId === item.id && acceptMutation.isPending ? (
+              <ActivityIndicator size="small" color={COLORS.textLight} />
+            ) : (
+              <Text style={styles.responseButtonText}>Accept</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.declineButton,
+              respondingId === item.id && styles.responseButtonDisabled,
+            ]}
+            onPress={() => declineMutation.mutate(item.id)}
+            disabled={respondingId === item.id}
+          >
+            {respondingId === item.id && declineMutation.isPending ? (
+              <ActivityIndicator size="small" color={COLORS.textLight} />
+            ) : (
+              <Text style={styles.responseButtonText}>Decline</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       {item.status === 'completed' && !item.report && (
         <TouchableOpacity
@@ -393,6 +447,33 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  responseRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  acceptButton: {
+    flex: 1,
+    backgroundColor: COLORS.success,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  declineButton: {
+    flex: 1,
+    backgroundColor: COLORS.error,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  responseButtonDisabled: {
+    opacity: 0.6,
+  },
+  responseButtonText: {
+    color: COLORS.textLight,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
   },
   reportButton: {
     backgroundColor: COLORS.primary,
