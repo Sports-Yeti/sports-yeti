@@ -20,7 +20,13 @@ import {
 } from '../../constants';
 import type { Player } from '../../types';
 
-export function ProfileScreen() {
+interface ProfileScreenProps {
+  navigation?: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+  };
+}
+
+export function ProfileScreen({ navigation }: ProfileScreenProps = {}) {
   const { user, logout } = useAuthStore();
   const [player, setPlayer] = useState<Player | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -350,6 +356,19 @@ export function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
+      {navigation && (
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.navRow}
+            onPress={() => navigation.navigate('Waivers')}
+          >
+            <Text style={styles.navRowIcon}>📄</Text>
+            <Text style={styles.navRowText}>View Waivers</Text>
+            <Text style={styles.navRowChevron}>›</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Logout */}
       <TouchableOpacity style={styles.logoutButton} onPress={logout}>
         <Text style={styles.logoutText}>Sign Out</Text>
@@ -566,6 +585,25 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: FONT_SIZES.md,
     color: COLORS.text,
+  },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+  },
+  navRowIcon: {
+    fontSize: 22,
+    marginRight: SPACING.md,
+  },
+  navRowText: {
+    flex: 1,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  navRowChevron: {
+    fontSize: 22,
+    color: COLORS.textSecondary,
   },
   logoutButton: {
     marginHorizontal: SPACING.lg,

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
+  Alert,
 } from 'react-native';
 import { api } from '../../services/api';
 import { COLORS, SPACING, FONT_SIZES } from '../../constants';
@@ -33,6 +34,7 @@ export function MarketplaceScreen({ navigation }: MarketplaceScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [joiningGameId, setJoiningGameId] = useState<string | null>(null);
 
   const loadGames = useCallback(async () => {
     try {
@@ -82,6 +84,19 @@ export function MarketplaceScreen({ navigation }: MarketplaceScreenProps) {
     await Promise.all([loadGames(), loadFacilities()]);
     setIsRefreshing(false);
   }, [loadGames, loadFacilities]);
+
+  const handleJoinGame = async (gameId: string) => {
+    setJoiningGameId(gameId);
+    try {
+      await api.joinGame(gameId);
+      Alert.alert('Success', 'You have joined the game!');
+      loadGames();
+    } catch {
+      Alert.alert('Error', 'Failed to join game. You may already be a participant.');
+    } finally {
+      setJoiningGameId(null);
+    }
+  };
 
   const filteredGames = games.filter((g) => {
     if (!searchQuery) return true;
@@ -142,12 +157,25 @@ export function MarketplaceScreen({ navigation }: MarketplaceScreenProps) {
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.actionButton}
-        onPress={() => navigation.navigate('GameDetails', { id: item.id })}
-      >
-        <Text style={styles.actionButtonText}>View Game</Text>
-      </TouchableOpacity>
+      <View style={styles.gameCardActions}>
+        <TouchableOpacity
+          style={[styles.joinButton, joiningGameId === item.id && styles.joinButtonDisabled]}
+          onPress={() => handleJoinGame(item.id)}
+          disabled={joiningGameId === item.id}
+        >
+          {joiningGameId === item.id ? (
+            <ActivityIndicator size="small" color={COLORS.surface} />
+          ) : (
+            <Text style={styles.joinButtonText}>Join</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.viewButton}
+          onPress={() => navigation.navigate('GameDetails', { id: item.id })}
+        >
+          <Text style={styles.viewButtonText}>Details</Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 
@@ -236,6 +264,12 @@ export function MarketplaceScreen({ navigation }: MarketplaceScreenProps) {
           >
             Available Slots
           </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.tab}
+          onPress={() => navigation.navigate('SubRequests')}
+        >
+          <Text style={styles.tabText}>Sub Requests</Text>
         </TouchableOpacity>
       </View>
 
@@ -439,6 +473,39 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
   },
   actionButtonText: {
+    color: COLORS.surface,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
+  gameCardActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  joinButton: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: 8,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  joinButtonDisabled: {
+    opacity: 0.6,
+  },
+  joinButtonText: {
+    color: COLORS.surface,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
+  viewButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: 8,
+  },
+  viewButtonText: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.sm,
     fontWeight: '600',

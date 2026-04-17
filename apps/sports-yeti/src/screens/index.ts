@@ -20,6 +20,9 @@ export { ProfileScreen } from './profile/ProfileScreen';
 // Teams screens
 export { TeamsScreen } from './teams/TeamsScreen';
 export { TeamDetailScreen } from './teams/TeamDetailScreen';
+export { PlayerDirectoryScreen } from './teams/PlayerDirectoryScreen';
+export { LeagueBrowseScreen } from './teams/LeagueBrowseScreen';
+export { TeamPaymentScreen } from './teams/TeamPaymentScreen';
 
 // Bookings screens
 export { BookingsScreen } from './bookings/BookingsScreen';
@@ -42,6 +45,10 @@ export { HighlightDetailScreen } from './highlights/HighlightDetailScreen';
 
 // Marketplace screens
 export { MarketplaceScreen } from './marketplace/MarketplaceScreen';
+export { SubRequestsScreen } from './marketplace/SubRequestsScreen';
+
+// Waivers screens
+export { WaiversScreen } from './waivers/WaiversScreen';
 
 // Messages screens
 export { MessagesScreen } from './messages/MessagesScreen';

@@ -298,6 +298,13 @@ export function TeamDetailScreen({ route, navigation }: TeamDetailScreenProps) {
           <Text style={styles.chatButtonIcon}>💬</Text>
           <Text style={styles.chatButtonText}>Team Chat</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.paymentButton}
+          onPress={() => navigation.navigate('TeamPayment', { teamId: team.id })}
+        >
+          <Text style={styles.paymentButtonIcon}>💳</Text>
+          <Text style={styles.paymentButtonText}>View Team Payment</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.bottomPadding} />
@@ -635,6 +642,24 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   chatButtonText: {
+    color: COLORS.textLight,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+  },
+  paymentButton: {
+    backgroundColor: COLORS.success,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.md,
+    borderRadius: 12,
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  paymentButtonIcon: {
+    fontSize: 20,
+  },
+  paymentButtonText: {
     color: COLORS.textLight,
     fontSize: FONT_SIZES.md,
     fontWeight: '600',

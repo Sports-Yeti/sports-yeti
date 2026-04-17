@@ -12,6 +12,9 @@ import {
   ProfileScreen,
   TeamsScreen,
   TeamDetailScreen,
+  PlayerDirectoryScreen,
+  LeagueBrowseScreen,
+  TeamPaymentScreen,
   BookingsScreen,
   BookingDetailScreen,
   CampsScreen,
@@ -22,11 +25,13 @@ import {
   HighlightUploadScreen,
   HighlightDetailScreen,
   MarketplaceScreen,
+  SubRequestsScreen,
   MessagesScreen,
   AvailableGamesScreen,
   MyAssignmentsScreen,
   RefereeEarningsScreen,
   RefereeProfileScreen,
+  WaiversScreen,
 } from '../screens';
 import { COLORS } from '../constants';
 
@@ -55,6 +60,11 @@ export type RootStackParamList = {
   HighlightDetail: { id: string };
   Highlights: undefined;
   Facilities: undefined;
+  PlayerDirectory: undefined;
+  LeagueBrowse: undefined;
+  TeamPayment: { teamId: string };
+  SubRequests: undefined;
+  Waivers: undefined;
   RefereeAvailableGames: undefined;
   RefereeMyAssignments: undefined;
   RefereeEarnings: undefined;
@@ -241,6 +251,31 @@ export function MainNavigator() {
         name="Facilities"
         component={FacilitiesScreen}
         options={{ title: 'Facilities' }}
+      />
+      <Stack.Screen
+        name="PlayerDirectory"
+        component={PlayerDirectoryScreen}
+        options={{ title: 'Player Directory' }}
+      />
+      <Stack.Screen
+        name="LeagueBrowse"
+        component={LeagueBrowseScreen}
+        options={{ title: 'Browse Leagues' }}
+      />
+      <Stack.Screen
+        name="TeamPayment"
+        component={TeamPaymentScreen}
+        options={{ title: 'Team Payment' }}
+      />
+      <Stack.Screen
+        name="SubRequests"
+        component={SubRequestsScreen}
+        options={{ title: 'Sub Requests' }}
+      />
+      <Stack.Screen
+        name="Waivers"
+        component={WaiversScreen}
+        options={{ title: 'Waivers' }}
       />
       <Stack.Screen
         name="RefereeAvailableGames"

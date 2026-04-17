@@ -88,6 +88,24 @@ export function TeamsScreen({ navigation }: TeamsScreenProps) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.headerActions}>
+        <TouchableOpacity
+          style={styles.browseButton}
+          onPress={() => navigation.navigate('PlayerDirectory')}
+        >
+          <Text style={styles.browseButtonIcon}>👥</Text>
+          <Text style={styles.browseButtonText}>Browse Players</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.browseButton, styles.browseButtonAlt]}
+          onPress={() => navigation.navigate('LeagueBrowse')}
+        >
+          <Text style={styles.browseButtonIcon}>🏆</Text>
+          <Text style={[styles.browseButtonText, styles.browseButtonTextAlt]}>
+            Browse Leagues
+          </Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={teams}
         renderItem={renderTeam}
@@ -120,6 +138,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.background,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+  },
+  browseButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 8,
+    gap: SPACING.xs,
+  },
+  browseButtonAlt: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  browseButtonIcon: {
+    fontSize: FONT_SIZES.md,
+  },
+  browseButtonText: {
+    color: COLORS.surface,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+  },
+  browseButtonTextAlt: {
+    color: COLORS.primary,
   },
   listContent: {
     padding: SPACING.md,
