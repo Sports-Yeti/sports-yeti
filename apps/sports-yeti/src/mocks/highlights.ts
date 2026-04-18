@@ -7,10 +7,12 @@ export interface HighlightReel {
   comments: number;
   shares: number;
   poster: string;
+  videoUrl: string;
   avatar: string;
   durationSeconds: number;
 }
 
+// Sample MP4 sources (Google's open test bucket — stable, HTTPS, mobile-friendly).
 export const HIGHLIGHT_REELS: HighlightReel[] = [
   {
     id: 'marcus-strikes-bicycle',
@@ -23,8 +25,10 @@ export const HIGHLIGHT_REELS: HighlightReel[] = [
     shares: 96,
     poster:
       'https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&w=900&q=80',
+    videoUrl:
+      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
     avatar: 'https://i.pravatar.cc/120?img=58',
-    durationSeconds: 18,
+    durationSeconds: 15,
   },
   {
     id: 'avalanche-buzzer-beater',
@@ -37,8 +41,10 @@ export const HIGHLIGHT_REELS: HighlightReel[] = [
     shares: 54,
     poster:
       'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=900&q=80',
+    videoUrl:
+      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
     avatar: 'https://i.pravatar.cc/120?img=22',
-    durationSeconds: 12,
+    durationSeconds: 15,
   },
   {
     id: 'beach-volley-ace',
@@ -51,8 +57,10 @@ export const HIGHLIGHT_REELS: HighlightReel[] = [
     shares: 33,
     poster:
       'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=900&q=80',
+    videoUrl:
+      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
     avatar: 'https://i.pravatar.cc/120?img=33',
-    durationSeconds: 9,
+    durationSeconds: 60,
   },
 ];
 

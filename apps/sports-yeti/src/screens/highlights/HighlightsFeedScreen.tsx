@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -6,19 +6,25 @@ import {
   StyleSheet,
   View,
   type ListRenderItem,
+  type ViewToken,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEvent } from 'expo';
 import {
   Bookmark,
   Heart,
   MessageCircle,
   MoreHorizontal,
+  Play,
   Plus,
   Send,
+  Volume2,
+  VolumeX,
 } from 'lucide-react-native';
 import { colors, radii, spacing } from '../../theme';
 import {
@@ -89,14 +95,54 @@ interface ReelItemProps {
   reel: HighlightReel;
   height: number;
   bottomInset: number;
+  isActive: boolean;
+  isMuted: boolean;
+  onToggleMute: () => void;
   onComments: (reel: HighlightReel) => void;
   onMore: (reel: HighlightReel) => void;
 }
 
-function ReelItem({ reel, height, bottomInset, onComments, onMore }: ReelItemProps) {
+function ReelItem({
+  reel,
+  height,
+  bottomInset,
+  isActive,
+  isMuted,
+  onToggleMute,
+  onComments,
+  onMore,
+}: ReelItemProps) {
   const [liked, setLiked] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
-  const lastTap = React.useRef(0);
+  const [userPaused, setUserPaused] = useState(false);
+  const lastTap = useRef(0);
+
+  const player = useVideoPlayer(reel.videoUrl, (p) => {
+    p.loop = true;
+    p.muted = isMuted;
+  });
+
+  const { isPlaying } = useEvent(player, 'playingChange', {
+    isPlaying: player.playing,
+  });
+
+  // Autoplay current slide; pause others. Honor user's manual pause.
+  useEffect(() => {
+    if (!isActive) {
+      player.pause();
+      return;
+    }
+    if (userPaused) {
+      player.pause();
+      return;
+    }
+    player.play();
+  }, [isActive, userPaused, player]);
+
+  // Mute follows the global mute state.
+  useEffect(() => {
+    player.muted = isMuted;
+  }, [isMuted, player]);
 
   const triggerLike = useCallback(() => {
     setLiked((prev) => {
@@ -106,16 +152,27 @@ function ReelItem({ reel, height, bottomInset, onComments, onMore }: ReelItemPro
     });
   }, []);
 
-  const handleDoubleTap = useCallback(() => {
+  const handleTap = useCallback(() => {
     const now = Date.now();
     if (now - lastTap.current < 280) {
+      // Double-tap to like
       if (!liked) triggerLike();
+      lastTap.current = 0;
+      return;
     }
     lastTap.current = now;
+    // Single-tap: schedule a pause toggle if no second tap arrives
+    setTimeout(() => {
+      if (Date.now() - lastTap.current >= 280 && lastTap.current !== 0) {
+        setUserPaused((p) => !p);
+        lastTap.current = 0;
+      }
+    }, 290);
   }, [liked, triggerLike]);
 
   return (
-    <Pressable onPress={handleDoubleTap} style={[styles.slide, { height }]}>
+    <Pressable onPress={handleTap} style={[styles.slide, { height }]}>
+      {/* Poster shows first; VideoView fades in on top once playing. */}
       <Image
         source={{ uri: reel.poster }}
         style={StyleSheet.absoluteFillObject}
@@ -123,11 +180,32 @@ function ReelItem({ reel, height, bottomInset, onComments, onMore }: ReelItemPro
         transition={200}
         accessibilityLabel={`Highlight by ${reel.username}`}
       />
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFillObject}
+        contentFit="cover"
+        nativeControls={false}
+        allowsFullscreen={false}
+        allowsPictureInPicture={false}
+      />
       <LinearGradient
         colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']}
         locations={[0, 0.35, 1]}
         style={StyleSheet.absoluteFillObject}
       />
+
+      {!isPlaying && isActive ? (
+        <View style={styles.playOverlay} pointerEvents="none">
+          <View style={styles.playBubble}>
+            <Play
+              size={36}
+              color={colors.text.inverse}
+              strokeWidth={2.5}
+              fill={colors.text.inverse}
+            />
+          </View>
+        </View>
+      ) : null}
 
       <View style={[styles.actionStack, { bottom: bottomInset }]}>
         <ActionButton
@@ -162,6 +240,14 @@ function ReelItem({ reel, height, bottomInset, onComments, onMore }: ReelItemPro
           accessibilityLabel={bookmarked ? 'Remove bookmark' : 'Bookmark'}
         />
         <ActionButton
+          Icon={isMuted ? VolumeX : Volume2}
+          onPress={() => {
+            Haptics.selectionAsync();
+            onToggleMute();
+          }}
+          accessibilityLabel={isMuted ? 'Unmute' : 'Mute'}
+        />
+        <ActionButton
           Icon={MoreHorizontal}
           onPress={() => onMore(reel)}
           accessibilityLabel="More options"
@@ -169,7 +255,12 @@ function ReelItem({ reel, height, bottomInset, onComments, onMore }: ReelItemPro
       </View>
 
       <View style={[styles.captionStack, { bottom: bottomInset }]}>
-        <Tag tone="info" size="sm" label="PHOTO" leadingDot />
+        <View style={styles.tagRow}>
+          <Tag tone="live" size="sm" leadingDot label={`${reel.durationSeconds}s`} />
+          {userPaused ? (
+            <Tag tone="warning" size="sm" leadingDot label="Paused" />
+          ) : null}
+        </View>
         <View style={styles.userRow}>
           <View style={styles.avatarShell}>
             <Avatar uri={reel.avatar} initials={reel.username.charAt(1)} size={36} bordered />
@@ -198,6 +289,10 @@ function ReelItem({ reel, height, bottomInset, onComments, onMore }: ReelItemPro
   );
 }
 
+const VIEWABILITY_CONFIG = {
+  itemVisiblePercentThreshold: 60,
+};
+
 export function HighlightsFeedScreen() {
   const insets = useSafeAreaInsets();
   let tabBarHeight = 0;
@@ -208,20 +303,35 @@ export function HighlightsFeedScreen() {
   }
   const slideHeight = WINDOW_HEIGHT;
   const bottomInset = tabBarHeight + spacing.lg;
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
   const [activeComments, setActiveComments] = useState<HighlightReel | null>(null);
   const [moreSheet, setMoreSheet] = useState<HighlightReel | null>(null);
 
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const top = viewableItems.find((v) => v.isViewable);
+      if (top && typeof top.index === 'number') {
+        setActiveIndex(top.index);
+      }
+    },
+  ).current;
+
   const renderItem: ListRenderItem<HighlightReel> = useCallback(
-    ({ item }) => (
+    ({ item, index }) => (
       <ReelItem
         reel={item}
         height={slideHeight}
         bottomInset={bottomInset}
+        isActive={index === activeIndex}
+        isMuted={isMuted}
+        onToggleMute={() => setIsMuted((m) => !m)}
         onComments={setActiveComments}
         onMore={setMoreSheet}
       />
     ),
-    [slideHeight, bottomInset],
+    [slideHeight, bottomInset, activeIndex, isMuted],
   );
 
   const comments: ReelComment[] = activeComments
@@ -243,6 +353,12 @@ export function HighlightsFeedScreen() {
           offset: slideHeight * index,
           index,
         })}
+        viewabilityConfig={VIEWABILITY_CONFIG}
+        onViewableItemsChanged={onViewableItemsChanged}
+        windowSize={3}
+        initialNumToRender={1}
+        maxToRenderPerBatch={2}
+        removeClippedSubviews
       />
       <View style={styles.headerOverlay} pointerEvents="box-none">
         <ScreenHeader variant="translucent" hasNotifications />
@@ -340,6 +456,19 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
+  playOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playBubble: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   actionStack: {
     position: 'absolute',
     right: spacing.lg,
@@ -363,6 +492,10 @@ const styles = StyleSheet.create({
     left: spacing.lg,
     right: 80,
     gap: spacing.md,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   userRow: {
     flexDirection: 'row',

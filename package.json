@@ -26,6 +26,7 @@
     "expo-secure-store": "^15.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
+    "expo-video": "~3.0.16",
     "lucide-react-native": "^1.8.0",
     "metro-config": "^0.84.2",
     "metro-resolver": "^0.84.2",
