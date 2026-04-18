@@ -1,278 +1,365 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import { api } from '../../services/api';
-import type { User } from '../../types';
+  Building2,
+  CreditCard,
+  Lock,
+  Plug,
+  ShieldCheck,
+  Users,
+} from 'lucide-react-native';
+import { PageHeader, PageScroll } from '../../admin';
+import { Avatar, Button, Card, IconBadge, Input, Tag, Text, useToast } from '../../ui';
+import { colors, radii, spacing } from '../../theme';
+import { ADMIN_TEAMMATES, CURRENT_ORG } from '../../mocks/org';
 
-const TIMEZONE_OPTIONS = [
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Phoenix',
-  'America/Anchorage',
-  'Pacific/Honolulu',
-  'UTC',
-] as const;
+const SECTIONS = [
+  { id: 'org', label: 'Organization', Icon: Building2 },
+  { id: 'team', label: 'Team & roles', Icon: Users },
+  { id: 'billing', label: 'Plan & billing', Icon: CreditCard },
+  { id: 'security', label: 'Security & SSO', Icon: ShieldCheck },
+  { id: 'integrations', label: 'Integrations', Icon: Plug },
+  { id: 'privacy', label: 'Privacy', Icon: Lock },
+];
 
-function ToggleRow({ label, value, onToggle }: { label: string; value: boolean; onToggle: () => void }) {
+export function SettingsScreen() {
+  const toast = useToast();
+  const [section, setSection] = useState('org');
+  const [orgName, setOrgName] = useState(CURRENT_ORG.name);
+  const [orgCity, setOrgCity] = useState(CURRENT_ORG.city);
+  const [requireMFA, setRequireMFA] = useState(true);
+  const [allowMarketplace, setAllowMarketplace] = useState(true);
+  const [allowSSO, setAllowSSO] = useState(true);
+
   return (
-    <TouchableOpacity style={styles.toggleRow} onPress={onToggle}>
-      <Text style={styles.toggleLabel}>{label}</Text>
-      <View style={[styles.toggle, value && styles.toggleActive]}>
-        <View style={[styles.toggleThumb, value && styles.toggleThumbActive]} />
+    <PageScroll>
+      <PageHeader
+        title="Settings"
+        subtitle="Manage your organization, teammates, billing, and security"
+      />
+
+      <View style={styles.layout}>
+        <Card style={styles.nav}>
+          {SECTIONS.map((s) => {
+            const Icon = s.Icon;
+            const active = section === s.id;
+            return (
+              <Pressable
+                key={s.id}
+                onPress={() => setSection(s.id)}
+                accessibilityRole="button"
+                accessibilityLabel={s.label}
+                accessibilityState={{ selected: active }}
+                style={({ hovered }) => [
+                  styles.navItem,
+                  active ? styles.navItemActive : null,
+                  // @ts-expect-error rn-web hovered
+                  hovered && !active ? styles.navItemHover : null,
+                ]}
+              >
+                <Icon
+                  size={14}
+                  color={active ? colors.brand.primary : colors.text.secondary}
+                  strokeWidth={2.25}
+                />
+                <Text
+                  variant="bodySm"
+                  color={active ? colors.brand.primary : colors.text.secondary}
+                >
+                  {s.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </Card>
+
+        <View style={styles.body}>
+          {section === 'org' ? (
+            <Card>
+              <Text variant="h3" color={colors.text.primary}>
+                Organization
+              </Text>
+              <Input label="Display name" value={orgName} onChangeText={setOrgName} />
+              <Input label="City" value={orgCity} onChangeText={setOrgCity} />
+              <Input label="Time zone" value={CURRENT_ORG.timezone} disabled />
+              <Input label="Currency" value={CURRENT_ORG.currency} disabled />
+              <View style={styles.actionsRow}>
+                <Button
+                  label="Save changes"
+                  variant="solid"
+                  size="md"
+                  onPress={() =>
+                    toast.show({ variant: 'success', title: 'Organization updated' })
+                  }
+                />
+              </View>
+            </Card>
+          ) : null}
+
+          {section === 'team' ? (
+            <Card>
+              <View style={styles.cardHead}>
+                <Text variant="h3" color={colors.text.primary}>
+                  Team
+                </Text>
+                <Button
+                  label="Invite teammate"
+                  variant="solid"
+                  size="sm"
+                  onPress={() =>
+                    toast.show({ variant: 'info', title: 'Invite flow coming soon' })
+                  }
+                />
+              </View>
+              {ADMIN_TEAMMATES.map((u) => (
+                <View key={u.id} style={styles.teamRow}>
+                  <Avatar uri={u.avatar} initials={u.initials} size={32} />
+                  <View style={styles.teamBody}>
+                    <Text variant="bodySm" color={colors.text.primary} weight="600">
+                      {u.name}
+                    </Text>
+                    <Text variant="caption" color={colors.text.muted}>
+                      {u.email}
+                    </Text>
+                  </View>
+                  <Tag size="sm" tone={u.role === 'owner' ? 'brand' : 'neutral'} label={u.role} />
+                </View>
+              ))}
+            </Card>
+          ) : null}
+
+          {section === 'billing' ? (
+            <Card>
+              <Text variant="h3" color={colors.text.primary}>
+                Plan & billing
+              </Text>
+              <View style={styles.planRow}>
+                <View>
+                  <Text variant="bodySm" color={colors.text.primary} weight="600">
+                    {CURRENT_ORG.plan === 'pro' ? 'Pro plan' : CURRENT_ORG.plan} · $99/mo
+                  </Text>
+                  <Text variant="caption" color={colors.text.muted}>
+                    Renews May 1 · Visa •••• 4242
+                  </Text>
+                </View>
+                <Button
+                  label="Manage subscription"
+                  variant="ghost"
+                  size="sm"
+                  onPress={() =>
+                    toast.show({ variant: 'info', title: 'Stripe portal (mock)' })
+                  }
+                />
+              </View>
+            </Card>
+          ) : null}
+
+          {section === 'security' ? (
+            <Card>
+              <Text variant="h3" color={colors.text.primary}>
+                Security & SSO
+              </Text>
+              <SettingToggle
+                title="Require 2FA for all admins"
+                description="Owners and admins must verify a TOTP code on every sign-in."
+                value={requireMFA}
+                onValueChange={setRequireMFA}
+              />
+              <SettingToggle
+                title="Allow Google Workspace SSO"
+                description="Pro plan members of yetiathletic.com can sign in with Google."
+                value={allowSSO}
+                onValueChange={setAllowSSO}
+              />
+            </Card>
+          ) : null}
+
+          {section === 'integrations' ? (
+            <Card>
+              <Text variant="h3" color={colors.text.primary}>
+                Integrations
+              </Text>
+              <SettingToggle
+                title="Marketplace listings"
+                description="Allow players to post sub-for-hire and gear listings."
+                value={allowMarketplace}
+                onValueChange={setAllowMarketplace}
+              />
+              <View style={styles.intRow}>
+                <View>
+                  <Text variant="bodySm" color={colors.text.primary} weight="600">
+                    Stripe
+                  </Text>
+                  <Text variant="caption" color={colors.text.muted}>
+                    Connected · acct_••• 18Z
+                  </Text>
+                </View>
+                <Tag size="sm" tone="success" leadingDot label="Live" />
+              </View>
+              <View style={styles.intRow}>
+                <View>
+                  <Text variant="bodySm" color={colors.text.primary} weight="600">
+                    Slack
+                  </Text>
+                  <Text variant="caption" color={colors.text.muted}>
+                    Notify #ops on failed payments
+                  </Text>
+                </View>
+                <Button
+                  label="Connect"
+                  variant="ghost"
+                  size="sm"
+                  onPress={() =>
+                    toast.show({ variant: 'info', title: 'Slack OAuth coming soon' })
+                  }
+                />
+              </View>
+            </Card>
+          ) : null}
+
+          {section === 'privacy' ? (
+            <Card>
+              <Text variant="h3" color={colors.text.primary}>
+                Privacy & data
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                Configure data retention, GDPR / CCPA exports, and deletion windows. Tools are
+                listed here so admins can find them; wiring lands with the next phase.
+              </Text>
+              <View style={styles.actionsRow}>
+                <Button
+                  label="Request data export"
+                  variant="ghost"
+                  size="md"
+                  onPress={() =>
+                    toast.show({ variant: 'info', title: 'Data export queued (mock)' })
+                  }
+                />
+                <Button
+                  label="Delete account"
+                  variant="destructive"
+                  size="md"
+                  onPress={() =>
+                    toast.show({ variant: 'info', title: 'Account deletion coming soon' })
+                  }
+                />
+              </View>
+            </Card>
+          ) : null}
+        </View>
       </View>
-    </TouchableOpacity>
+    </PageScroll>
   );
 }
 
-export function SettingsScreen() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const [timezone, setTimezone] = useState('America/New_York');
-  const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [defaultRegistrationFee, setDefaultRegistrationFee] = useState('50');
-  const [requireWaivers, setRequireWaivers] = useState(true);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const me = await api.getMe();
-        setUser(me);
-        setTimezone(me.timezone || 'America/New_York');
-      } catch {
-        // handled by auth interceptor
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadUser();
-  }, []);
-
-  const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.logout();
-          } catch {
-            // still clear locally
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleClearCache = () => {
-    Alert.alert('Clear Cache', 'This will clear all locally cached data.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', onPress: () => Alert.alert('Done', 'Cache cleared successfully') },
-    ]);
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
-
+function SettingToggle({
+  title,
+  description,
+  value,
+  onValueChange,
+}: {
+  title: string;
+  description?: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}) {
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtitle}>Manage your admin preferences</Text>
+    <View style={styles.toggleRow}>
+      <View style={styles.toggleBody}>
+        <Text variant="bodySm" color={colors.text.primary} weight="600">
+          {title}
+        </Text>
+        {description ? (
+          <Text variant="caption" color={colors.text.muted}>
+            {description}
+          </Text>
+        ) : null}
       </View>
-
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Profile</Text>
-        <View style={styles.sectionCard}>
-          <View style={styles.profileRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{user?.name?.charAt(0).toUpperCase() ?? 'A'}</Text>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{user?.name ?? 'Admin'}</Text>
-              <Text style={styles.profileEmail}>{user?.email ?? ''}</Text>
-            </View>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Name</Text>
-            <Text style={styles.infoValue}>{user?.name ?? '—'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{user?.email ?? '—'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Phone</Text>
-            <Text style={styles.infoValue}>{user?.phone ?? 'Not set'}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Preferences</Text>
-        <View style={styles.sectionCard}>
-          <TouchableOpacity style={styles.settingRow} onPress={() => setShowTimezoneSelector(!showTimezoneSelector)}>
-            <Text style={styles.settingLabel}>Timezone</Text>
-            <Text style={styles.settingValue}>{timezone}</Text>
-          </TouchableOpacity>
-          {showTimezoneSelector && (
-            <View style={styles.timezoneList}>
-              {TIMEZONE_OPTIONS.map((tz) => (
-                <TouchableOpacity
-                  key={tz}
-                  style={[styles.timezoneOption, timezone === tz && styles.timezoneOptionActive]}
-                  onPress={() => { setTimezone(tz); setShowTimezoneSelector(false); }}
-                >
-                  <Text style={[styles.timezoneText, timezone === tz && styles.timezoneTextActive]}>{tz}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-          <ToggleRow
-            label="Email Notifications"
-            value={emailNotifications}
-            onToggle={() => setEmailNotifications(!emailNotifications)}
-          />
-          <ToggleRow
-            label="Push Notifications"
-            value={pushNotifications}
-            onToggle={() => setPushNotifications(!pushNotifications)}
-          />
-        </View>
-      </View>
-
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>League Settings</Text>
-        <View style={styles.sectionCard}>
-          <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>Default Registration Fee</Text>
-            <View style={styles.feeInputWrap}>
-              <Text style={styles.feePrefix}>$</Text>
-              <TextInput
-                style={styles.feeInput}
-                value={defaultRegistrationFee}
-                onChangeText={setDefaultRegistrationFee}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={COLORS.textMuted}
-              />
-            </View>
-          </View>
-          <ToggleRow
-            label="Require Waiver by Default"
-            value={requireWaivers}
-            onToggle={() => setRequireWaivers(!requireWaivers)}
-          />
-        </View>
-      </View>
-
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>System</Text>
-        <View style={styles.sectionCard}>
-          <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>App Version</Text>
-            <Text style={styles.settingValue}>1.0.0</Text>
-          </View>
-          <TouchableOpacity style={styles.settingRow} onPress={handleClearCache}>
-            <Text style={styles.settingLabel}>Clear Cache</Text>
-            <Text style={[styles.settingValue, { color: COLORS.primary }]}>Clear</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Sign Out</Text>
-      </TouchableOpacity>
-
-      <View style={styles.bottomPadding} />
-    </ScrollView>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: colors.surface.chip, true: colors.brand.primary }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { padding: SPACING.lg, paddingBottom: SPACING.md },
-  title: { fontSize: FONT_SIZES.xxl, fontWeight: '700', color: COLORS.text, marginBottom: SPACING.xs },
-  subtitle: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary },
-  sectionContainer: { paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg },
-  sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text, marginBottom: SPACING.md },
-  sectionCard: {
-    backgroundColor: COLORS.surface, borderRadius: 12, padding: SPACING.lg,
-    borderWidth: 1, borderColor: COLORS.border,
+  layout: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    flexWrap: 'wrap',
   },
-  profileRow: {
-    flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.lg,
-    paddingBottom: SPACING.lg, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  nav: {
+    width: 240,
+    gap: 2,
   },
-  avatar: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.primary,
-    justifyContent: 'center', alignItems: 'center', marginRight: SPACING.md,
+  navItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radii.sm,
   },
-  avatarText: { fontSize: 22, fontWeight: '700', color: COLORS.surface },
-  profileInfo: { flex: 1 },
-  profileName: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text },
-  profileEmail: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginTop: 2 },
-  infoRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: SPACING.sm,
+  navItemActive: {
+    backgroundColor: colors.brand.soft,
   },
-  infoLabel: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary },
-  infoValue: { fontSize: FONT_SIZES.md, color: COLORS.text, fontWeight: '500' },
-  settingRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: SPACING.sm + 2, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  navItemHover: {
+    backgroundColor: colors.surface.bg,
   },
-  settingLabel: { fontSize: FONT_SIZES.md, color: COLORS.text },
-  settingValue: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, fontWeight: '500' },
-  timezoneList: {
-    backgroundColor: COLORS.background, borderRadius: 8, padding: SPACING.xs, marginBottom: SPACING.sm,
+  body: {
+    flex: 1,
+    minWidth: 320,
+    gap: spacing.md,
   },
-  timezoneOption: { paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md, borderRadius: 6 },
-  timezoneOptionActive: { backgroundColor: COLORS.primary },
-  timezoneText: { fontSize: FONT_SIZES.sm, color: COLORS.text },
-  timezoneTextActive: { color: COLORS.surface, fontWeight: '600' },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.soft,
+  },
+  teamBody: {
+    flex: 1,
+    gap: 2,
+  },
   toggleRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: SPACING.sm + 2, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.soft,
   },
-  toggleLabel: { fontSize: FONT_SIZES.md, color: COLORS.text },
-  toggle: {
-    width: 50, height: 28, borderRadius: 14, backgroundColor: COLORS.border, padding: 2,
+  toggleBody: {
+    flex: 1,
+    gap: 2,
   },
-  toggleActive: { backgroundColor: COLORS.primary },
-  toggleThumb: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.surface },
-  toggleThumbActive: { marginLeft: 22 },
-  feeInputWrap: { flexDirection: 'row', alignItems: 'center' },
-  feePrefix: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, marginRight: 4 },
-  feeInput: {
-    backgroundColor: COLORS.background, borderRadius: 6, paddingVertical: 4, paddingHorizontal: 8,
-    fontSize: FONT_SIZES.md, color: COLORS.text, width: 80, textAlign: 'right',
-    borderWidth: 1, borderColor: COLORS.border,
+  planRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
   },
-  logoutButton: {
-    marginHorizontal: SPACING.lg, paddingVertical: SPACING.md, alignItems: 'center',
-    borderRadius: 8, borderWidth: 1, borderColor: COLORS.error,
+  intRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
-  logoutText: { fontSize: FONT_SIZES.md, color: COLORS.error, fontWeight: '600' },
-  bottomPadding: { height: SPACING.xxl },
 });
