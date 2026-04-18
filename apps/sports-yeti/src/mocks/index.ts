@@ -4,3 +4,6 @@ export * from './teams';
 export * from './highlights';
 export * from './schedule';
 export * from './profile';
+export * from './facilities';
+export * from './bookings';
+export * from './messages';
