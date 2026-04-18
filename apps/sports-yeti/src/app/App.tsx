@@ -5,9 +5,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { RootNavigator } from '../navigation';
 import { ErrorBoundary } from '../components';
-import { SENTRY_DSN, IS_PRODUCTION } from '../constants';
+import { SENTRY_DSN, IS_PRODUCTION, STRIPE_PUBLISHABLE_KEY } from '../constants';
 import { colors, useFonts } from '../theme';
 import { ToastProvider } from '../ui';
 
@@ -103,10 +104,15 @@ function AppContent() {
     >
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
-          <ToastProvider>
-            <StatusBar style="dark" />
-            <RootNavigator />
-          </ToastProvider>
+          <StripeProvider
+            publishableKey={STRIPE_PUBLISHABLE_KEY}
+            merchantIdentifier="merchant.com.sportsyeti"
+          >
+            <ToastProvider>
+              <StatusBar style="dark" />
+              <RootNavigator />
+            </ToastProvider>
+          </StripeProvider>
         </SafeAreaProvider>
       </QueryClientProvider>
     </View>

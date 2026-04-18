@@ -27,6 +27,16 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": ["expo-font", "expo-video"]
+    "plugins": [
+      "expo-font",
+      "expo-video",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.sportsyeti",
+          "enableGooglePay": true
+        }
+      ]
+    ]
   }
 }

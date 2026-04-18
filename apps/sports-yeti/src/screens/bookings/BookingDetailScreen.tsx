@@ -26,6 +26,7 @@ import {
 } from '../../ui';
 import { BOOKINGS } from '../../mocks/bookings';
 import { formatCurrency } from '../../lib/format';
+import { useCheckout } from '../../lib/checkout';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'BookingDetails'>;
@@ -51,7 +52,9 @@ export function BookingDetailScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const booking = BOOKINGS.find((b) => b.id === route.params.id);
+  const checkout = useCheckout();
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [paid, setPaid] = useState(false);
 
   if (!booking) {
     return (
@@ -65,7 +68,34 @@ export function BookingDetailScreen() {
     );
   }
 
-  const balanceDueCents = booking.totalCents - booking.paidCents;
+  const balanceDueCents = paid ? 0 : booking.totalCents - booking.paidCents;
+
+  const handlePayBalance = async () => {
+    const result = await checkout.pay({
+      amountCents: balanceDueCents,
+      merchantLabel: `${booking.facilityName} booking`,
+      // TODO: pass createPaymentIntent once backend exposes it.
+    });
+    if (result.status === 'success') {
+      setPaid(true);
+      toast.show({
+        variant: 'success',
+        title: 'Payment confirmed',
+        description: `${formatCurrency(balanceDueCents)} captured.`,
+      });
+      return;
+    }
+    if (result.status === 'cancelled') {
+      toast.show({ variant: 'info', title: 'Payment cancelled' });
+      return;
+    }
+    toast.show({
+      variant: 'error',
+      title: 'Payment failed',
+      description: result.error,
+      action: { label: 'Retry', onPress: handlePayBalance },
+    });
+  };
 
   return (
     <View style={styles.root}>
@@ -222,21 +252,20 @@ export function BookingDetailScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        {booking.status === 'pending' ? (
+        {booking.status === 'pending' && !paid ? (
           <Button
-            label={`Pay balance · ${formatCurrency(balanceDueCents)}`}
+            label={
+              checkout.isPaying
+                ? 'Processing…'
+                : `Pay balance · ${formatCurrency(balanceDueCents)}`
+            }
             variant="gradient"
             size="lg"
             fullWidth
-            onPress={() =>
-              toast.show({
-                variant: 'success',
-                title: 'Payment confirmed',
-                description: `${formatCurrency(balanceDueCents)} captured via Apple Pay.`,
-              })
-            }
+            disabled={checkout.isPaying}
+            onPress={handlePayBalance}
           />
-        ) : booking.status === 'confirmed' ? (
+        ) : booking.status === 'confirmed' || paid ? (
           <View style={styles.actionRow}>
             <Button
               label="Cancel"

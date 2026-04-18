@@ -4,7 +4,6 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 import {
   CalendarPlus,
   Check,
@@ -29,6 +28,7 @@ import {
   FACILITY_SPORT_LABEL,
 } from '../../mocks/facilities';
 import { formatCurrency } from '../../lib/format';
+import { useCheckout } from '../../lib/checkout';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'FacilityDetails'>;
@@ -51,6 +51,7 @@ export function FacilityDetailScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const facility = FACILITIES.find((f) => f.id === route.params.id);
+  const checkout = useCheckout();
   const [bookSheetOpen, setBookSheetOpen] = useState(false);
   const [pickedSpace, setPickedSpace] = useState<string | null>(null);
   const [pickedSlot, setPickedSlot] = useState<string | null>(null);
@@ -67,21 +68,38 @@ export function FacilityDetailScreen() {
     );
   }
 
-  const handleConfirm = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const handleConfirm = async () => {
     setConfirmBook(false);
-    setBookSheetOpen(false);
-    toast.show({
-      variant: 'success',
-      title: 'Booking confirmed',
-      description: `${facility.name} · ${pickedSlot}`,
-      action: {
-        label: 'View',
-        onPress: () => navigation.navigate('Bookings'),
-      },
+    const result = await checkout.pay({
+      amountCents: facility.hourlyRateCents,
+      merchantLabel: `${facility.name} booking`,
+      // TODO: pass createPaymentIntent once backend exposes it.
     });
-    setPickedSpace(null);
-    setPickedSlot(null);
+    if (result.status === 'success') {
+      setBookSheetOpen(false);
+      toast.show({
+        variant: 'success',
+        title: 'Booking confirmed',
+        description: `${facility.name} · ${pickedSlot}`,
+        action: {
+          label: 'View',
+          onPress: () => navigation.navigate('Bookings'),
+        },
+      });
+      setPickedSpace(null);
+      setPickedSlot(null);
+      return;
+    }
+    if (result.status === 'cancelled') {
+      toast.show({ variant: 'info', title: 'Booking not charged' });
+      return;
+    }
+    toast.show({
+      variant: 'error',
+      title: 'Booking failed',
+      description: result.error,
+      action: { label: 'Retry', onPress: handleConfirm },
+    });
   };
 
   const canBook = !!pickedSpace && !!pickedSlot;
@@ -286,14 +304,16 @@ export function FacilityDetailScreen() {
 
           <Button
             label={
-              canBook
+              checkout.isPaying
+                ? 'Processing…'
+                : canBook
                 ? `Confirm · ${formatCurrency(facility.hourlyRateCents)}`
                 : 'Pick space and time'
             }
             variant="gradient"
             size="lg"
             fullWidth
-            disabled={!canBook}
+            disabled={!canBook || checkout.isPaying}
             onPress={() => setConfirmBook(true)}
           />
         </ScrollView>
@@ -306,8 +326,11 @@ export function FacilityDetailScreen() {
         title="Confirm booking"
         description={`${facility.name} · ${pickedSlot} · ${formatCurrency(
           facility.hourlyRateCents,
-        )} via Apple Pay.`}
-        primaryAction={{ label: 'Pay & confirm', onPress: handleConfirm }}
+        )} via Apple Pay or your saved card.`}
+        primaryAction={{
+          label: checkout.isPaying ? 'Processing…' : 'Pay & confirm',
+          onPress: handleConfirm,
+        }}
         secondaryAction={{
           label: 'Cancel',
           onPress: () => setConfirmBook(false),

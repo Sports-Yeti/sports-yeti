@@ -20,6 +20,7 @@ import {
 } from '../../ui';
 import { TEAM_DETAILS, type RosterMember } from '../../mocks/teams';
 import { formatCurrency } from '../../lib/format';
+import { useCheckout } from '../../lib/checkout';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'TeamPayment'>;
@@ -84,8 +85,8 @@ export function TeamPaymentScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const team = TEAM_DETAILS[route.params.teamId];
+  const checkout = useCheckout();
   const [confirmPay, setConfirmPay] = useState(false);
-  const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
 
   if (!team) {
@@ -112,19 +113,33 @@ export function TeamPaymentScreen() {
   const collectedCents = paidCount * team.perPlayerCents;
   const progress = team.feeTotalCents === 0 ? 1 : collectedCents / team.feeTotalCents;
 
-  const handlePay = () => {
+  const handlePay = async () => {
     setConfirmPay(false);
-    setPaying(true);
-    setTimeout(() => {
-      setPaying(false);
+    const result = await checkout.pay({
+      amountCents: team.perPlayerCents,
+      currency: team.currency,
+      merchantLabel: `${team.name} season fee`,
+      // TODO: pass createPaymentIntent once the SportsYeti backend exposes it.
+    });
+    if (result.status === 'success') {
       setPaid(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.show({
         variant: 'success',
         title: `Paid ${formatCurrency(team.perPlayerCents)}`,
         description: 'Receipt sent to your email.',
       });
-    }, 700);
+      return;
+    }
+    if (result.status === 'cancelled') {
+      toast.show({ variant: 'info', title: 'Payment cancelled' });
+      return;
+    }
+    toast.show({
+      variant: 'error',
+      title: 'Payment failed',
+      description: result.error,
+      action: { label: 'Retry', onPress: handlePay },
+    });
   };
 
   const handleNudge = (m: RosterMember) => {
@@ -240,7 +255,7 @@ export function TeamPaymentScreen() {
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
           <Button
             label={
-              paying
+              checkout.isPaying
                 ? 'Processing…'
                 : youArePaid
                 ? 'Already paid'
@@ -249,7 +264,7 @@ export function TeamPaymentScreen() {
             variant="gradient"
             size="lg"
             fullWidth
-            disabled={paying || youArePaid}
+            disabled={checkout.isPaying || youArePaid}
             onPress={() => setConfirmPay(true)}
           />
         </View>
@@ -260,9 +275,11 @@ export function TeamPaymentScreen() {
         onRequestClose={() => setConfirmPay(false)}
         variant="info"
         title="Confirm payment"
-        description={`${formatCurrency(team.perPlayerCents)} will be charged to your saved card via SportsYeti checkout. Refundable if you leave the team within 7 days.`}
+        description={`${formatCurrency(team.perPlayerCents)} via Apple Pay or your saved card. Refundable if you leave the team within 7 days.`}
         primaryAction={{
-          label: paying ? 'Processing…' : `Pay ${formatCurrency(team.perPlayerCents)}`,
+          label: checkout.isPaying
+            ? 'Processing…'
+            : `Pay ${formatCurrency(team.perPlayerCents)}`,
           onPress: handlePay,
         }}
         secondaryAction={{

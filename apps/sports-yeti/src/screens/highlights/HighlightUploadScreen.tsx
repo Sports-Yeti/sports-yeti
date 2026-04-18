@@ -31,9 +31,11 @@ import {
   ProgressBar,
   Tag,
   Text,
+  useToast,
 } from '../../ui';
 import { HIGHLIGHT_PRICE_CENTS } from '../../mocks/highlights';
 import { formatCurrency } from '../../lib/format';
+import { useCheckout } from '../../lib/checkout';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'HighlightUpload'>;
@@ -48,6 +50,8 @@ interface PickedVideo {
 export function HighlightUploadScreen() {
   const navigation = useNavigation<Navigation>();
   const insets = useSafeAreaInsets();
+  const toast = useToast();
+  const checkout = useCheckout();
   const [step, setStep] = useState<Step>('pick');
   const [video, setVideo] = useState<PickedVideo | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -55,10 +59,6 @@ export function HighlightUploadScreen() {
   const [confirmPay, setConfirmPay] = useState(false);
 
   useEffect(() => {
-    if (step === 'paying') {
-      const id = setTimeout(() => setStep('generating'), 900);
-      return () => clearTimeout(id);
-    }
     if (step === 'generating') {
       const id = setTimeout(() => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -99,9 +99,29 @@ export function HighlightUploadScreen() {
     setStep('review');
   };
 
-  const startUpload = () => {
+  const startUpload = async () => {
     setConfirmPay(false);
     setStep('paying');
+    const result = await checkout.pay({
+      amountCents: HIGHLIGHT_PRICE_CENTS,
+      merchantLabel: 'SportsYeti highlight generation',
+      // TODO: pass createPaymentIntent once backend exposes it.
+    });
+    if (result.status === 'success') {
+      setStep('generating');
+      return;
+    }
+    if (result.status === 'cancelled') {
+      toast.show({ variant: 'info', title: 'Payment cancelled' });
+      setStep('review');
+      return;
+    }
+    toast.show({
+      variant: 'error',
+      title: 'Payment failed',
+      description: result.error,
+    });
+    setStep('review');
   };
 
   const handleReset = () => {
