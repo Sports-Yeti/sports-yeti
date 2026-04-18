@@ -10,9 +10,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Mail } from 'lucide-react-native';
+import { Apple, ChevronLeft, Mail } from 'lucide-react-native';
 import { useAuthStore } from '../../stores';
-import { colors, spacing } from '../../theme';
+import { colors, radii, spacing } from '../../theme';
 import { Button, Card, Input, Text, useToast, type InputRef } from '../../ui';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
@@ -79,6 +79,14 @@ export function LoginScreen() {
     }
   };
 
+  const handleSocial = (provider: 'apple' | 'google') => {
+    toast.show({
+      variant: 'info',
+      title: `${provider === 'apple' ? 'Apple' : 'Google'} sign-in coming soon`,
+      description: 'Use email + password while we ship OAuth.',
+    });
+  };
+
   return (
     <View style={styles.root}>
       <KeyboardAvoidingView
@@ -120,6 +128,57 @@ export function LoginScreen() {
             >
               Sign in to find your next game.
             </Text>
+          </View>
+
+          <View style={styles.socialBlock}>
+            {Platform.OS === 'ios' ? (
+              <Pressable
+                onPress={() => handleSocial('apple')}
+                accessibilityRole="button"
+                accessibilityLabel="Continue with Apple"
+                style={({ pressed }) => [
+                  styles.appleBtn,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Apple
+                  size={20}
+                  color={colors.text.inverse}
+                  strokeWidth={2}
+                  fill={colors.text.inverse}
+                />
+                <Text variant="button" color={colors.text.inverse}>
+                  Continue with Apple
+                </Text>
+              </Pressable>
+            ) : null}
+
+            <Pressable
+              onPress={() => handleSocial('google')}
+              accessibilityRole="button"
+              accessibilityLabel="Continue with Google"
+              style={({ pressed }) => [
+                styles.googleBtn,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <View style={styles.googleMark}>
+                <Text variant="button" color={colors.text.primary}>
+                  G
+                </Text>
+              </View>
+              <Text variant="button" color={colors.text.primary}>
+                Continue with Google
+              </Text>
+            </Pressable>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text variant="caption" color={colors.text.secondary}>
+                or sign in with email
+              </Text>
+              <View style={styles.dividerLine} />
+            </View>
           </View>
 
           <Card style={styles.formCard}>
@@ -217,6 +276,53 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     marginTop: spacing.md,
+  },
+  socialBlock: {
+    gap: spacing.md,
+  },
+  appleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 52,
+    borderRadius: radii.pill,
+    backgroundColor: '#000',
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 52,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface.card,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+  },
+  googleMark: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.surface.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+  },
+  pressed: {
+    opacity: 0.85,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border.soft,
   },
   formCard: {
     gap: spacing.lg,
