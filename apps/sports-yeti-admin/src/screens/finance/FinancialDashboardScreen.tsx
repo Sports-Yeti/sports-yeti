@@ -1,244 +1,213 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Download, FileBarChart2, Wallet } from 'lucide-react-native';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import { api } from '../../services/api';
-import type { Payment } from '../../types';
+  PageHeader,
+  PageScroll,
+  StatCard,
+  type AdminRouteName,
+} from '../../admin';
+import { Button, Card, Tag, Text, useToast } from '../../ui';
+import { colors, spacing } from '../../theme';
+import { financeSummary, PAYMENTS, STATUS_LABEL } from '../../mocks/payments';
+import { METRIC_SERIES } from '../../mocks/insights';
+import { formatCurrency, formatDate } from '../../lib/format';
 
-interface SummaryCardProps {
-  title: string;
-  value: string;
-  icon: string;
-  color: string;
+interface ScreenNavigation {
+  navigate: (route: AdminRouteName, params?: { id?: string }) => void;
 }
 
-function SummaryCard({ title, value, icon, color }: SummaryCardProps) {
+export function FinancialDashboardScreen() {
+  const navigation = useNavigation() as unknown as ScreenNavigation;
+  const toast = useToast();
+  const summary = financeSummary();
+  const revenueSeries = METRIC_SERIES.find((m) => m.id === 'revenue');
+  const recentPayments = [...PAYMENTS]
+    .filter((p) => p.status === 'completed' || p.status === 'partially_refunded')
+    .sort((a, b) => (b.paidAtIso ?? '').localeCompare(a.paidAtIso ?? ''))
+    .slice(0, 8);
+
   return (
-    <View style={styles.summaryCard}>
-      <View style={[styles.summaryIcon, { backgroundColor: color + '15' }]}>
-        <Text style={styles.summaryIconText}>{icon}</Text>
+    <PageScroll>
+      <PageHeader
+        title="Finance"
+        subtitle="Net revenue, fees, and outstanding balances"
+        meta={`Next payout ${formatDate(summary.payoutDateIso)} · ${formatCurrency(summary.netCents)}`}
+        trailing={
+          <>
+            <Button
+              label="Export PDF"
+              variant="ghost"
+              size="sm"
+              leadingIcon={<FileBarChart2 size={14} color={colors.brand.primary} strokeWidth={2.25} />}
+              onPress={() =>
+                toast.show({ variant: 'success', title: 'Monthly PDF generated (mock)' })
+              }
+            />
+            <Button
+              label="Export CSV"
+              variant="solid"
+              size="sm"
+              leadingIcon={<Download size={14} color={colors.text.inverse} strokeWidth={2.25} />}
+              onPress={() =>
+                toast.show({ variant: 'success', title: 'CSV exported (mock)' })
+              }
+            />
+          </>
+        }
+      />
+
+      <View style={styles.statsRow}>
+        <StatCard
+          label="Gross collected"
+          value={formatCurrency(summary.grossCents)}
+          changePct={revenueSeries?.changePct}
+          helper="last 30 days"
+          tone="brand"
+          icon={<Wallet size={14} color={colors.brand.deep} strokeWidth={2.25} />}
+        />
+        <StatCard
+          label="Processor fees"
+          value={formatCurrency(summary.feesCents)}
+          helper="Stripe + platform"
+          tone="warning"
+        />
+        <StatCard
+          label="Refunds"
+          value={formatCurrency(summary.refundsCents)}
+          helper="this period"
+          tone="live"
+        />
+        <StatCard
+          label="Net to your org"
+          value={formatCurrency(summary.netCents)}
+          helper={`Outstanding ${formatCurrency(summary.outstandingCents)}`}
+          tone="success"
+        />
       </View>
-      <Text style={styles.summaryValue}>{value}</Text>
-      <Text style={styles.summaryTitle}>{title}</Text>
+
+      <Card>
+        <View style={styles.cardHead}>
+          <Text variant="h3" color={colors.text.primary}>
+            Net revenue · 12 weeks
+          </Text>
+          {revenueSeries ? (
+            <Tag
+              size="sm"
+              tone={revenueSeries.changePct >= 0 ? 'success' : 'live'}
+              leadingDot
+              label={`${revenueSeries.changePct >= 0 ? '+' : ''}${revenueSeries.changePct.toFixed(1)}%`}
+            />
+          ) : null}
+        </View>
+        {revenueSeries ? (
+          <Sparkline points={revenueSeries.points} unit={revenueSeries.unit} />
+        ) : null}
+      </Card>
+
+      <Card>
+        <View style={styles.cardHead}>
+          <Text variant="h3" color={colors.text.primary}>
+            Recent settled payments
+          </Text>
+          <Button
+            label="Open Payments"
+            variant="ghost"
+            size="sm"
+            onPress={() => navigation.navigate('Payments')}
+          />
+        </View>
+        {recentPayments.map((p) => (
+          <View key={p.id} style={styles.row}>
+            <View style={styles.rowBody}>
+              <Text variant="bodySm" color={colors.text.primary}>
+                {p.payerName} · {p.contextLabel}
+              </Text>
+              <Text variant="caption" color={colors.text.muted}>
+                {p.paidAtIso ? formatDate(p.paidAtIso) : '—'} · {STATUS_LABEL[p.status]}
+              </Text>
+            </View>
+            <Text variant="bodySm" color={colors.brand.primary}>
+              {formatCurrency(p.amountCents)}
+            </Text>
+            <Button
+              label="Open"
+              variant="ghost"
+              size="sm"
+              onPress={() => navigation.navigate('PaymentDetail', { id: p.id })}
+            />
+          </View>
+        ))}
+      </Card>
+    </PageScroll>
+  );
+}
+
+function Sparkline({ points, unit }: { points: number[]; unit: 'count' | 'currency' }) {
+  const max = Math.max(...points, 1);
+  return (
+    <View>
+      <View style={styles.sparkRow}>
+        {points.map((v, i) => {
+          const h = Math.max(8, Math.round((v / max) * 80));
+          return (
+            <View key={i} style={[styles.sparkBar, { height: h }]} accessibilityLabel={`Week ${i + 1}: ${v}`} />
+          );
+        })}
+      </View>
+      <View style={styles.sparkLabels}>
+        <Text variant="caption" color={colors.text.muted}>
+          12w ago
+        </Text>
+        <Text variant="caption" color={colors.text.muted}>
+          {unit === 'currency'
+            ? formatCurrency(points[points.length - 1] ?? 0)
+            : (points[points.length - 1] ?? 0).toLocaleString()}
+        </Text>
+      </View>
     </View>
   );
 }
 
-export function FinancialDashboardScreen() {
-  const [refreshing, setRefreshing] = useState(false);
-
-  const { data: dashStats, isLoading: isLoadingDash, refetch: refetchDash } = useQuery({
-    queryKey: ['analytics-dashboard'],
-    queryFn: () => api.getAnalyticsDashboard(),
-  });
-
-  const { data: revenueData, isLoading: isLoadingRevenue, refetch: refetchRevenue } = useQuery({
-    queryKey: ['analytics-revenue'],
-    queryFn: () => api.getRevenueAnalytics(),
-  });
-
-  const { data: paymentsData, isLoading: isLoadingPayments, refetch: refetchPayments } = useQuery({
-    queryKey: ['payments', { per_page: 10 }],
-    queryFn: () => api.getPayments({ per_page: 10 }),
-  });
-
-  const payments = paymentsData?.data ?? [];
-  const leagueRevenue = revenueData?.leagues ?? [];
-
-  const isLoading = isLoadingDash || isLoadingRevenue || isLoadingPayments;
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([refetchDash(), refetchRevenue(), refetchPayments()]);
-    setRefreshing(false);
-  }, [refetchDash, refetchRevenue, refetchPayments]);
-
-  const totalRevenue = leagueRevenue.reduce((sum, l) => sum + l.revenue, 0);
-  const outstandingPayments = payments.filter((p: Payment) => p.status === 'pending' || p.status === 'processing');
-  const outstandingBalance = outstandingPayments.reduce((sum: number, p: Payment) => sum + p.amount, 0);
-  const refunds = payments.filter((p: Payment) => p.status === 'refunded' || p.status === 'partially_refunded');
-  const refundTotal = refunds.reduce((sum: number, p: Payment) => sum + (p.refund_amount ?? 0), 0);
-
-  const statusColors: Record<string, string> = {
-    completed: COLORS.success,
-    pending: COLORS.warning,
-    processing: COLORS.primary,
-    failed: COLORS.error,
-    refunded: COLORS.textMuted,
-    partially_refunded: COLORS.textMuted,
-  };
-
-  if (isLoading && !refreshing) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-    >
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Finance</Text>
-          <Text style={styles.subtitle}>Revenue and payment overview</Text>
-        </View>
-        <TouchableOpacity style={styles.exportButton} onPress={() => alert('Export coming soon')}>
-          <Text style={styles.exportButtonText}>Export</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.summaryGrid}>
-        <SummaryCard
-          title="Total Revenue"
-          value={`$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-          icon="💰"
-          color={COLORS.success}
-        />
-        <SummaryCard
-          title="Outstanding"
-          value={`$${outstandingBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-          icon="⏳"
-          color={COLORS.warning}
-        />
-        <SummaryCard
-          title="This Month"
-          value={`$${(dashStats?.revenue_this_month ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-          icon="📈"
-          color={COLORS.primary}
-        />
-        <SummaryCard
-          title="Refunds"
-          value={`$${refundTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-          icon="↩️"
-          color={COLORS.error}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Revenue by League</Text>
-        {leagueRevenue.length === 0 ? (
-          <Text style={styles.emptyText}>No revenue data available</Text>
-        ) : (
-          <View style={styles.leagueList}>
-            {leagueRevenue.map((item) => {
-              const pct = totalRevenue > 0 ? (item.revenue / totalRevenue) * 100 : 0;
-              return (
-                <View key={item.league_id} style={styles.leagueRow}>
-                  <View style={styles.leagueInfo}>
-                    <Text style={styles.leagueName}>{item.league_name}</Text>
-                    <Text style={styles.leagueAmount}>
-                      ${item.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </Text>
-                  </View>
-                  <View style={styles.leagueBarTrack}>
-                    <View style={[styles.leagueBarFill, { width: `${pct}%` }]} />
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Transactions</Text>
-        {payments.length === 0 ? (
-          <Text style={styles.emptyText}>No recent transactions</Text>
-        ) : (
-          payments.map((payment: Payment) => {
-            const pStatusColor = statusColors[payment.status] || COLORS.textMuted;
-            return (
-              <View key={payment.id} style={styles.transactionRow}>
-                <View style={styles.transactionInfo}>
-                  <Text style={styles.transactionUser}>{payment.user?.name ?? 'Unknown'}</Text>
-                  <Text style={styles.transactionType}>{payment.type.replace(/_/g, ' ')}</Text>
-                </View>
-                <View style={styles.transactionRight}>
-                  <Text style={styles.transactionAmount}>
-                    ${Number(payment.amount).toFixed(2)}
-                  </Text>
-                  <View style={[styles.transactionStatus, { backgroundColor: pStatusColor + '20' }]}>
-                    <Text style={[styles.transactionStatusText, { color: pStatusColor }]}>
-                      {payment.status}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })
-        )}
-      </View>
-    </ScrollView>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    padding: SPACING.lg, paddingBottom: SPACING.md,
+  statsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
   },
-  title: { fontSize: FONT_SIZES.xxl, fontWeight: '700', color: COLORS.text, marginBottom: SPACING.xs },
-  subtitle: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary },
-  exportButton: {
-    backgroundColor: COLORS.surface, paddingVertical: SPACING.sm + 2, paddingHorizontal: SPACING.lg,
-    borderRadius: 8, borderWidth: 1, borderColor: COLORS.border,
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
   },
-  exportButtonText: { color: COLORS.text, fontSize: FONT_SIZES.md, fontWeight: '600' },
-  summaryGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg, gap: SPACING.md,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.soft,
   },
-  summaryCard: {
-    backgroundColor: COLORS.surface, borderRadius: 12, padding: SPACING.lg,
-    flex: 1, minWidth: 200, borderWidth: 1, borderColor: COLORS.border,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+  rowBody: {
+    flex: 1,
+    gap: 2,
   },
-  summaryIcon: {
-    width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md,
+  sparkRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+    height: 96,
   },
-  summaryIconText: { fontSize: 24 },
-  summaryValue: { fontSize: FONT_SIZES.xl, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
-  summaryTitle: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
-  section: { paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg },
-  sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text, marginBottom: SPACING.md },
-  emptyText: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, textAlign: 'center', paddingVertical: SPACING.xl },
-  leagueList: {
-    backgroundColor: COLORS.surface, borderRadius: 12, padding: SPACING.lg,
-    borderWidth: 1, borderColor: COLORS.border,
+  sparkBar: {
+    flex: 1,
+    backgroundColor: colors.brand.primary,
+    borderRadius: 3,
   },
-  leagueRow: { marginBottom: SPACING.md },
-  leagueInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xs },
-  leagueName: { fontSize: FONT_SIZES.md, fontWeight: '500', color: COLORS.text },
-  leagueAmount: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.text },
-  leagueBarTrack: {
-    height: 6, backgroundColor: COLORS.border, borderRadius: 3, overflow: 'hidden',
+  sparkLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: spacing.sm,
   },
-  leagueBarFill: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 3 },
-  transactionRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.surface, borderRadius: 8, padding: SPACING.md,
-    marginBottom: SPACING.sm, borderWidth: 1, borderColor: COLORS.border,
-  },
-  transactionInfo: { flex: 1 },
-  transactionUser: { fontSize: FONT_SIZES.md, fontWeight: '500', color: COLORS.text },
-  transactionType: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginTop: 2, textTransform: 'capitalize' },
-  transactionRight: { alignItems: 'flex-end' },
-  transactionAmount: { fontSize: FONT_SIZES.md, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
-  transactionStatus: { paddingVertical: 2, paddingHorizontal: SPACING.sm, borderRadius: 4 },
-  transactionStatusText: { fontSize: FONT_SIZES.xs, fontWeight: '600', textTransform: 'capitalize' },
 });
