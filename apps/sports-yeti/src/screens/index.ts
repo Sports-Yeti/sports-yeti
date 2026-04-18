@@ -1,4 +1,4 @@
-// Auth screens
+// Auth screens (out of scope for this pass)
 export { WelcomeScreen } from './auth/WelcomeScreen';
 export { OnboardingScreen } from './auth/OnboardingScreen';
 export { LoginScreen } from './auth/LoginScreen';
@@ -8,66 +8,38 @@ export { ForgotPasswordScreen } from './auth/ForgotPasswordScreen';
 // Dev / design system reference
 export { ComponentShowcaseScreen } from './dev/ComponentShowcaseScreen';
 
-// Home screens
-export { DashboardScreen } from './home/DashboardScreen';
-
-// New tab screens
+// Tab screens (5 main navigation pages)
 export { DiscoverScreen } from './discover/DiscoverScreen';
-export { HighlightsFeedScreen } from './highlights/HighlightsFeedScreen';
-export { SquadsScreen } from './teams/SquadsScreen';
 export { ScheduleScreen } from './schedule/ScheduleScreen';
+export { SquadsScreen } from './teams/SquadsScreen';
+export { HighlightsFeedScreen } from './highlights/HighlightsFeedScreen';
 export { ProfileTabScreen } from './profile/ProfileTabScreen';
 
-// Facilities screens
-export { FacilitiesScreen } from './facilities/FacilitiesScreen';
-export { FacilityDetailScreen } from './facilities/FacilityDetailScreen';
-
-// Games screens
-export { GamesScreen } from './games/GamesScreen';
+// Discover stack
 export { GameDetailScreen } from './games/GameDetailScreen';
 export { CreateGameScreen } from './games/CreateGameScreen';
 
-// Profile screens
-export { ProfileScreen } from './profile/ProfileScreen';
-
-// Teams screens
-export { TeamsScreen } from './teams/TeamsScreen';
+// Teams stack
 export { TeamDetailScreen } from './teams/TeamDetailScreen';
+export { TeamPaymentScreen } from './teams/TeamPaymentScreen';
 export { PlayerDirectoryScreen } from './teams/PlayerDirectoryScreen';
 export { LeagueBrowseScreen } from './teams/LeagueBrowseScreen';
-export { TeamPaymentScreen } from './teams/TeamPaymentScreen';
 
-// Bookings screens
-export { BookingsScreen } from './bookings/BookingsScreen';
-export { BookingDetailScreen } from './bookings/BookingDetailScreen';
-
-// Camps screens
-export { CampsScreen } from './camps/CampsScreen';
-export { CampDetailScreen } from './camps/CampDetailScreen';
-
-// Chat screens
-export { ChatScreen } from './chat/ChatScreen';
-
-// Scanner screens
-export { ScannerScreen } from './scanner/ScannerScreen';
-
-// Highlights screens
+// Highlights stack
 export { MyHighlightsScreen } from './highlights/MyHighlightsScreen';
 export { HighlightUploadScreen } from './highlights/HighlightUploadScreen';
 export { HighlightDetailScreen } from './highlights/HighlightDetailScreen';
 
-// Marketplace screens
-export { MarketplaceScreen } from './marketplace/MarketplaceScreen';
-export { SubRequestsScreen } from './marketplace/SubRequestsScreen';
+// Profile stack
+export { ProfileEditScreen } from './profile/ProfileEditScreen';
+export { SettingsScreen } from './profile/SettingsScreen';
+export { NotificationsScreen } from './profile/NotificationsScreen';
+export { WaiversScreen } from './profile/WaiversScreen';
 
-// Waivers screens
-export { WaiversScreen } from './waivers/WaiversScreen';
-
-// Messages screens
+// Critical auxiliary flows reachable from Profile -> More
+export { BookingsScreen } from './bookings/BookingsScreen';
+export { BookingDetailScreen } from './bookings/BookingDetailScreen';
+export { FacilitiesScreen } from './facilities/FacilitiesScreen';
+export { FacilityDetailScreen } from './facilities/FacilityDetailScreen';
 export { MessagesScreen } from './messages/MessagesScreen';
-
-// Referee screens
-export { AvailableGamesScreen } from './referee/AvailableGamesScreen';
-export { MyAssignmentsScreen } from './referee/MyAssignmentsScreen';
-export { RefereeEarningsScreen } from './referee/RefereeEarningsScreen';
-export { RefereeProfileScreen } from './referee/RefereeProfileScreen';
+export { ChatScreen } from './chat/ChatScreen';

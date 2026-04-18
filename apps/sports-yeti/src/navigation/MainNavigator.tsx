@@ -2,79 +2,78 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
+  BookingDetailScreen,
+  BookingsScreen,
+  ChatScreen,
+  ComponentShowcaseScreen,
+  CreateGameScreen,
   DiscoverScreen,
-  HighlightsFeedScreen,
-  SquadsScreen,
-  ScheduleScreen,
-  ProfileTabScreen,
   FacilitiesScreen,
   FacilityDetailScreen,
-  GamesScreen,
   GameDetailScreen,
-  CreateGameScreen,
-  TeamDetailScreen,
-  PlayerDirectoryScreen,
-  LeagueBrowseScreen,
-  TeamPaymentScreen,
-  BookingsScreen,
-  BookingDetailScreen,
-  CampsScreen,
-  CampDetailScreen,
-  ChatScreen,
-  ScannerScreen,
-  MyHighlightsScreen,
-  HighlightUploadScreen,
   HighlightDetailScreen,
-  MarketplaceScreen,
-  SubRequestsScreen,
+  HighlightUploadScreen,
+  HighlightsFeedScreen,
+  LeagueBrowseScreen,
   MessagesScreen,
-  AvailableGamesScreen,
-  MyAssignmentsScreen,
-  RefereeEarningsScreen,
-  RefereeProfileScreen,
+  MyHighlightsScreen,
+  NotificationsScreen,
+  PlayerDirectoryScreen,
+  ProfileEditScreen,
+  ProfileTabScreen,
+  ScheduleScreen,
+  SettingsScreen,
+  SquadsScreen,
+  TeamDetailScreen,
+  TeamPaymentScreen,
   WaiversScreen,
-  ComponentShowcaseScreen,
 } from '../screens';
 import { colors } from '../theme';
-import { fontFamilies } from '../theme/typography';
 import { SportsYetiTabBar } from './SportsYetiTabBar';
 
 export type MainTabParamList = {
   Discover: undefined;
-  Highlights: undefined;
-  Teams: undefined;
   Schedule: undefined;
+  Teams: undefined;
+  Highlights: undefined;
   Profile: undefined;
 };
 
 export type RootStackParamList = {
+  // Tabs container
   MainTabs: undefined;
+
+  // Discover / Schedule stack
   GameDetails: { id: string };
   CreateGame: undefined;
-  Games: undefined;
-  FacilityDetails: { id: string };
-  BookingDetails: { id: string };
-  CampDetails: { id: string };
+
+  // Teams stack
   TeamDetails: { id: string };
-  Camps: undefined;
-  Bookings: { spaceId?: string; facilityId?: string };
-  Scanner: undefined;
-  Chat: { chatId: string; title?: string };
-  Messages: undefined;
-  Marketplace: undefined;
-  HighlightUpload: undefined;
-  HighlightDetail: { id: string };
-  Highlights: undefined;
-  Facilities: undefined;
+  TeamPayment: { teamId: string };
   PlayerDirectory: undefined;
   LeagueBrowse: undefined;
-  TeamPayment: { teamId: string };
-  SubRequests: undefined;
+
+  // Highlights stack
+  Highlights: undefined; // alias for going to Highlights feed tab from elsewhere
+  MyHighlights: undefined;
+  HighlightUpload: undefined;
+  HighlightDetail: { id: string };
+
+  // Profile stack
+  ProfileEdit: undefined;
+  Settings: undefined;
+  Notifications: undefined;
   Waivers: undefined;
-  RefereeAvailableGames: undefined;
-  RefereeMyAssignments: undefined;
-  RefereeEarnings: undefined;
-  RefereeProfile: undefined;
+
+  // Auxiliary (reachable from Profile -> More)
+  Bookings: undefined;
+  BookingDetails: { id: string };
+  Facilities: undefined;
+  FacilityDetails: { id: string };
+  Messages: undefined;
+  Chat: { chatId: string; title?: string };
+
+  // Dev
   ComponentShowcase: undefined;
 };
 
@@ -92,9 +91,9 @@ function MainTabs() {
       }}
     >
       <Tab.Screen name="Discover" component={DiscoverScreen} />
+      <Tab.Screen name="Schedule" component={ScheduleScreen} />
       <Tab.Screen name="Highlights" component={HighlightsFeedScreen} />
       <Tab.Screen name="Teams" component={SquadsScreen} />
-      <Tab.Screen name="Schedule" component={ScheduleScreen} />
       <Tab.Screen name="Profile" component={ProfileTabScreen} />
     </Tab.Navigator>
   );
@@ -104,160 +103,31 @@ export function MainNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: colors.surface.card,
-        },
-        headerShadowVisible: false,
-        headerTintColor: colors.text.primary,
-        headerTitleStyle: {
-          fontFamily: fontFamilies.displayBold,
-          fontSize: 18,
-        },
+        headerShown: false,
         contentStyle: { backgroundColor: colors.surface.bg },
       }}
     >
-      <Stack.Screen
-        name="MainTabs"
-        component={MainTabs}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="GameDetails"
-        component={GameDetailScreen}
-        options={{ title: 'Game Details' }}
-      />
-      <Stack.Screen
-        name="CreateGame"
-        component={CreateGameScreen}
-        options={{ title: 'Create Game' }}
-      />
-      <Stack.Screen
-        name="Games"
-        component={GamesScreen}
-        options={{ title: 'Games' }}
-      />
-      <Stack.Screen
-        name="FacilityDetails"
-        component={FacilityDetailScreen}
-        options={{ title: 'Facility Details' }}
-      />
-      <Stack.Screen
-        name="BookingDetails"
-        component={BookingDetailScreen}
-        options={{ title: 'Booking Details' }}
-      />
-      <Stack.Screen
-        name="CampDetails"
-        component={CampDetailScreen}
-        options={{ title: 'Camp Details' }}
-      />
-      <Stack.Screen
-        name="TeamDetails"
-        component={TeamDetailScreen}
-        options={{ title: 'Team Details' }}
-      />
-      <Stack.Screen
-        name="Camps"
-        component={CampsScreen}
-        options={{ title: 'Training Camps' }}
-      />
-      <Stack.Screen
-        name="Bookings"
-        component={BookingsScreen}
-        options={{ title: 'My Bookings' }}
-      />
-      <Stack.Screen
-        name="Scanner"
-        component={ScannerScreen}
-        options={{ title: 'Scan QR Code', headerShown: false }}
-      />
-      <Stack.Screen
-        name="Chat"
-        component={ChatScreen}
-        options={({ route }) => ({
-          title: route.params?.title || 'Chat',
-        })}
-      />
-      <Stack.Screen
-        name="Messages"
-        component={MessagesScreen}
-        options={{ title: 'Messages' }}
-      />
-      <Stack.Screen
-        name="Marketplace"
-        component={MarketplaceScreen}
-        options={{ title: 'Marketplace' }}
-      />
-      <Stack.Screen
-        name="HighlightUpload"
-        component={HighlightUploadScreen}
-        options={{ title: 'New Highlight' }}
-      />
-      <Stack.Screen
-        name="HighlightDetail"
-        component={HighlightDetailScreen}
-        options={{ title: 'Highlight Details' }}
-      />
-      <Stack.Screen
-        name="Highlights"
-        component={MyHighlightsScreen}
-        options={{ title: 'Highlights Studio' }}
-      />
-      <Stack.Screen
-        name="Facilities"
-        component={FacilitiesScreen}
-        options={{ title: 'Facilities' }}
-      />
-      <Stack.Screen
-        name="PlayerDirectory"
-        component={PlayerDirectoryScreen}
-        options={{ title: 'Player Directory' }}
-      />
-      <Stack.Screen
-        name="LeagueBrowse"
-        component={LeagueBrowseScreen}
-        options={{ title: 'Browse Leagues' }}
-      />
-      <Stack.Screen
-        name="TeamPayment"
-        component={TeamPaymentScreen}
-        options={{ title: 'Team Payment' }}
-      />
-      <Stack.Screen
-        name="SubRequests"
-        component={SubRequestsScreen}
-        options={{ title: 'Sub Requests' }}
-      />
-      <Stack.Screen
-        name="Waivers"
-        component={WaiversScreen}
-        options={{ title: 'Waivers' }}
-      />
-      <Stack.Screen
-        name="RefereeAvailableGames"
-        component={AvailableGamesScreen}
-        options={{ title: 'Available Games' }}
-      />
-      <Stack.Screen
-        name="RefereeMyAssignments"
-        component={MyAssignmentsScreen}
-        options={{ title: 'My Assignments' }}
-      />
-      <Stack.Screen
-        name="RefereeEarnings"
-        component={RefereeEarningsScreen}
-        options={{ title: 'Earnings' }}
-      />
-      <Stack.Screen
-        name="RefereeProfile"
-        component={RefereeProfileScreen}
-        options={{ title: 'Referee Profile' }}
-      />
-      <Stack.Screen
-        name="ComponentShowcase"
-        component={ComponentShowcaseScreen}
-        options={{ title: 'Design System' }}
-      />
+      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen name="GameDetails" component={GameDetailScreen} />
+      <Stack.Screen name="CreateGame" component={CreateGameScreen} />
+      <Stack.Screen name="TeamDetails" component={TeamDetailScreen} />
+      <Stack.Screen name="TeamPayment" component={TeamPaymentScreen} />
+      <Stack.Screen name="PlayerDirectory" component={PlayerDirectoryScreen} />
+      <Stack.Screen name="LeagueBrowse" component={LeagueBrowseScreen} />
+      <Stack.Screen name="MyHighlights" component={MyHighlightsScreen} />
+      <Stack.Screen name="HighlightUpload" component={HighlightUploadScreen} />
+      <Stack.Screen name="HighlightDetail" component={HighlightDetailScreen} />
+      <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Waivers" component={WaiversScreen} />
+      <Stack.Screen name="Bookings" component={BookingsScreen} />
+      <Stack.Screen name="BookingDetails" component={BookingDetailScreen} />
+      <Stack.Screen name="Facilities" component={FacilitiesScreen} />
+      <Stack.Screen name="FacilityDetails" component={FacilityDetailScreen} />
+      <Stack.Screen name="Messages" component={MessagesScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="ComponentShowcase" component={ComponentShowcaseScreen} />
     </Stack.Navigator>
   );
 }
