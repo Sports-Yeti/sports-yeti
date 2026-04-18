@@ -358,21 +358,39 @@ cd apps/sports-yeti && npx expo start
 
 ### Admin Dashboard (React Native Web)
 
+The admin app is web-only and is best run **directly on your host** for the fastest HMR and best debugging experience. A Dockerised dev variant is available as a fallback for contributors who don't have Node installed locally.
+
 #### 1. Configure API URL
 
 The admin app connects to the same Laravel API. Update the API base URL in `src/constants/index.ts` or via environment variables.
 
-#### 2. Start the Development Server
+#### 2. Start the Development Server (recommended: local)
 
 ```bash
-# From workspace root
-npx nx serve sports-yeti-admin
-
-# Or directly
-cd apps/sports-yeti-admin && npx expo start --web
+npx nx start sports-yeti-admin
 ```
 
-The admin dashboard will be available at `http://localhost:19006` (or the port Expo assigns).
+Open `http://localhost:19006` — Metro hot-reloads on save. Source maps point to your real files, so the Cursor/VS Code Node debugger and browser devtools work out of the box.
+
+#### 2a. (Alternative) Run inside Docker
+
+For a one-command setup with no host Node requirement:
+
+```bash
+docker compose --profile docker-admin up -d admin
+docker logs -f sports-yeti-admin
+```
+
+Tradeoff: rebuilds the image whenever `package-lock.json` changes (~4 min `npm ci`) and file watching goes through Docker's macOS file-sharing layer.
+
+#### 3. Production Bundle Smoke Test
+
+To exercise the static export that ships to staging/prod:
+
+```bash
+docker compose --profile prod up -d --build admin-prod
+# Open http://localhost:19007
+```
 
 #### Admin Features
 
