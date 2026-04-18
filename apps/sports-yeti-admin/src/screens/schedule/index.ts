@@ -1,1 +1,0 @@
-export { ScheduleScreen } from './ScheduleScreen';

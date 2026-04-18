@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { colors, radii, spacing } from '../theme';
+import { type WebPressableState } from '../lib/pressable';
 import { Text } from './Text';
 
 export type ButtonVariant = 'solid' | 'outline' | 'ghost' | 'destructive' | 'subtle';
@@ -89,7 +90,7 @@ export function Button({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
-      style={({ pressed, hovered }) => [
+      style={({ pressed, hovered }: WebPressableState) => [
         styles.base,
         {
           height: SIZE_HEIGHT[size],
@@ -98,7 +99,6 @@ export function Button({
           borderColor: VARIANT_BORDER[variant],
         },
         fullWidth ? styles.fullWidth : null,
-        // @ts-expect-error react-native-web exposes hovered
         hovered && !isDisabled ? styles.hovered : null,
         pressed && !isDisabled ? styles.pressed : null,
         isDisabled ? styles.disabled : null,

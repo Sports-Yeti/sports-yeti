@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { type WebPressableState } from '../../lib/pressable';
 import { useNavigation } from '@react-navigation/native';
 import { CalendarPlus, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react-native';
 import {
@@ -165,9 +166,8 @@ export function BookingCalendarScreen() {
                       onPress={() => navigation.navigate('BookingDetail', { id: b.id })}
                       accessibilityRole="button"
                       accessibilityLabel={`${b.facilityName} ${b.spaceName} at ${formatTime(b.startsAtIso)}`}
-                      style={({ hovered }) => [
+                      style={({ hovered }: WebPressableState) => [
                         styles.bookingTile,
-                        // @ts-expect-error rn-web hovered
                         hovered ? styles.bookingTileHover : null,
                       ]}
                     >
@@ -204,9 +204,8 @@ export function BookingCalendarScreen() {
                   onPress={() => navigation.navigate('BookingDetail', { id: b.id })}
                   accessibilityRole="button"
                   accessibilityLabel={b.facilityName}
-                  style={({ hovered }) => [
+                  style={({ hovered }: WebPressableState) => [
                     styles.listRow,
-                    // @ts-expect-error rn-web hovered
                     hovered ? styles.listRowHover : null,
                   ]}
                 >

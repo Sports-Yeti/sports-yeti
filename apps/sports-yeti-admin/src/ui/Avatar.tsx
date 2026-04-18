@@ -36,7 +36,7 @@ export function Avatar({
         style={[
           styles.image,
           { width: size, height: size, borderRadius: radius },
-          style,
+          style as never,
         ]}
       />
     );

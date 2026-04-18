@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { type WebPressableState } from '../../lib/pressable';
 import {
   Building2,
   CreditCard,
@@ -50,10 +51,9 @@ export function SettingsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={s.label}
                 accessibilityState={{ selected: active }}
-                style={({ hovered }) => [
+                style={({ hovered }: WebPressableState) => [
                   styles.navItem,
                   active ? styles.navItemActive : null,
-                  // @ts-expect-error rn-web hovered
                   hovered && !active ? styles.navItemHover : null,
                 ]}
               >

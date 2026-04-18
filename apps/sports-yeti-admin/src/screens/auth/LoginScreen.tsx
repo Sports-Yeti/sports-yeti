@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { type WebPressableState } from '../../lib/pressable';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -106,9 +107,8 @@ export function LoginScreen() {
                   onPress={() => handleSSO('google')}
                   accessibilityRole="button"
                   accessibilityLabel="Continue with Google Workspace"
-                  style={({ hovered }) => [
+                  style={({ hovered }: WebPressableState) => [
                     styles.ssoBtn,
-                    // @ts-expect-error rn-web hovered
                     hovered ? styles.ssoBtnHover : null,
                   ]}
                 >
@@ -125,9 +125,8 @@ export function LoginScreen() {
                   onPress={() => handleSSO('microsoft')}
                   accessibilityRole="button"
                   accessibilityLabel="Continue with Microsoft Entra"
-                  style={({ hovered }) => [
+                  style={({ hovered }: WebPressableState) => [
                     styles.ssoBtn,
-                    // @ts-expect-error rn-web hovered
                     hovered ? styles.ssoBtnHover : null,
                   ]}
                 >
@@ -140,9 +139,8 @@ export function LoginScreen() {
                   onPress={() => handleSSO('saml')}
                   accessibilityRole="button"
                   accessibilityLabel="Sign in with SAML SSO"
-                  style={({ hovered }) => [
+                  style={({ hovered }: WebPressableState) => [
                     styles.ssoBtn,
-                    // @ts-expect-error rn-web hovered
                     hovered ? styles.ssoBtnHover : null,
                   ]}
                 >

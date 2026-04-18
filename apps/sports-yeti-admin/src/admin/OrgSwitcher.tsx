@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { type WebPressableState } from '../lib/pressable';
 import { Check, Plus } from 'lucide-react-native';
 import { colors, radii, spacing } from '../theme';
 import { Drawer, Text, useToast } from '../ui';
@@ -41,10 +42,9 @@ export function OrgSwitcher({ visible, onRequestClose }: OrgSwitcherProps) {
               accessibilityRole="button"
               accessibilityLabel={`Switch to ${org.name}`}
               accessibilityState={{ selected: active }}
-              style={({ hovered }) => [
+              style={({ hovered }: WebPressableState) => [
                 styles.item,
                 active ? styles.itemActive : null,
-                // @ts-expect-error rn-web hovered
                 hovered ? styles.itemHover : null,
               ]}
             >
@@ -69,9 +69,8 @@ export function OrgSwitcher({ visible, onRequestClose }: OrgSwitcherProps) {
           }
           accessibilityRole="button"
           accessibilityLabel="Create new organization"
-          style={({ hovered }) => [
+          style={({ hovered }: WebPressableState) => [
             styles.createBtn,
-            // @ts-expect-error rn-web hovered
             hovered ? styles.createBtnHover : null,
           ]}
         >

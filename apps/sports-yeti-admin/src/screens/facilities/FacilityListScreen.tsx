@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { type WebPressableState } from '../../lib/pressable';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'react-native';
 import { Plus, Star, Warehouse } from 'lucide-react-native';
@@ -104,9 +105,8 @@ export function FacilityListScreen() {
               onPress={() => navigation.navigate('FacilityDetail', { id: f.id })}
               accessibilityRole="button"
               accessibilityLabel={f.name}
-              style={({ hovered }) => [
+              style={({ hovered }: WebPressableState) => [
                 styles.listRow,
-                // @ts-expect-error rn-web hovered
                 hovered ? styles.listRowHover : null,
               ]}
             >
@@ -133,9 +133,8 @@ function FacilityCard({ facility, onPress }: { facility: Facility; onPress: () =
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={facility.name}
-      style={({ hovered }) => [
+      style={({ hovered }: WebPressableState) => [
         styles.card,
-        // @ts-expect-error rn-web hovered
         hovered ? styles.cardHover : null,
       ]}
     >

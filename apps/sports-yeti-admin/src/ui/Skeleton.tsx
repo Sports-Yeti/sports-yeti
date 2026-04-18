@@ -64,7 +64,6 @@ export function Skeleton({
       importantForAccessibility="no-hide-descendants"
       style={[
         styles.base,
-        // @ts-expect-error width/height accept percent strings or numbers
         { width, height, borderRadius: computedRadius, opacity },
         style,
       ]}

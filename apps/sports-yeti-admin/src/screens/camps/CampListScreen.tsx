@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { type WebPressableState } from '../../lib/pressable';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'react-native';
 import { Plus, Tent } from 'lucide-react-native';
@@ -99,9 +100,8 @@ function CampCard({ camp, onPress }: { camp: Camp; onPress: () => void }) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={camp.name}
-      style={({ hovered }) => [
+      style={({ hovered }: WebPressableState) => [
         styles.card,
-        // @ts-expect-error rn-web hovered
         hovered ? styles.cardHover : null,
       ]}
     >

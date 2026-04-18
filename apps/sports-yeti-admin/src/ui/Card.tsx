@@ -7,6 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { colors, radii, shadows, spacing } from '../theme';
+import { type WebPressableState } from '../lib/pressable';
 
 export interface CardProps {
   padded?: boolean;
@@ -37,9 +38,8 @@ export function Card({
         onPress={onPress}
         accessibilityRole={onPress ? 'button' : undefined}
         accessibilityLabel={accessibilityLabel}
-        style={({ pressed, hovered }) => [
+        style={({ pressed, hovered }: WebPressableState) => [
           baseStyle,
-          // @ts-expect-error react-native-web exposes hovered
           hovered ? styles.hovered : null,
           pressed ? styles.pressed : null,
         ]}

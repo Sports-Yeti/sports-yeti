@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { type WebPressableState } from '../lib/pressable';
 import {
   Modal,
   Pressable,
@@ -60,10 +61,9 @@ export function Select<T extends string = string>({
         accessibilityLabel={label ?? placeholder}
         accessibilityHint={selected?.label}
         accessibilityState={{ disabled, expanded: open }}
-        style={({ hovered }) => [
+        style={({ hovered }: WebPressableState) => [
           styles.trigger,
           { borderColor },
-          // @ts-expect-error rn-web hovered
           hovered && !disabled ? styles.triggerHover : null,
           disabled ? styles.triggerDisabled : null,
         ]}
@@ -115,9 +115,8 @@ export function Select<T extends string = string>({
                       selected: isSelected,
                       disabled: option.disabled,
                     }}
-                    style={({ hovered }) => [
+                    style={({ hovered }: WebPressableState) => [
                       styles.option,
-                      // @ts-expect-error rn-web hovered
                       hovered ? styles.optionHover : null,
                       option.disabled ? styles.optionDisabled : null,
                     ]}

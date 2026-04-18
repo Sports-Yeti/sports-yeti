@@ -13,6 +13,9 @@ export type { InputProps, InputRef, InputSize, InputVariant } from './Input';
 export { Select } from './Select';
 export type { SelectOption, SelectProps } from './Select';
 
+export { Tabs } from './Tabs';
+export type { TabItem, TabsProps, TabsVariant } from './Tabs';
+
 export { Tag } from './Tag';
 export type { TagProps, TagSize, TagTone } from './Tag';
 

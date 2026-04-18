@@ -1,58 +1,38 @@
-// Auth
 export { LoginScreen } from './auth/LoginScreen';
 
-// Dashboard
 export { DashboardScreen } from './dashboard/DashboardScreen';
 
-// Leagues - B2
-export { LeagueListScreen, LeagueDetailScreen, LeagueFormScreen } from './leagues';
+export { LeagueListScreen } from './leagues/LeagueListScreen';
+export { LeagueDetailScreen } from './leagues/LeagueDetailScreen';
 
-// Teams - B2
-export { TeamListScreen, TeamDetailScreen } from './teams';
+export { TeamListScreen } from './teams/TeamListScreen';
+export { TeamDetailScreen } from './teams/TeamDetailScreen';
 
-// Players - B2
-export { PlayerListScreen, PlayerDetailScreen } from './players';
+export { ScheduleScreen } from './schedule/ScheduleScreen';
+export { GameDetailScreen } from './schedule/GameDetailScreen';
 
-// Bookings - B3
-export { BookingCalendarScreen } from './bookings/BookingCalendarScreen';
+export { PlayerListScreen, RefereeListScreen } from './players/PlayerListScreen';
 
-// Facilities - B3
+export { CampListScreen } from './camps/CampListScreen';
+export { CampDetailScreen } from './camps/CampDetailScreen';
+
+export { WaiverListScreen } from './waivers/WaiverListScreen';
+export { WaiverDetailScreen } from './waivers/WaiverDetailScreen';
+
 export { FacilityListScreen } from './facilities/FacilityListScreen';
 export { FacilityDetailScreen } from './facilities/FacilityDetailScreen';
-export { FacilityFormScreen } from './facilities/FacilityFormScreen';
 
-// Payments - B4
-export { PaymentListScreen, PaymentDetailScreen } from './payments';
+export { BookingCalendarScreen } from './bookings/BookingsScreen';
+export { BookingDetailScreen } from './bookings/BookingDetailScreen';
 
-// Referees
-export { RefereeListScreen, RefereeDetailScreen, RefereeAssignmentScreen } from './referees';
+export { PaymentListScreen } from './payments/PaymentListScreen';
+export { PaymentDetailScreen } from './payments/PaymentDetailScreen';
+export { FinancialDashboardScreen } from './finance/FinancialDashboardScreen';
 
-// Audit - B4
-export { AuditLogScreen } from './audit';
+export { AnalyticsScreen } from './insights/AnalyticsScreen';
+export { StatsScreen } from './insights/StatsScreen';
+export { AuditLogScreen } from './insights/AuditLogScreen';
+export { MarketplaceScreen } from './insights/MarketplaceScreen';
+export { NewsScreen } from './insights/NewsScreen';
 
-// Waivers
-export { WaiverListScreen, WaiverDetailScreen, WaiverFormScreen } from './waivers';
-
-// Camps
-export { CampListScreen, CampDetailScreen, CampFormScreen } from './camps';
-
-// Schedule
-export { ScheduleScreen } from './schedule';
-
-// Finance
-export { FinancialDashboardScreen } from './finance';
-
-// Stats
-export { StatsScreen } from './stats';
-
-// News
-export { NewsScreen } from './news';
-
-// Analytics
-export { AnalyticsScreen } from './analytics';
-
-// Settings
-export { SettingsScreen } from './settings';
-
-// Marketplace
-export { MarketplaceMonitorScreen } from './marketplace';
+export { SettingsScreen } from './settings/SettingsScreen';

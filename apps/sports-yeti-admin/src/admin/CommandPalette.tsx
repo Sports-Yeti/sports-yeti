@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { type WebPressableState } from '../lib/pressable';
 import {
   Modal,
   Pressable,
@@ -166,7 +167,7 @@ export function CommandPalette({
           onPress={(e) => e.stopPropagation()}
           style={[styles.panel, shadows.popover]}
           accessibilityViewIsModal
-          accessibilityRole="dialog"
+          accessibilityRole="alert"
         >
           <View style={styles.searchRow}>
             <Search size={16} color={colors.text.muted} strokeWidth={2.25} />
@@ -210,9 +211,8 @@ export function CommandPalette({
                       }}
                       accessibilityRole="menuitem"
                       accessibilityLabel={r.label}
-                      style={({ hovered }) => [
+                      style={({ hovered }: WebPressableState) => [
                         styles.row,
-                        // @ts-expect-error rn-web hovered
                         hovered ? styles.rowHover : null,
                       ]}
                     >

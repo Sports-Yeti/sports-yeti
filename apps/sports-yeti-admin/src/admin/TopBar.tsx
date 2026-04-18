@@ -1,4 +1,5 @@
 import React from 'react';
+import { type WebPressableState } from '../lib/pressable';
 import {
   Pressable,
   StyleSheet,
@@ -35,9 +36,8 @@ export function TopBar({
         accessibilityRole="button"
         accessibilityLabel="Open search"
         accessibilityHint={`Press ${shortcut} to search across the admin`}
-        style={({ hovered }) => [
+        style={({ hovered }: WebPressableState) => [
           styles.search,
-          // @ts-expect-error rn-web hovered
           hovered ? styles.searchHover : null,
         ]}
       >
@@ -57,9 +57,8 @@ export function TopBar({
           onPress={onOpenOrgSwitcher}
           accessibilityRole="button"
           accessibilityLabel="Switch organization"
-          style={({ hovered }) => [
+          style={({ hovered }: WebPressableState) => [
             styles.orgSwitcher,
-            // @ts-expect-error rn-web hovered
             hovered ? styles.orgSwitcherHover : null,
           ]}
         >
@@ -81,9 +80,8 @@ export function TopBar({
               ? `Notifications, ${unreadNotifications} unread`
               : 'Notifications'
           }
-          style={({ hovered }) => [
+          style={({ hovered }: WebPressableState) => [
             styles.iconBtn,
-            // @ts-expect-error rn-web hovered
             hovered ? styles.iconBtnHover : null,
           ]}
         >

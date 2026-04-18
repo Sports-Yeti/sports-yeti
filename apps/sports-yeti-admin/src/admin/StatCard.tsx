@@ -1,4 +1,5 @@
 import React from 'react';
+import { type WebPressableState } from '../lib/pressable';
 import {
   Pressable,
   StyleSheet,
@@ -86,9 +87,8 @@ export function StatCard({
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={label}
-        style={({ hovered }) => [
+        style={({ hovered }: WebPressableState) => [
           styles.pressable,
-          // @ts-expect-error rn-web hovered
           hovered ? styles.pressableHover : null,
         ]}
       >

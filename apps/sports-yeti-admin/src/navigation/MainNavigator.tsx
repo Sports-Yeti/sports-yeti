@@ -1,201 +1,126 @@
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useCallback, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Sidebar } from '../components';
+import { useAuthStore } from '../stores';
+import { AppShell, type AdminRouteName } from '../admin';
 import {
-  DashboardScreen,
-  LeagueListScreen,
-  LeagueDetailScreen,
-  LeagueFormScreen,
-  TeamListScreen,
-  TeamDetailScreen,
-  PlayerListScreen,
-  PlayerDetailScreen,
-  PaymentListScreen,
-  PaymentDetailScreen,
+  AnalyticsScreen,
   AuditLogScreen,
   BookingCalendarScreen,
-  FacilityListScreen,
-  FacilityDetailScreen,
-  FacilityFormScreen,
-  RefereeListScreen,
-  RefereeDetailScreen,
-  RefereeAssignmentScreen,
-  WaiverListScreen,
-  WaiverDetailScreen,
-  WaiverFormScreen,
-  CampListScreen,
+  BookingDetailScreen,
   CampDetailScreen,
-  CampFormScreen,
-  ScheduleScreen,
+  CampListScreen,
+  DashboardScreen,
+  FacilityDetailScreen,
+  FacilityListScreen,
   FinancialDashboardScreen,
-  StatsScreen,
+  GameDetailScreen,
+  LeagueDetailScreen,
+  LeagueListScreen,
+  MarketplaceScreen,
   NewsScreen,
-  AnalyticsScreen,
+  PaymentDetailScreen,
+  PaymentListScreen,
+  PlayerListScreen,
+  RefereeListScreen,
+  ScheduleScreen,
   SettingsScreen,
-  MarketplaceMonitorScreen,
+  StatsScreen,
+  TeamDetailScreen,
+  TeamListScreen,
+  WaiverDetailScreen,
+  WaiverListScreen,
 } from '../screens';
-import { COLORS, NavItemId } from '../constants';
 import { navigate as rootNavigate } from './RootNavigator';
-import type { MainStackParamList } from '../types';
 
-// Re-export for backward compatibility
-export type { MainStackParamList } from '../types';
+export type MainStackParamList = {
+  Dashboard: undefined;
+  Leagues: undefined;
+  LeagueDetail: { id: string };
+  Teams: undefined;
+  TeamDetail: { id: string };
+  Schedule: undefined;
+  GameDetail: { id: string };
+  Players: undefined;
+  Referees: undefined;
+  Camps: undefined;
+  CampDetail: { id: string };
+  Waivers: undefined;
+  WaiverDetail: { id: string };
+  Facilities: undefined;
+  FacilityDetail: { id: string };
+  Bookings: undefined;
+  BookingDetail: { id: string };
+  Payments: undefined;
+  PaymentDetail: { id: string };
+  Finance: undefined;
+  Analytics: undefined;
+  Stats: undefined;
+  AuditLog: undefined;
+  Marketplace: undefined;
+  News: undefined;
+  Settings: undefined;
+};
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
-// Map route names to NavItemId
-const routeToId: Record<string, NavItemId> = {
-  Dashboard: 'dashboard',
-  Leagues: 'leagues',
-  LeagueDetail: 'leagues',
-  LeagueForm: 'leagues',
-  Teams: 'teams',
-  TeamDetail: 'teams',
-  Players: 'teams',
-  PlayerDetail: 'teams',
-  Facilities: 'facilities',
-  FacilityDetail: 'facilities',
-  FacilityForm: 'facilities',
-  Bookings: 'schedule',
-  Schedule: 'schedule',
-  Waivers: 'waivers',
-  WaiverDetail: 'waivers',
-  WaiverForm: 'waivers',
-  Camps: 'camps',
-  CampDetail: 'camps',
-  CampForm: 'camps',
-  Finance: 'finance',
-  Referees: 'referees',
-  RefereeDetail: 'referees',
-  RefereeAssignments: 'referees',
-  Payments: 'payments',
-  PaymentDetail: 'payments',
-  AuditLogs: 'audit',
-  Stats: 'stats',
-  News: 'news',
-  Analytics: 'analytics',
-  Settings: 'settings',
-  MarketplaceMonitor: 'marketplace',
-};
+export function MainNavigator() {
+  const logout = useAuthStore((s) => s.logout);
+  const [activeRoute, setActiveRoute] = useState<AdminRouteName>('Dashboard');
 
-interface MainContentProps {
-  onRouteChange: (routeName: string) => void;
-}
+  const handleNavigate = useCallback((route: AdminRouteName) => {
+    rootNavigate(route as keyof MainStackParamList);
+    setActiveRoute(route);
+  }, []);
 
-function MainContent({ onRouteChange }: MainContentProps) {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        animation: 'none',
-      }}
-      screenListeners={{
-        state: (e) => {
-          // Get the current route name when navigation state changes
-          const state = e.data.state;
-          if (state && state.routes && state.routes.length > 0) {
-            const currentRoute = state.routes[state.index ?? 0];
-            onRouteChange(currentRoute.name);
-          }
-        },
+    <AppShell
+      activeRoute={activeRoute}
+      onNavigate={handleNavigate}
+      onLogout={() => {
+        logout().catch(() => undefined);
       }}
     >
-      {/* Dashboard */}
-      <Stack.Screen name="Dashboard" component={DashboardScreen} />
-
-      {/* Leagues - B2 */}
-      <Stack.Screen name="Leagues" component={LeagueListScreen} />
-      <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} />
-      <Stack.Screen name="LeagueForm" component={LeagueFormScreen} />
-
-      {/* Teams - B2 */}
-      <Stack.Screen name="Teams" component={TeamListScreen} />
-      <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
-
-      {/* Players - B2 */}
-      <Stack.Screen name="Players" component={PlayerListScreen} />
-      <Stack.Screen name="PlayerDetail" component={PlayerDetailScreen} />
-
-      {/* Facilities - B3 */}
-      <Stack.Screen name="Facilities" component={FacilityListScreen} />
-      <Stack.Screen name="FacilityDetail" component={FacilityDetailScreen} />
-      <Stack.Screen name="FacilityForm" component={FacilityFormScreen} />
-      <Stack.Screen name="Bookings" component={BookingCalendarScreen} />
-
-      {/* Schedule */}
-      <Stack.Screen name="Schedule" component={ScheduleScreen} />
-
-      {/* Waivers */}
-      <Stack.Screen name="Waivers" component={WaiverListScreen} />
-      <Stack.Screen name="WaiverDetail" component={WaiverDetailScreen} />
-      <Stack.Screen name="WaiverForm" component={WaiverFormScreen} />
-
-      {/* Camps */}
-      <Stack.Screen name="Camps" component={CampListScreen} />
-      <Stack.Screen name="CampDetail" component={CampDetailScreen} />
-      <Stack.Screen name="CampForm" component={CampFormScreen} />
-
-      {/* Finance */}
-      <Stack.Screen name="Finance" component={FinancialDashboardScreen} />
-
-      {/* Referees */}
-      <Stack.Screen name="Referees" component={RefereeListScreen} />
-      <Stack.Screen name="RefereeDetail" component={RefereeDetailScreen} />
-      <Stack.Screen name="RefereeAssignments" component={RefereeAssignmentScreen} />
-
-      <Stack.Screen name="Payments" component={PaymentListScreen} />
-      <Stack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
-      <Stack.Screen name="AuditLogs" component={AuditLogScreen} />
-
-      {/* Stats & Highlights */}
-      <Stack.Screen name="Stats" component={StatsScreen} />
-
-      {/* News & Ads */}
-      <Stack.Screen name="News" component={NewsScreen} />
-
-      {/* Analytics */}
-      <Stack.Screen name="Analytics" component={AnalyticsScreen} />
-
-      {/* Settings */}
-      <Stack.Screen name="Settings" component={SettingsScreen} />
-
-      {/* Marketplace Monitor */}
-      <Stack.Screen name="MarketplaceMonitor" component={MarketplaceMonitorScreen} />
-    </Stack.Navigator>
+      <Stack.Navigator
+        screenOptions={{ headerShown: false, animation: 'none' }}
+        screenListeners={{
+          state: (e) => {
+            const state = e.data.state as
+              | { routes: { name: string }[]; index?: number }
+              | undefined;
+            if (state?.routes && state.routes.length > 0) {
+              const current = state.routes[state.index ?? 0];
+              if (current?.name) setActiveRoute(current.name as AdminRouteName);
+            }
+          },
+        }}
+      >
+        <Stack.Screen name="Dashboard" component={DashboardScreen} />
+        <Stack.Screen name="Leagues" component={LeagueListScreen} />
+        <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} />
+        <Stack.Screen name="Teams" component={TeamListScreen} />
+        <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
+        <Stack.Screen name="Schedule" component={ScheduleScreen} />
+        <Stack.Screen name="GameDetail" component={GameDetailScreen} />
+        <Stack.Screen name="Players" component={PlayerListScreen} />
+        <Stack.Screen name="Referees" component={RefereeListScreen} />
+        <Stack.Screen name="Camps" component={CampListScreen} />
+        <Stack.Screen name="CampDetail" component={CampDetailScreen} />
+        <Stack.Screen name="Waivers" component={WaiverListScreen} />
+        <Stack.Screen name="WaiverDetail" component={WaiverDetailScreen} />
+        <Stack.Screen name="Facilities" component={FacilityListScreen} />
+        <Stack.Screen name="FacilityDetail" component={FacilityDetailScreen} />
+        <Stack.Screen name="Bookings" component={BookingCalendarScreen} />
+        <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
+        <Stack.Screen name="Payments" component={PaymentListScreen} />
+        <Stack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
+        <Stack.Screen name="Finance" component={FinancialDashboardScreen} />
+        <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+        <Stack.Screen name="Stats" component={StatsScreen} />
+        <Stack.Screen name="AuditLog" component={AuditLogScreen} />
+        <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
+        <Stack.Screen name="News" component={NewsScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
+      </Stack.Navigator>
+    </AppShell>
   );
 }
-
-export function MainNavigator() {
-  const [activeRoute, setActiveRoute] = useState<NavItemId>('dashboard');
-
-  const handleRouteChange = useCallback((routeName: string) => {
-    setActiveRoute(routeToId[routeName] || 'dashboard');
-  }, []);
-
-  const handleNavigate = useCallback((route: string) => {
-    // Navigate using the root navigation ref
-    rootNavigate(route as keyof MainStackParamList);
-    setActiveRoute(routeToId[route] || 'dashboard');
-  }, []);
-
-  return (
-    <View style={styles.container}>
-      <Sidebar activeRoute={activeRoute} onNavigate={handleNavigate} />
-      <View style={styles.content}>
-        <MainContent onRouteChange={handleRouteChange} />
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  content: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-});

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { type WebPressableState } from '../lib/pressable';
 import { Bell } from 'lucide-react-native';
 import { colors, spacing } from '../theme';
 import { Drawer, EmptyState, Tag, Text } from '../ui';
@@ -87,9 +88,8 @@ export function NotificationsPanel({
               accessibilityRole="button"
               accessibilityLabel={n.title}
               accessibilityHint={n.body}
-              style={({ hovered }) => [
+              style={({ hovered }: WebPressableState) => [
                 styles.item,
-                // @ts-expect-error rn-web hovered
                 hovered ? styles.itemHover : null,
               ]}
             >

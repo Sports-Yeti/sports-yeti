@@ -1,4 +1,5 @@
 import React from 'react';
+import { type WebPressableState } from '../lib/pressable';
 import {
   Pressable,
   ScrollView,
@@ -55,7 +56,7 @@ export function Sidebar({
         styles.container,
         { width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH },
       ]}
-      accessibilityRole="navigation"
+      accessibilityRole="menu"
       accessibilityLabel="Primary navigation"
     >
       <View style={styles.header}>
@@ -193,11 +194,10 @@ function NavItemRow({
       accessibilityRole="button"
       accessibilityLabel={item.label}
       accessibilityState={{ selected: active }}
-      style={({ hovered, pressed }) => [
+      style={({ hovered, pressed }: WebPressableState) => [
         styles.navItem,
         collapsed ? styles.navItemCollapsed : null,
         active ? styles.navItemActive : null,
-        // @ts-expect-error rn-web hovered
         hovered && !active ? styles.navItemHover : null,
         pressed ? styles.navItemPressed : null,
       ]}

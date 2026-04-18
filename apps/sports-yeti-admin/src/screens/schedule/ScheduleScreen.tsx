@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { type WebPressableState } from '../../lib/pressable';
 import { useNavigation } from '@react-navigation/native';
 import {
   CalendarDays,
@@ -207,9 +208,8 @@ export function ScheduleScreen() {
                   onPress={() => navigation.navigate('GameDetail', { id: g.id })}
                   accessibilityRole="button"
                   accessibilityLabel={`${g.homeTeamName} vs ${g.awayTeamName}`}
-                  style={({ hovered }) => [
+                  style={({ hovered }: WebPressableState) => [
                     styles.listRow,
-                    // @ts-expect-error rn-web hovered
                     hovered ? styles.listRowHover : null,
                   ]}
                 >
@@ -245,10 +245,9 @@ function GameTile({ game, onPress }: { game: Game; onPress: () => void }) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${game.homeAbbreviation} vs ${game.awayAbbreviation} at ${formatTime(game.startsAtIso)}`}
-      style={({ hovered }) => [
+      style={({ hovered }: WebPressableState) => [
         styles.gameTile,
         game.status === 'live' ? styles.gameTileLive : null,
-        // @ts-expect-error rn-web hovered
         hovered ? styles.gameTileHover : null,
       ]}
     >

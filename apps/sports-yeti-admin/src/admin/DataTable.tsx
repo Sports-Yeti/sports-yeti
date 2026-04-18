@@ -1,4 +1,5 @@
 import React from 'react';
+import { type WebPressableState } from '../lib/pressable';
 import {
   Pressable,
   ScrollView,
@@ -177,10 +178,9 @@ export function DataTable<Row>({
                   key={id}
                   onPress={onRowPress ? () => onRowPress(row) : undefined}
                   accessibilityRole={onRowPress ? 'button' : undefined}
-                  style={({ hovered }) => [
+                  style={({ hovered }: WebPressableState) => [
                     styles.bodyRow,
                     isSelected ? styles.bodyRowSelected : null,
-                    // @ts-expect-error rn-web hovered
                     hovered && onRowPress ? styles.bodyRowHover : null,
                   ]}
                 >
