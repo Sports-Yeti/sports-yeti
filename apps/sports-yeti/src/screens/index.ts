@@ -1,9 +1,22 @@
 // Auth screens
+export { WelcomeScreen } from './auth/WelcomeScreen';
+export { OnboardingScreen } from './auth/OnboardingScreen';
 export { LoginScreen } from './auth/LoginScreen';
 export { RegisterScreen } from './auth/RegisterScreen';
+export { ForgotPasswordScreen } from './auth/ForgotPasswordScreen';
+
+// Dev / design system reference
+export { ComponentShowcaseScreen } from './dev/ComponentShowcaseScreen';
 
 // Home screens
 export { DashboardScreen } from './home/DashboardScreen';
+
+// New tab screens
+export { DiscoverScreen } from './discover/DiscoverScreen';
+export { HighlightsFeedScreen } from './highlights/HighlightsFeedScreen';
+export { SquadsScreen } from './teams/SquadsScreen';
+export { ScheduleScreen } from './schedule/ScheduleScreen';
+export { ProfileTabScreen } from './profile/ProfileTabScreen';
 
 // Facilities screens
 export { FacilitiesScreen } from './facilities/FacilitiesScreen';

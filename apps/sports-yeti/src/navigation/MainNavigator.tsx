@@ -1,16 +1,17 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text } from 'react-native';
 import {
-  DashboardScreen,
+  DiscoverScreen,
+  HighlightsFeedScreen,
+  SquadsScreen,
+  ScheduleScreen,
+  ProfileTabScreen,
   FacilitiesScreen,
   FacilityDetailScreen,
   GamesScreen,
   GameDetailScreen,
   CreateGameScreen,
-  ProfileScreen,
-  TeamsScreen,
   TeamDetailScreen,
   PlayerDirectoryScreen,
   LeagueBrowseScreen,
@@ -32,15 +33,17 @@ import {
   RefereeEarningsScreen,
   RefereeProfileScreen,
   WaiversScreen,
+  ComponentShowcaseScreen,
 } from '../screens';
-import { COLORS } from '../constants';
+import { colors } from '../theme';
+import { fontFamilies } from '../theme/typography';
+import { SportsYetiTabBar } from './SportsYetiTabBar';
 
 export type MainTabParamList = {
-  Dashboard: undefined;
-  Games: undefined;
+  Discover: undefined;
+  Highlights: undefined;
   Teams: undefined;
-  Marketplace: undefined;
-  Messages: undefined;
+  Schedule: undefined;
   Profile: undefined;
 };
 
@@ -48,6 +51,7 @@ export type RootStackParamList = {
   MainTabs: undefined;
   GameDetails: { id: string };
   CreateGame: undefined;
+  Games: undefined;
   FacilityDetails: { id: string };
   BookingDetails: { id: string };
   CampDetails: { id: string };
@@ -56,6 +60,8 @@ export type RootStackParamList = {
   Bookings: { spaceId?: string; facilityId?: string };
   Scanner: undefined;
   Chat: { chatId: string; title?: string };
+  Messages: undefined;
+  Marketplace: undefined;
   HighlightUpload: undefined;
   HighlightDetail: { id: string };
   Highlights: undefined;
@@ -69,110 +75,45 @@ export type RootStackParamList = {
   RefereeMyAssignments: undefined;
   RefereeEarnings: undefined;
   RefereeProfile: undefined;
+  ComponentShowcase: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const icons: Record<string, string> = {
-    Dashboard: '🏠',
-    Games: '🏀',
-    Teams: '👥',
-    Marketplace: '🏪',
-    Messages: '💬',
-    Profile: '👤',
-  };
-
-  return (
-    <Text style={{ fontSize: focused ? 26 : 24, opacity: focused ? 1 : 0.6 }}>
-      {icons[name] || '📱'}
-    </Text>
-  );
-}
-
 function MainTabs() {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused }) => (
-          <TabIcon name={route.name} focused={focused} />
-        ),
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
-        headerStyle: {
-          backgroundColor: COLORS.primary,
-        },
-        headerTintColor: COLORS.surface,
-        headerTitleStyle: {
-          fontWeight: '600',
-        },
-      })}
+      tabBar={(props) => <SportsYetiTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        tabBarHideOnKeyboard: true,
+        sceneStyle: { backgroundColor: colors.surface.bg },
+      }}
     >
-      <Tab.Screen
-        name="Dashboard"
-        component={DashboardScreen}
-        options={{
-          title: 'Home',
-          headerTitle: 'Sports Yeti',
-        }}
-      />
-      <Tab.Screen
-        name="Games"
-        component={GamesScreen}
-        options={{
-          title: 'Games',
-          headerTitle: 'Games',
-        }}
-      />
-      <Tab.Screen
-        name="Teams"
-        component={TeamsScreen}
-        options={{
-          title: 'Teams',
-          headerTitle: 'Teams',
-        }}
-      />
-      <Tab.Screen
-        name="Marketplace"
-        component={MarketplaceScreen}
-        options={{
-          title: 'Marketplace',
-          headerTitle: 'Marketplace',
-        }}
-      />
-      <Tab.Screen
-        name="Messages"
-        component={MessagesScreen}
-        options={{
-          title: 'Messages',
-          headerTitle: 'Messages',
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          title: 'Profile',
-          headerTitle: 'My Profile',
-        }}
-      />
+      <Tab.Screen name="Discover" component={DiscoverScreen} />
+      <Tab.Screen name="Highlights" component={HighlightsFeedScreen} />
+      <Tab.Screen name="Teams" component={SquadsScreen} />
+      <Tab.Screen name="Schedule" component={ScheduleScreen} />
+      <Tab.Screen name="Profile" component={ProfileTabScreen} />
     </Tab.Navigator>
   );
 }
-
 
 export function MainNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
         headerStyle: {
-          backgroundColor: COLORS.primary,
+          backgroundColor: colors.surface.card,
         },
-        headerTintColor: COLORS.surface,
+        headerShadowVisible: false,
+        headerTintColor: colors.text.primary,
         headerTitleStyle: {
-          fontWeight: '600',
+          fontFamily: fontFamilies.displayBold,
+          fontSize: 18,
         },
+        contentStyle: { backgroundColor: colors.surface.bg },
       }}
     >
       <Stack.Screen
@@ -189,6 +130,11 @@ export function MainNavigator() {
         name="CreateGame"
         component={CreateGameScreen}
         options={{ title: 'Create Game' }}
+      />
+      <Stack.Screen
+        name="Games"
+        component={GamesScreen}
+        options={{ title: 'Games' }}
       />
       <Stack.Screen
         name="FacilityDetails"
@@ -231,6 +177,16 @@ export function MainNavigator() {
         options={({ route }) => ({
           title: route.params?.title || 'Chat',
         })}
+      />
+      <Stack.Screen
+        name="Messages"
+        component={MessagesScreen}
+        options={{ title: 'Messages' }}
+      />
+      <Stack.Screen
+        name="Marketplace"
+        component={MarketplaceScreen}
+        options={{ title: 'Marketplace' }}
       />
       <Stack.Screen
         name="HighlightUpload"
@@ -296,6 +252,11 @@ export function MainNavigator() {
         name="RefereeProfile"
         component={RefereeProfileScreen}
         options={{ title: 'Referee Profile' }}
+      />
+      <Stack.Screen
+        name="ComponentShowcase"
+        component={ComponentShowcaseScreen}
+        options={{ title: 'Design System' }}
       />
     </Stack.Navigator>
   );

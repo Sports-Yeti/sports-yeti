@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { useAuthStore } from '../stores';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
-import { COLORS } from '../constants';
+import { colors } from '../theme';
 
 export function RootNavigator() {
   const { isAuthenticated, isLoading, loadUser } = useAuthStore();
@@ -16,7 +16,7 @@ export function RootNavigator() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.brand.primary} />
       </View>
     );
   }
@@ -33,6 +33,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface.bg,
   },
 });
