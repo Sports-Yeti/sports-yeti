@@ -1,463 +1,375 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronLeft, Trophy, Users } from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
 import {
-  View,
+  BottomSheet,
+  Button,
+  Card,
+  EmptyState,
+  IconBadge,
+  Input,
+  Tabs,
+  Tag,
   Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Modal,
-  TextInput,
-  Alert,
-} from 'react-native';
-import { api } from '../../services/api';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import type { League } from '../../types';
+  useToast,
+} from '../../ui';
+import { OPEN_LEAGUES, type OpenLeague } from '../../mocks/teams';
+import { formatCurrency } from '../../lib/format';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-const DEFAULT_ROSTER_SIZE = 5;
+type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
-interface LeagueBrowseScreenProps {
-  navigation: {
-    goBack: () => void;
-  };
+const SPORT_FILTERS = [
+  { key: 'all', label: 'All sports' },
+  { key: 'soccer', label: 'Soccer' },
+  { key: 'basketball', label: 'Basketball' },
+  { key: 'volleyball', label: 'Volleyball' },
+  { key: 'hockey', label: 'Hockey' },
+];
+
+function LeagueCard({
+  league,
+  onApply,
+}: {
+  league: OpenLeague;
+  onApply: () => void;
+}) {
+  const Icon = league.Icon;
+  const spotsLeft = league.maxTeams - league.registeredTeams;
+  return (
+    <Card style={styles.card}>
+      <View style={styles.cardHead}>
+        <IconBadge size={48} tone="brand">
+          <Icon size={22} color={colors.brand.deep} strokeWidth={2.25} />
+        </IconBadge>
+        <View style={styles.cardHeadBody}>
+          <Text variant="h3" color={colors.text.primary}>
+            {league.name}
+          </Text>
+          <Text variant="bodySm" color={colors.text.secondary}>
+            {league.sport} · {league.city}
+          </Text>
+        </View>
+      </View>
+
+      <Text variant="body" color={colors.text.primary}>
+        {league.description}
+      </Text>
+
+      <View style={styles.metaRow}>
+        <View style={styles.metaItem}>
+          <Text variant="caption" color={colors.text.secondary}>
+            STARTS
+          </Text>
+          <Text variant="button" color={colors.text.primary}>
+            {league.startDate.replace('Starts ', '')}
+          </Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Text variant="caption" color={colors.text.secondary}>
+            REGISTRATION
+          </Text>
+          <Text variant="button" color={colors.text.primary}>
+            {league.registrationCloses.replace('Closes ', '')}
+          </Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Text variant="caption" color={colors.text.secondary}>
+            FEE
+          </Text>
+          <Text variant="button" color={colors.brand.primary}>
+            {league.feeCents === 0 ? 'Free' : formatCurrency(league.feeCents)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.cardFooter}>
+        <Tag
+          tone={league.spotsTone}
+          leadingDot
+          size="sm"
+          label={`${spotsLeft} of ${league.maxTeams} team spots left`}
+        />
+        <Button
+          label="Register team"
+          variant="gradient"
+          size="sm"
+          onPress={onApply}
+        />
+      </View>
+    </Card>
+  );
 }
 
-export function LeagueBrowseScreen({ navigation }: LeagueBrowseScreenProps) {
-  const [leagues, setLeagues] = useState<League[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
+export function LeagueBrowseScreen() {
+  const navigation = useNavigation<Navigation>();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
+  const [sport, setSport] = useState('all');
+  const [pendingLeague, setPendingLeague] = useState<OpenLeague | null>(null);
   const [teamName, setTeamName] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rosterSize, setRosterSize] = useState('8');
+  const [submitting, setSubmitting] = useState(false);
 
-  const loadLeagues = useCallback(async () => {
-    try {
-      const response = await api.getLeagues({ is_active: true, per_page: 50 });
-      setLeagues(response.data);
-    } catch {
-      Alert.alert('Error', 'Failed to load leagues');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
+  const filtered = useMemo(
+    () =>
+      sport === 'all'
+        ? OPEN_LEAGUES
+        : OPEN_LEAGUES.filter((l) => l.sportKey === sport),
+    [sport],
+  );
 
-  useEffect(() => {
-    loadLeagues();
-  }, [loadLeagues]);
+  const teamNameError =
+    teamName.length > 0 && teamName.trim().length < 3
+      ? 'Team name must be at least 3 characters.'
+      : undefined;
+  const rosterError =
+    rosterSize.length > 0 && (Number(rosterSize) < 2 || Number(rosterSize) > 30)
+      ? 'Roster must be 2-30 players.'
+      : undefined;
+  const canSubmit =
+    !!pendingLeague &&
+    teamName.trim().length >= 3 &&
+    !rosterError &&
+    Number(rosterSize) >= 2;
 
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadLeagues();
-  }, [loadLeagues]);
+  const perPlayer =
+    pendingLeague && Number(rosterSize) > 0
+      ? Math.round(pendingLeague.feeCents / Number(rosterSize))
+      : 0;
 
-  const handleApply = (league: League) => {
-    setSelectedLeague(league);
-    setTeamName('');
-    setIsModalVisible(true);
-  };
-
-  const handleSubmitApplication = async () => {
-    if (!selectedLeague || !teamName.trim()) {
-      Alert.alert('Error', 'Please enter a team name');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await api.createTeam({
-        name: teamName.trim(),
-        league_id: selectedLeague.id,
-        description: null,
+  const handleSubmit = () => {
+    if (!pendingLeague || !canSubmit) return;
+    setSubmitting(true);
+    setTimeout(() => {
+      setSubmitting(false);
+      const name = teamName.trim();
+      setPendingLeague(null);
+      setTeamName('');
+      toast.show({
+        variant: 'success',
+        title: `Application submitted`,
+        description: `${name} is pending admin review (~24h).`,
+        action: {
+          label: 'View',
+          onPress: () =>
+            navigation.navigate('TeamDetails', { id: 'avalanche-fc' }),
+        },
       });
-      setIsModalVisible(false);
-      Alert.alert('Success', `Team "${teamName.trim()}" registered for ${selectedLeague.name}!`);
-      navigation.goBack();
-    } catch {
-      Alert.alert('Error', 'Failed to register team. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    }, 700);
   };
-
-  const getMaxTeams = (league: League): number | null => {
-    if (!league.settings) return null;
-    return (league.settings as Record<string, unknown>).max_teams as number | null;
-  };
-
-  const getPerPlayerFee = (league: League): string => {
-    const fee = Number(league.registration_fee);
-    if (fee <= 0) return 'Free';
-    return `$${(fee / DEFAULT_ROSTER_SIZE).toFixed(2)}`;
-  };
-
-  const renderLeagueCard = ({ item }: { item: League }) => {
-    const maxTeams = getMaxTeams(item);
-    const fee = Number(item.registration_fee);
-
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.sportBadge}>
-            <Text style={styles.sportBadgeText}>{item.sport_type}</Text>
-          </View>
-          {item.location && (
-            <Text style={styles.locationText} numberOfLines={1}>
-              {item.location}
-            </Text>
-          )}
-        </View>
-
-        <Text style={styles.cardTitle}>{item.name}</Text>
-        {item.description && (
-          <Text style={styles.cardDescription} numberOfLines={2}>
-            {item.description}
-          </Text>
-        )}
-
-        <View style={styles.statsRow}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>
-              {item.teams_count ?? 0}
-              {maxTeams ? ` / ${maxTeams}` : ''}
-            </Text>
-            <Text style={styles.statLabel}>Teams</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>
-              {fee > 0 ? `$${fee.toFixed(2)}` : 'Free'}
-            </Text>
-            <Text style={styles.statLabel}>Registration</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{getPerPlayerFee(item)}</Text>
-            <Text style={styles.statLabel}>Per Player</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.applyButton}
-          onPress={() => handleApply(item)}
-        >
-          <Text style={styles.applyButtonText}>Apply</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={leagues}
-        renderItem={renderLeagueCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🏆</Text>
-            <Text style={styles.emptyTitle}>No Open Leagues</Text>
-            <Text style={styles.emptyText}>
-              Check back later for leagues accepting registrations
-            </Text>
-          </View>
-        }
-      />
+    <View style={styles.root}>
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={8}
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
+          <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+        </Pressable>
+        <Text variant="h2" color={colors.text.primary}>
+          Open Leagues
+        </Text>
+        <View style={styles.backBtn} />
+      </View>
 
-      <Modal
-        visible={isModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsModalVisible(false)}
+      <View style={styles.filterBlock}>
+        <Tabs
+          variant="pill"
+          scrollable
+          items={SPORT_FILTERS}
+          value={sport}
+          onChange={setSport}
+        />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.list,
+          { paddingBottom: insets.bottom + spacing.xxl },
+        ]}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Register Team</Text>
-            {selectedLeague && (
-              <Text style={styles.modalSubtitle}>
-                Joining {selectedLeague.name}
-              </Text>
-            )}
-
-            <Text style={styles.inputLabel}>Team Name</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Enter your team name"
-              placeholderTextColor={COLORS.textSecondary}
-              value={teamName}
-              onChangeText={setTeamName}
-              autoFocus
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon={<Trophy size={28} color={colors.brand.primary} strokeWidth={2.25} />}
+            title="No leagues"
+            description="Nothing open in this sport yet — we'll notify you when one launches."
+            primaryAction={{
+              label: 'Notify me',
+              onPress: () =>
+                toast.show({ variant: 'success', title: "We'll let you know" }),
+            }}
+          />
+        ) : (
+          filtered.map((l) => (
+            <LeagueCard
+              key={l.id}
+              league={l}
+              onApply={() => {
+                setPendingLeague(l);
+                setTeamName('');
+                setRosterSize('8');
+              }}
             />
+          ))
+        )}
+      </ScrollView>
 
-            {selectedLeague && Number(selectedLeague.registration_fee) > 0 && (
-              <View style={styles.feeBreakdown}>
-                <Text style={styles.feeTitle}>Fee Breakdown</Text>
-                <View style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>Registration Fee</Text>
-                  <Text style={styles.feeValue}>
-                    ${Number(selectedLeague.registration_fee).toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>
-                    Per Player (est. {DEFAULT_ROSTER_SIZE} players)
-                  </Text>
-                  <Text style={styles.feeValue}>
-                    {getPerPlayerFee(selectedLeague)}
-                  </Text>
-                </View>
+      <BottomSheet
+        visible={!!pendingLeague}
+        onRequestClose={() => setPendingLeague(null)}
+        title={`Register for ${pendingLeague?.name ?? ''}`}
+        snapPoints={['72%']}
+      >
+        <ScrollView
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Input
+            label="Team name"
+            placeholder="Avalanche FC"
+            value={teamName}
+            onChangeText={setTeamName}
+            maxLength={40}
+            error={teamNameError}
+          />
+          <Input
+            label="Roster size"
+            placeholder="8"
+            variant="number"
+            value={rosterSize}
+            onChangeText={setRosterSize}
+            error={rosterError}
+            helpText="Players you plan to bring (2-30)."
+          />
+
+          {pendingLeague ? (
+            <Card style={styles.feeCard}>
+              <View style={styles.feeRow}>
+                <Text variant="body" color={colors.text.secondary}>
+                  Registration fee
+                </Text>
+                <Text variant="button" color={colors.text.primary}>
+                  {formatCurrency(pendingLeague.feeCents)}
+                </Text>
               </View>
-            )}
+              <View style={styles.feeRow}>
+                <Text variant="body" color={colors.text.secondary}>
+                  Per player ({rosterSize || '0'})
+                </Text>
+                <Text variant="button" color={colors.brand.primary}>
+                  {formatCurrency(perPlayer)}
+                </Text>
+              </View>
+              <Text variant="caption" color={colors.text.secondary}>
+                Estimate. Actual per-player share recalculates from your final
+                roster after admin approves.
+              </Text>
+            </Card>
+          ) : null}
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setIsModalVisible(false)}
-                disabled={isSubmitting}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-                onPress={handleSubmitApplication}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color={COLORS.surface} />
-                ) : (
-                  <Text style={styles.submitButtonText}>Submit</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+          <View style={styles.actions}>
+            <Button
+              label="Cancel"
+              variant="ghost"
+              fullWidth
+              onPress={() => setPendingLeague(null)}
+              disabled={submitting}
+            />
+            <Button
+              label={submitting ? 'Submitting…' : 'Submit'}
+              variant="gradient"
+              fullWidth
+              onPress={handleSubmit}
+              disabled={!canSubmit || submitting}
+            />
           </View>
-        </View>
-      </Modal>
+        </ScrollView>
+      </BottomSheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface.bg,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  listContent: {
-    padding: SPACING.md,
-    paddingBottom: SPACING.xxl,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardHeader: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: SPACING.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  sportBadge: {
-    backgroundColor: COLORS.secondary + '20',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: 4,
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  sportBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    color: COLORS.secondary,
-    textTransform: 'capitalize',
+  filterBlock: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  locationText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    flex: 1,
-    textAlign: 'right',
-    marginLeft: SPACING.sm,
+  list: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.lg,
   },
-  cardTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
+  card: {
+    gap: spacing.md,
   },
-  cardDescription: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
-    lineHeight: 20,
-  },
-  statsRow: {
+  cardHead: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    marginBottom: SPACING.sm,
-  },
-  stat: {
     alignItems: 'center',
+    gap: spacing.md,
   },
-  statValue: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  statLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  applyButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.sm,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  applyButtonText: {
-    color: COLORS.surface,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: SPACING.xxl,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: SPACING.md,
-  },
-  emptyTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-  },
-  emptyText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  modalOverlay: {
+  cardHeadBody: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    gap: 2,
   },
-  modalContent: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: SPACING.lg,
-    paddingBottom: SPACING.xxl,
+  metaRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    backgroundColor: colors.surface.bg,
+    padding: spacing.md,
+    borderRadius: radii.md,
   },
-  modalTitle: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
+  metaItem: {
+    flex: 1,
+    gap: 2,
   },
-  modalSubtitle: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.lg,
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    flexWrap: 'wrap',
   },
-  inputLabel: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
+  sheetContent: {
+    gap: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
-  modalInput: {
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: SPACING.md,
-  },
-  feeBreakdown: {
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: 8,
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  feeTitle: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.primary,
-    marginBottom: SPACING.sm,
+  feeCard: {
+    gap: spacing.sm,
   },
   feeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING.xs,
+    alignItems: 'center',
   },
-  feeLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text,
-  },
-  feeValue: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  modalActions: {
+  actions: {
     flexDirection: 'row',
-    gap: SPACING.md,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: SPACING.sm,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cancelButtonText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.sm,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: COLORS.surface,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
+    gap: spacing.md,
   },
 });

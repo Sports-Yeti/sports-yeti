@@ -1,414 +1,598 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import {
-  View,
+  CheckCircle2,
+  ChevronLeft,
+  Download,
+  Play,
+  RefreshCw,
+  Send,
+  Sparkles,
+  Star,
+} from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
+import {
+  Button,
+  Card,
+  EmptyState,
+  IconBadge,
+  Input,
+  Modal,
+  Tag,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-  Share,
-} from 'react-native';
-import { api } from '../../services/api';
-import { useHighlightStore } from '../../stores/highlightStore';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import type { HighlightClip } from '../../types';
+  useToast,
+} from '../../ui';
+import {
+  HIGHLIGHT_PROJECTS,
+  type HighlightClip,
+} from '../../mocks/highlights';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-interface HighlightDetailScreenProps {
-  route: { params: { id: string } };
-  navigation: {
-    navigate: (screen: string, params?: Record<string, unknown>) => void;
-    goBack: () => void;
-  };
-}
+type Navigation = NativeStackNavigationProp<RootStackParamList, 'HighlightDetail'>;
+type Route = RouteProp<RootStackParamList, 'HighlightDetail'>;
 
-function ClipCard({
-  clip,
-  highlightId,
-  onShare,
-}: {
-  clip: HighlightClip;
-  highlightId: string;
-  onShare: (clip: HighlightClip) => void;
-}) {
-  const duration = (Number(clip.end_time) - Number(clip.start_time)).toFixed(1);
-
-  return (
-    <View style={styles.clipCard}>
-      <View style={styles.clipHeader}>
-        <View style={styles.clipTitleRow}>
-          <Text style={styles.clipTitle}>{clip.title}</Text>
-          <View style={styles.scoreBadge}>
-            <Text style={styles.scoreText}>
-              {'⭐'.repeat(Math.min(clip.excitement_score, 5))}
-            </Text>
-          </View>
-        </View>
-        <Text style={styles.clipTimestamp}>
-          {formatTime(clip.start_time)} - {formatTime(clip.end_time)} ({duration}s)
-        </Text>
-      </View>
-      <Text style={styles.clipDescription}>{clip.description}</Text>
-      <View style={styles.clipActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => onShare(clip)}
-        >
-          <Text style={styles.actionIcon}>📤</Text>
-          <Text style={styles.actionText}>Share</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={async () => {
-            try {
-              const { download_url } = await api.getClipDownloadUrl(
-                highlightId,
-                clip.id
-              );
-              Alert.alert('Download Ready', 'Download URL copied. In production, this would save to your camera roll.');
-            } catch {
-              Alert.alert('Error', 'Could not generate download link.');
-            }
-          }}
-        >
-          <Text style={styles.actionIcon}>⬇️</Text>
-          <Text style={styles.actionText}>Download</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-function formatTime(seconds: number): string {
+function formatTimecode(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-export function HighlightDetailScreen({
-  route,
-  navigation,
-}: HighlightDetailScreenProps) {
-  const { id } = route.params;
-  const { currentHighlight, isLoading, fetchHighlight } = useHighlightStore();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedClips, setSelectedClips] = useState<Set<string>>(new Set());
+function ClipCard({
+  clip,
+  selected,
+  onToggleSelect,
+  onShare,
+  onDownload,
+  onPreview,
+}: {
+  clip: HighlightClip;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onShare: () => void;
+  onDownload: () => void;
+  onPreview: () => void;
+}) {
+  return (
+    <Card style={[styles.clipCard, selected ? styles.clipCardSelected : null]}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: selected }}
+        accessibilityLabel={`${selected ? 'Deselect' : 'Select'} clip ${clip.title}`}
+        onPress={onToggleSelect}
+        hitSlop={8}
+        style={styles.checkboxRow}
+      >
+        <View
+          style={[
+            styles.checkbox,
+            selected ? styles.checkboxSelected : null,
+          ]}
+        >
+          {selected ? (
+            <CheckCircle2
+              size={20}
+              color={colors.text.inverse}
+              strokeWidth={2.5}
+            />
+          ) : null}
+        </View>
+        <Text variant="caption" color={colors.text.secondary}>
+          {selected ? 'Selected' : 'Select for posting'}
+        </Text>
+      </Pressable>
 
-  useEffect(() => {
-    fetchHighlight(id);
-  }, [id]);
+      <View style={styles.clipBody}>
+        <Pressable
+          onPress={onPreview}
+          accessibilityRole="button"
+          accessibilityLabel={`Preview clip: ${clip.title}`}
+        >
+          <View style={styles.thumbWrap}>
+            <Image
+              source={{ uri: clip.thumbnail }}
+              style={styles.thumb}
+              contentFit="cover"
+              accessibilityLabel="Clip thumbnail"
+            />
+            <View style={styles.playOverlay}>
+              <Play
+                size={20}
+                color={colors.text.inverse}
+                strokeWidth={2.5}
+                fill={colors.text.inverse}
+              />
+            </View>
+          </View>
+        </Pressable>
 
-  useEffect(() => {
-    if (currentHighlight?.status === 'processing') {
-      const interval = setInterval(() => fetchHighlight(id), 5000);
-      return () => clearInterval(interval);
-    }
-  }, [currentHighlight?.status, id]);
+        <View style={styles.clipText}>
+          <View style={styles.clipHead}>
+            <Text variant="button" color={colors.text.primary}>
+              {clip.title}
+            </Text>
+            <View style={styles.scoreBadge}>
+              <Star size={14} color="#B26200" strokeWidth={2.25} />
+              <Text variant="caption" color={colors.text.secondary}>
+                {clip.excitementScore}/5
+              </Text>
+            </View>
+          </View>
+          <Text variant="caption" color={colors.text.secondary}>
+            {formatTimecode(clip.startSeconds)} – {formatTimecode(clip.endSeconds)} ·{' '}
+            {(clip.endSeconds - clip.startSeconds).toFixed(0)}s
+          </Text>
+          <Text variant="bodySm" color={colors.text.primary}>
+            {clip.description}
+          </Text>
+        </View>
+      </View>
 
-  const onRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await fetchHighlight(id);
-    setIsRefreshing(false);
-  }, [id]);
+      <View style={styles.clipActions}>
+        <Button
+          label="Share"
+          variant="ghost"
+          size="sm"
+          leadingIcon={
+            <Send size={14} color={colors.brand.primary} strokeWidth={2.5} />
+          }
+          onPress={onShare}
+        />
+        <Button
+          label="Download"
+          variant="ghost"
+          size="sm"
+          leadingIcon={
+            <Download size={14} color={colors.brand.primary} strokeWidth={2.5} />
+          }
+          onPress={onDownload}
+        />
+      </View>
+    </Card>
+  );
+}
+
+export function HighlightDetailScreen() {
+  const navigation = useNavigation<Navigation>();
+  const route = useRoute<Route>();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
+  const project = HIGHLIGHT_PROJECTS.find((p) => p.id === route.params.id);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [caption, setCaption] = useState('');
+  const [audience, setAudience] = useState<'public' | 'team'>('public');
+  const [posted, setPosted] = useState(false);
+  const [confirmRegen, setConfirmRegen] = useState(false);
+
+  const clips = useMemo(() => project?.clips ?? [], [project]);
+  const selectAll = () => setSelected(new Set(clips.map((c) => c.id)));
+  const clearAll = () => setSelected(new Set());
+  const toggleClip = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  if (!project) {
+    return (
+      <View style={styles.root}>
+        <EmptyState
+          title="Highlight not found"
+          description="It may have been deleted or expired."
+          primaryAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+        />
+      </View>
+    );
+  }
 
   const handleShareClip = async (clip: HighlightClip) => {
+    Haptics.selectionAsync();
     try {
       await Share.share({
-        message: `Check out this highlight: ${clip.title} - ${clip.description}`,
-        url: clip.clip_url,
+        title: clip.title,
+        message: `${clip.title} — ${clip.description}\n${clip.clipUrl}`,
       });
     } catch {
-      // User cancelled
+      // user cancelled
     }
   };
 
-  const toggleClipSelection = (clipId: string) => {
-    setSelectedClips((prev) => {
-      const next = new Set(prev);
-      if (next.has(clipId)) next.delete(clipId);
-      else next.add(clipId);
-      return next;
+  const handleDownload = (clip: HighlightClip) => {
+    Haptics.selectionAsync();
+    toast.show({
+      variant: 'success',
+      title: `Saved "${clip.title}" to camera roll`,
     });
   };
 
-  const handlePostToFeed = async () => {
-    const clipIds =
-      selectedClips.size > 0
-        ? Array.from(selectedClips)
-        : currentHighlight?.clips.map((c) => c.id) || [];
-
-    if (clipIds.length === 0) return;
-
-    try {
-      await api.shareHighlightToFeed(id, clipIds);
-      Alert.alert('Posted!', 'Your highlights have been shared to the feed.');
-      fetchHighlight(id);
-    } catch {
-      Alert.alert('Error', 'Could not post to feed.');
-    }
+  const handlePost = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setComposerOpen(false);
+    setPosted(true);
+    toast.show({
+      variant: 'success',
+      title: 'Posted to feed',
+      description: `${selected.size} clip${selected.size === 1 ? '' : 's'} live now.`,
+      action: {
+        label: 'View',
+        onPress: () => navigation.navigate('Highlights' as never),
+      },
+    });
   };
 
-  if (isLoading && !currentHighlight) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
-
-  if (!currentHighlight) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>Highlight not found</Text>
-      </View>
-    );
-  }
-
-  if (currentHighlight.status === 'processing') {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.processingTitle}>Analyzing Your Video</Text>
-        <Text style={styles.processingSubtitle}>
-          AI is identifying the best moments. This usually takes 1-3 minutes.
-        </Text>
-      </View>
-    );
-  }
-
-  if (currentHighlight.status === 'failed') {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorIcon}>❌</Text>
-        <Text style={styles.processingTitle}>Generation Failed</Text>
-        <Text style={styles.processingSubtitle}>
-          {currentHighlight.error_message || 'An unknown error occurred.'}
-        </Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const clips = currentHighlight.clips || [];
-  const summary = currentHighlight.analysis?.summary;
-
   return (
-    <View style={styles.container}>
+    <View style={styles.root}>
       <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + 140 },
+        ]}
+        showsVerticalScrollIndicator={false}
       >
-        {summary ? (
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>AI Summary</Text>
-            <Text style={styles.summaryText}>{summary}</Text>
-          </View>
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            hitSlop={8}
+            onPress={() => navigation.goBack()}
+            style={styles.iconBtn}
+          >
+            <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Regenerate AI clips"
+            hitSlop={8}
+            onPress={() => setConfirmRegen(true)}
+            style={styles.iconBtn}
+          >
+            <RefreshCw size={20} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
+        </View>
+
+        <View style={styles.heroBlock}>
+          <IconBadge size={56} tone="brand">
+            <Sparkles size={24} color={colors.brand.deep} strokeWidth={2.25} />
+          </IconBadge>
+          <Text variant="h1" color={colors.text.primary}>
+            {project.title}
+          </Text>
+          <Text variant="body" color={colors.text.secondary}>
+            {clips.length} clip{clips.length === 1 ? '' : 's'} from a{' '}
+            {Math.round(project.sourceVideoSeconds / 60)}-minute source
+          </Text>
+        </View>
+
+        {project.aiSummary ? (
+          <Card style={styles.summaryCard}>
+            <Text variant="eyebrow" color={colors.brand.primary}>
+              AI Summary
+            </Text>
+            <Text variant="body" color={colors.text.primary}>
+              {project.aiSummary}
+            </Text>
+          </Card>
         ) : null}
 
-        <Text style={styles.sectionTitle}>
-          {clips.length} Clip{clips.length !== 1 ? 's' : ''} Found
-        </Text>
+        <View style={styles.selectorBar}>
+          <Text variant="button" color={colors.text.primary}>
+            {selected.size}/{clips.length} selected
+          </Text>
+          <View style={styles.selectorActions}>
+            <Pressable
+              onPress={selectAll}
+              accessibilityRole="button"
+              accessibilityLabel="Select all clips"
+              hitSlop={6}
+            >
+              <Text variant="button" color={colors.brand.primary}>
+                Select all
+              </Text>
+            </Pressable>
+            {selected.size > 0 ? (
+              <Pressable
+                onPress={clearAll}
+                accessibilityRole="button"
+                accessibilityLabel="Clear selection"
+                hitSlop={6}
+              >
+                <Text variant="button" color={colors.text.secondary}>
+                  Clear
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
 
-        {clips.map((clip) => (
-          <TouchableOpacity
-            key={clip.id}
-            onLongPress={() => toggleClipSelection(clip.id)}
-            style={[
-              selectedClips.has(clip.id) && styles.selectedClip,
-            ]}
-          >
+        <View style={styles.clipsList}>
+          {clips.map((clip) => (
             <ClipCard
+              key={clip.id}
               clip={clip}
-              highlightId={id}
-              onShare={handleShareClip}
+              selected={selected.has(clip.id)}
+              onToggleSelect={() => toggleClip(clip.id)}
+              onShare={() => handleShareClip(clip)}
+              onDownload={() => handleDownload(clip)}
+              onPreview={() =>
+                toast.show({
+                  variant: 'info',
+                  title: 'Preview coming soon',
+                })
+              }
             />
-          </TouchableOpacity>
-        ))}
+          ))}
+        </View>
       </ScrollView>
 
-      {currentHighlight.post_id ? (
-        <View style={styles.postedBanner}>
-          <Text style={styles.postedText}>✅ Shared to Feed</Text>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        {posted ? (
+          <View style={styles.postedRow}>
+            <Tag tone="success" leadingDot label="Shared to feed" />
+            <Button
+              label="View on feed"
+              variant="ghost"
+              size="md"
+              onPress={() => navigation.navigate('Highlights' as never)}
+            />
+          </View>
+        ) : (
+          <Button
+            label={
+              selected.size > 0
+                ? `Post ${selected.size} clip${selected.size === 1 ? '' : 's'}`
+                : 'Select clips to post'
+            }
+            variant="gradient"
+            size="lg"
+            fullWidth
+            disabled={selected.size === 0}
+            onPress={() => {
+              setCaption('');
+              setComposerOpen(true);
+            }}
+          />
+        )}
+      </View>
+
+      <Modal
+        visible={composerOpen}
+        onRequestClose={() => setComposerOpen(false)}
+        variant="info"
+        title={`Post ${selected.size} clip${selected.size === 1 ? '' : 's'}`}
+        description="Add a caption and choose your audience."
+        primaryAction={{ label: 'Post to feed', onPress: handlePost }}
+        secondaryAction={{
+          label: 'Cancel',
+          onPress: () => setComposerOpen(false),
+        }}
+      >
+        <View style={styles.composerBody}>
+          <Input
+            placeholder="What's the story behind these moments?"
+            value={caption}
+            onChangeText={setCaption}
+            variant="multiline"
+            maxLength={280}
+          />
+          <View style={styles.audienceRow}>
+            <Pressable
+              onPress={() => setAudience('public')}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: audience === 'public' }}
+              style={[
+                styles.audienceOption,
+                audience === 'public' ? styles.audienceSelected : null,
+              ]}
+            >
+              <Text
+                variant="button"
+                color={
+                  audience === 'public' ? colors.brand.deep : colors.text.primary
+                }
+              >
+                Public
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setAudience('team')}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: audience === 'team' }}
+              style={[
+                styles.audienceOption,
+                audience === 'team' ? styles.audienceSelected : null,
+              ]}
+            >
+              <Text
+                variant="button"
+                color={
+                  audience === 'team' ? colors.brand.deep : colors.text.primary
+                }
+              >
+                Team only
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      ) : (
-        <TouchableOpacity
-          style={styles.postButton}
-          onPress={handlePostToFeed}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.postButtonText}>
-            {selectedClips.size > 0
-              ? `Post ${selectedClips.size} Clip${selectedClips.size > 1 ? 's' : ''} to Feed`
-              : 'Post All to Feed'}
-          </Text>
-        </TouchableOpacity>
-      )}
+      </Modal>
+
+      <Modal
+        visible={confirmRegen}
+        onRequestClose={() => setConfirmRegen(false)}
+        variant="info"
+        title="Regenerate AI clips?"
+        description="We'll re-analyze the source video. Free if the original generation was within the last 7 days."
+        primaryAction={{
+          label: 'Regenerate',
+          onPress: () => {
+            setConfirmRegen(false);
+            toast.show({
+              variant: 'info',
+              title: 'Regeneration started',
+              description: "We'll notify you when new clips are ready.",
+            });
+          },
+        }}
+        secondaryAction={{
+          label: 'Cancel',
+          onPress: () => setConfirmRegen(false),
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  center: {
+  root: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
+    backgroundColor: colors.surface.bg,
   },
-  scrollContent: { padding: SPACING.md, paddingBottom: 100 },
-  summaryCard: {
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
+  content: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.lg,
   },
-  summaryLabel: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    color: COLORS.primaryDark,
-    marginBottom: SPACING.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  summaryText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    lineHeight: 22,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-  },
-  clipCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  selectedClip: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: 14,
-  },
-  clipHeader: { marginBottom: SPACING.sm },
-  clipTitleRow: {
+  topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  clipTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.text,
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.soft,
+  },
+  heroBlock: {
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  summaryCard: {
+    gap: spacing.sm,
+    backgroundColor: colors.brand.soft,
+  },
+  selectorBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectorActions: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  clipsList: {
+    gap: spacing.md,
+  },
+  clipCard: {
+    gap: spacing.md,
+  },
+  clipCardSelected: {
+    borderWidth: 2,
+    borderColor: colors.brand.primary,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border.strong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: colors.brand.primary,
+    borderColor: colors.brand.primary,
+  },
+  clipBody: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  thumbWrap: {
+    width: 96,
+    height: 96,
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    backgroundColor: colors.surface.chip,
+  },
+  thumb: {
+    width: '100%',
+    height: '100%',
+  },
+  playOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  clipText: {
     flex: 1,
+    gap: 4,
   },
-  scoreBadge: { marginLeft: SPACING.sm },
-  scoreText: { fontSize: 12 },
-  clipTimestamp: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginTop: 2,
+  clipHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  clipDescription: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-    marginBottom: SPACING.sm,
+  scoreBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   clipActions: {
     flexDirection: 'row',
+    gap: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: SPACING.sm,
+    borderTopColor: colors.border.soft,
+    paddingTop: spacing.sm,
   },
-  actionButton: {
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: spacing.lg,
+    backgroundColor: colors.surface.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
+  },
+  postedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: SPACING.lg,
-    paddingVertical: SPACING.xs,
+    justifyContent: 'space-between',
   },
-  actionIcon: { fontSize: 16, marginRight: SPACING.xs },
-  actionText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.primary,
-    fontWeight: '600',
+  composerBody: {
+    width: '100%',
+    gap: spacing.md,
   },
-  processingTitle: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginTop: SPACING.lg,
-    textAlign: 'center',
+  audienceRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
-  processingSubtitle: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.sm,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  errorIcon: { fontSize: 48 },
-  errorText: { fontSize: FONT_SIZES.md, color: COLORS.error },
-  retryButton: {
-    marginTop: SPACING.lg,
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.xl,
-  },
-  retryButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-  },
-  postButton: {
-    position: 'absolute',
-    bottom: SPACING.lg,
-    left: SPACING.md,
-    right: SPACING.md,
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: SPACING.md,
+  audienceOption: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+    justifyContent: 'center',
   },
-  postButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-  },
-  postedBanner: {
-    position: 'absolute',
-    bottom: SPACING.lg,
-    left: SPACING.md,
-    right: SPACING.md,
-    backgroundColor: COLORS.success,
-    borderRadius: 12,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  postedText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
+  audienceSelected: {
+    backgroundColor: colors.brand.soft,
+    borderColor: colors.brand.primary,
   },
 });

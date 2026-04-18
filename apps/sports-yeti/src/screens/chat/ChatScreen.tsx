@@ -1,546 +1,312 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from 'react-native';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import { api } from '../../services/api';
-import { useAuthStore } from '../../stores';
-import { useChatSSE, ChatMessage, ChatPoll } from '../../hooks';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { ChevronLeft, Plus, SendHorizonal } from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
+import { Avatar, EmptyState, Tag, Text } from '../../ui';
+import {
+  CHAT_MESSAGES,
+  CHATS,
+  type ChatMessage,
+} from '../../mocks/messages';
+import { SARAH_AVATAR } from '../../mocks/avatars';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-interface Message {
-  id: string;
-  content: string;
-  user_id: string;
-  user: {
-    id: string;
-    name: string;
-    avatar_url?: string;
-  };
-  created_at: string;
-}
+type Navigation = NativeStackNavigationProp<RootStackParamList, 'Chat'>;
+type Route = RouteProp<RootStackParamList, 'Chat'>;
 
-interface Poll {
-  id: string;
-  question: string;
-  options: string[];
-  votes: Record<string, number>;
-  user_vote?: string;
-  is_closed: boolean;
-  closes_at?: string;
-}
-
-interface ChatScreenProps {
-  route: {
-    params: {
-      chatId: string;
-      title?: string;
-    };
-  };
-}
-
-export function ChatScreen({ route }: ChatScreenProps) {
-  const { chatId, title } = route.params;
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [polls, setPolls] = useState<Poll[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
-  const { user } = useAuthStore();
-
-  // Handle incoming SSE message
-  const handleSSEMessage = useCallback((message: ChatMessage) => {
-    setMessages((prev) => {
-      // Check if message already exists (avoid duplicates)
-      if (prev.some((m) => m.id === message.id)) {
-        return prev;
-      }
-      return [...prev, message];
-    });
-    // Scroll to bottom when new message arrives
-    setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
-  }, []);
-
-  // Handle incoming SSE poll update
-  const handleSSEPollUpdate = useCallback(
-    (pollUpdate: { id: string; votes: Record<string, number>; is_closed: boolean }) => {
-      setPolls((prev) =>
-        prev.map((poll) =>
-          poll.id === pollUpdate.id
-            ? { ...poll, votes: pollUpdate.votes, is_closed: pollUpdate.is_closed }
-            : poll
-        )
-      );
-    },
-    []
-  );
-
-  // Set up SSE connection for real-time updates
-  const { isConnected, reconnectAttempts, error: sseError, reconnect } = useChatSSE({
-    chatId,
-    onMessage: handleSSEMessage,
-    onPollUpdate: handleSSEPollUpdate,
-    enabled: !isLoading, // Only connect after initial load
-  });
-
-  const loadMessages = async () => {
-    try {
-      const [messagesRes, pollsRes] = await Promise.all([
-        api.getChatMessages(chatId),
-        api.getChatPolls(chatId),
-      ]);
-      setMessages(messagesRes.data);
-      setPolls(pollsRes.data);
-    } catch (error) {
-      console.error('Failed to load chat:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadMessages();
-  }, [chatId]);
-
-  const sendMessage = async () => {
-    if (!newMessage.trim() || isSending) return;
-
-    setIsSending(true);
-    try {
-      const message = await api.sendChatMessage(chatId, newMessage.trim());
-      setMessages((prev) => [...prev, message]);
-      setNewMessage('');
-      flatListRef.current?.scrollToEnd();
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const votePoll = async (pollId: string, option: string) => {
-    try {
-      await api.voteChatPoll(chatId, pollId, option);
-      // Refresh polls
-      const pollsRes = await api.getChatPolls(chatId);
-      setPolls(pollsRes.data);
-    } catch (error) {
-      console.error('Failed to vote:', error);
-    }
-  };
-
-  const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  const renderMessage = ({ item }: { item: Message }) => {
-    const isOwnMessage = item.user_id === user?.id;
-
-    return (
-      <View
-        style={[
-          styles.messageContainer,
-          isOwnMessage ? styles.ownMessage : styles.otherMessage,
-        ]}
-      >
-        {!isOwnMessage && (
-          <Text style={styles.messageSender}>{item.user.name}</Text>
-        )}
+function MessageBubble({ msg }: { msg: ChatMessage }) {
+  const isYou = !!msg.isYou;
+  return (
+    <View style={[styles.bubbleRow, isYou ? styles.bubbleRowYou : null]}>
+      {!isYou ? (
+        <Avatar uri={msg.authorAvatar} initials={msg.authorName.charAt(0)} size={32} />
+      ) : null}
+      <View style={[styles.bubbleColumn, isYou ? styles.bubbleColumnYou : null]}>
+        {!isYou ? (
+          <Text variant="caption" color={colors.text.secondary}>
+            {msg.authorName}
+          </Text>
+        ) : null}
         <View
           style={[
-            styles.messageBubble,
-            isOwnMessage ? styles.ownBubble : styles.otherBubble,
+            styles.bubble,
+            isYou ? styles.bubbleYou : styles.bubbleOther,
           ]}
         >
           <Text
-            style={[
-              styles.messageText,
-              isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-            ]}
+            variant="body"
+            color={isYou ? colors.text.inverse : colors.text.primary}
           >
-            {item.content}
+            {msg.body}
           </Text>
         </View>
-        <Text style={styles.messageTime}>{formatTime(item.created_at)}</Text>
-      </View>
-    );
-  };
-
-  const renderPoll = (poll: Poll) => {
-    const totalVotes = Object.values(poll.votes).reduce((a, b) => a + b, 0);
-
-    return (
-      <View key={poll.id} style={styles.pollContainer}>
-        <View style={styles.pollHeader}>
-          <Text style={styles.pollIcon}>📊</Text>
-          <Text style={styles.pollQuestion}>{poll.question}</Text>
-        </View>
-        {poll.options.map((option) => {
-          const voteCount = poll.votes[option] || 0;
-          const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
-          const isSelected = poll.user_vote === option;
-
-          return (
-            <TouchableOpacity
-              key={option}
-              style={[styles.pollOption, isSelected && styles.pollOptionSelected]}
-              onPress={() => !poll.is_closed && votePoll(poll.id, option)}
-              disabled={poll.is_closed}
-            >
-              <View style={styles.pollOptionContent}>
-                <Text
-                  style={[
-                    styles.pollOptionText,
-                    isSelected && styles.pollOptionTextSelected,
-                  ]}
-                >
-                  {option}
-                </Text>
-                <Text style={styles.pollVoteCount}>
-                  {voteCount} ({percentage.toFixed(0)}%)
-                </Text>
-              </View>
-              <View style={styles.pollProgressBar}>
-                <View
-                  style={[styles.pollProgressFill, { width: `${percentage}%` }]}
-                />
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-        <Text style={styles.pollFooter}>
-          {totalVotes} votes{poll.is_closed ? ' • Closed' : ''}
+        <Text variant="caption" color={colors.text.muted}>
+          {msg.timestamp}
         </Text>
-      </View>
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
-
-  // Render connection status indicator
-  const renderConnectionStatus = () => {
-    if (isConnected) return null;
-
-    if (reconnectAttempts > 0) {
-      return (
-        <TouchableOpacity style={styles.connectionBanner} onPress={reconnect}>
-          <View style={styles.connectionContent}>
-            <ActivityIndicator size="small" color={COLORS.warning} />
-            <Text style={styles.connectionText}>
-              Reconnecting... (Attempt {reconnectAttempts})
-            </Text>
+        {msg.reactions && msg.reactions.length > 0 ? (
+          <View style={styles.reactionsRow}>
+            {msg.reactions.map((r) => (
+              <View key={r.emoji} style={styles.reactionChip}>
+                <Text variant="caption" color={colors.text.primary}>
+                  {r.emoji} {r.count}
+                </Text>
+              </View>
+            ))}
           </View>
-          <Text style={styles.connectionAction}>Tap to retry</Text>
-        </TouchableOpacity>
-      );
-    }
+        ) : null}
+      </View>
+    </View>
+  );
+}
 
-    if (sseError) {
-      return (
-        <TouchableOpacity style={styles.connectionBannerError} onPress={reconnect}>
-          <Text style={styles.connectionText}>Connection lost</Text>
-          <Text style={styles.connectionAction}>Tap to reconnect</Text>
-        </TouchableOpacity>
-      );
-    }
+export function ChatScreen() {
+  const navigation = useNavigation<Navigation>();
+  const route = useRoute<Route>();
+  const insets = useSafeAreaInsets();
+  const chat = CHATS.find((c) => c.id === route.params.chatId);
+  const [draft, setDraft] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    () => CHAT_MESSAGES[route.params.chatId] ?? [],
+  );
+  const scrollRef = useRef<ScrollView>(null);
 
-    return null;
+  const title = chat?.title ?? route.params.title ?? 'Chat';
+  const subtitle = chat?.subtitle;
+  const isOnline = chat?.online;
+
+  const send = () => {
+    const body = draft.trim();
+    if (!body) return;
+    Haptics.selectionAsync();
+    const newMsg: ChatMessage = {
+      id: `m-${Date.now()}`,
+      authorName: 'You',
+      authorHandle: '@jenkins_yeti',
+      authorAvatar: SARAH_AVATAR,
+      body,
+      timestamp: 'Just now',
+      isYou: true,
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    setDraft('');
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
-    >
-      {renderConnectionStatus()}
-
-      {polls.length > 0 && (
-        <View style={styles.pollsSection}>
-          {polls.filter((p) => !p.is_closed).map(renderPoll)}
-        </View>
-      )}
-
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.messagesList}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>💬</Text>
-            <Text style={styles.emptyText}>No messages yet</Text>
-            <Text style={styles.emptySubtext}>
-              Be the first to send a message!
-            </Text>
-          </View>
-        }
-      />
-
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          value={newMessage}
-          onChangeText={setNewMessage}
-          placeholder="Type a message..."
-          placeholderTextColor={COLORS.textSecondary}
-          multiline
-          maxLength={500}
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]}
-          onPress={sendMessage}
-          disabled={!newMessage.trim() || isSending}
+    <View style={styles.root}>
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back to messages"
+          hitSlop={8}
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
         >
-          {isSending ? (
-            <ActivityIndicator size="small" color={COLORS.textLight} />
-          ) : (
-            <Text style={styles.sendButtonText}>Send</Text>
-          )}
-        </TouchableOpacity>
+          <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+        </Pressable>
+        <View style={styles.titleBlock}>
+          <Text variant="h3" color={colors.text.primary}>
+            {title}
+          </Text>
+          <View style={styles.subtitleRow}>
+            {isOnline ? <Tag tone="success" size="sm" leadingDot label="Online" /> : null}
+            {subtitle ? (
+              <Text variant="caption" color={colors.text.secondary}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+        <View style={styles.backBtn} />
       </View>
-    </KeyboardAvoidingView>
+
+      <KeyboardAvoidingView
+        style={styles.flex1}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={insets.bottom + 16}
+      >
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+        >
+          {messages.length === 0 ? (
+            <EmptyState
+              title="Say hi"
+              description="No messages yet. Start the conversation."
+            />
+          ) : (
+            messages.map((m) => <MessageBubble key={m.id} msg={m} />)
+          )}
+        </ScrollView>
+
+        <View style={[styles.inputBar, { paddingBottom: insets.bottom + spacing.sm }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Attach"
+            hitSlop={6}
+            style={styles.attachBtn}
+          >
+            <Plus size={20} color={colors.brand.primary} strokeWidth={2.5} />
+          </Pressable>
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            placeholder="Message"
+            placeholderTextColor={colors.text.muted}
+            style={styles.input}
+            multiline
+            accessibilityLabel="Message body"
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+            disabled={!draft.trim()}
+            onPress={send}
+            style={[
+              styles.sendBtn,
+              !draft.trim() ? styles.sendBtnDisabled : null,
+            ]}
+          >
+            <SendHorizonal
+              size={18}
+              color={colors.text.inverse}
+              strokeWidth={2.5}
+            />
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface.bg,
   },
-  loadingContainer: {
+  flex1: {
     flex: 1,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.soft,
+    backgroundColor: colors.surface.card,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
   },
-  connectionBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.warning + '20',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.warning,
-  },
-  connectionBannerError: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.error + '20',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.error,
-  },
-  connectionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  connectionText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text,
-  },
-  connectionAction: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  pollsSection: {
-    padding: SPACING.md,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.background,
-  },
-  pollContainer: {
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  pollHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  pollIcon: {
-    fontSize: 18,
-    marginRight: SPACING.xs,
-  },
-  pollQuestion: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
+  titleBlock: {
     flex: 1,
+    gap: 2,
   },
-  pollOption: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: SPACING.sm,
-    marginBottom: SPACING.xs,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  pollOptionSelected: {
-    borderColor: COLORS.primary,
-  },
-  pollOptionContent: {
+  subtitleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xs,
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  pollOptionText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text,
+  list: {
+    padding: spacing.lg,
+    gap: spacing.lg,
   },
-  pollOptionTextSelected: {
-    fontWeight: '600',
-    color: COLORS.primary,
+  bubbleRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-end',
   },
-  pollVoteCount: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
+  bubbleRowYou: {
+    justifyContent: 'flex-end',
   },
-  pollProgressBar: {
-    height: 4,
-    backgroundColor: COLORS.background,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  pollProgressFill: {
-    height: '100%',
-    backgroundColor: COLORS.primary,
-  },
-  pollFooter: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.sm,
-    textAlign: 'center',
-  },
-  messagesList: {
-    padding: SPACING.md,
-    flexGrow: 1,
-  },
-  messageContainer: {
-    marginBottom: SPACING.sm,
+  bubbleColumn: {
     maxWidth: '80%',
+    gap: 4,
   },
-  ownMessage: {
-    alignSelf: 'flex-end',
+  bubbleColumnYou: {
     alignItems: 'flex-end',
   },
-  otherMessage: {
-    alignSelf: 'flex-start',
-    alignItems: 'flex-start',
+  bubble: {
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  messageSender: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
+  bubbleOther: {
+    backgroundColor: colors.surface.card,
+    ...shadows.soft,
   },
-  messageBubble: {
-    padding: SPACING.sm,
-    borderRadius: 16,
-    maxWidth: '100%',
+  bubbleYou: {
+    backgroundColor: colors.brand.primary,
   },
-  ownBubble: {
-    backgroundColor: COLORS.primary,
-    borderBottomRightRadius: 4,
+  reactionsRow: {
+    flexDirection: 'row',
+    gap: 4,
   },
-  otherBubble: {
-    backgroundColor: COLORS.surface,
-    borderBottomLeftRadius: 4,
+  reactionChip: {
+    backgroundColor: colors.surface.card,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    ...shadows.soft,
   },
-  messageText: {
-    fontSize: FONT_SIZES.md,
-    lineHeight: 20,
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    backgroundColor: colors.surface.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
-  ownMessageText: {
-    color: COLORS.textLight,
-  },
-  otherMessageText: {
-    color: COLORS.text,
-  },
-  messageTime: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  emptyContainer: {
-    flex: 1,
+  attachBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.brand.soft,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: SPACING.xl * 4,
-  },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: SPACING.md,
-  },
-  emptyText: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  emptySubtext: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    padding: SPACING.md,
-    backgroundColor: COLORS.surface,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.background,
-    alignItems: 'flex-end',
   },
   input: {
     flex: 1,
-    backgroundColor: COLORS.background,
-    borderRadius: 20,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    maxHeight: 100,
-    marginRight: SPACING.sm,
+    minHeight: 40,
+    maxHeight: 120,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface.bg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 16,
+    color: colors.text.primary,
   },
-  sendButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+  sendBtn: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    minWidth: 60,
+    backgroundColor: colors.brand.primary,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  sendButtonDisabled: {
-    opacity: 0.5,
-  },
-  sendButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
+  sendBtnDisabled: {
+    opacity: 0.4,
   },
 });

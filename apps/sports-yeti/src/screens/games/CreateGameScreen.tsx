@@ -1,661 +1,523 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { ChevronLeft, MapPin, Sparkles, Tag as TagIcon } from 'lucide-react-native';
+import { colors, radii, spacing } from '../../theme';
 import {
-  View,
+  Button,
+  Card,
+  Input,
+  ProgressBar,
+  ScreenHeader,
+  Tabs,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Switch,
-} from 'react-native';
-import { api } from '../../services/api';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import type { Facility, League, Space, Team } from '../../types';
+  useToast,
+} from '../../ui';
+import {
+  SKILL_LABELS,
+  SPORT_FILTERS,
+  type GameSkillLevel,
+  type SportKey,
+} from '../../mocks/games';
+import { FACILITIES } from '../../mocks/facilities';
+import { formatCurrency } from '../../lib/format';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-interface CreateGameScreenProps {
-  navigation: {
-    goBack: () => void;
-    navigate: (screen: string, params?: Record<string, unknown>) => void;
-  };
+type Navigation = NativeStackNavigationProp<RootStackParamList, 'CreateGame'>;
+
+const STEP_COUNT = 3;
+
+type Step = 1 | 2 | 3;
+
+interface FormState {
+  sport: SportKey | null;
+  title: string;
+  description: string;
+  skill: GameSkillLevel;
+  date: string;
+  time: string;
+  duration: string;
+  venueId: string | null;
+  spots: string;
+  feeCents: number;
 }
 
-type GameMode = 'open_play' | 'league';
+const INITIAL: FormState = {
+  sport: null,
+  title: '',
+  description: '',
+  skill: 'all',
+  date: 'Sat, Apr 19',
+  time: '7:00 PM',
+  duration: '90',
+  venueId: null,
+  spots: '12',
+  feeCents: 0,
+};
 
-const SPORTS = [
-  { key: 'basketball', label: 'Basketball', icon: '🏀' },
-  { key: 'soccer', label: 'Soccer', icon: '⚽' },
-  { key: 'football', label: 'Football', icon: '🏈' },
-  { key: 'volleyball', label: 'Volleyball', icon: '🏐' },
-  { key: 'baseball', label: 'Baseball', icon: '⚾' },
-];
+export function CreateGameScreen() {
+  const navigation = useNavigation<Navigation>();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
+  const [step, setStep] = useState<Step>(1);
+  const [form, setForm] = useState<FormState>(INITIAL);
+  const [submitting, setSubmitting] = useState(false);
 
-const SKILL_LEVELS = [
-  { key: 'beginner', label: 'Beginner' },
-  { key: 'intermediate', label: 'Intermediate' },
-  { key: 'advanced', label: 'Advanced' },
-  { key: 'pro', label: 'Pro' },
-];
+  const canAdvance = (() => {
+    if (step === 1) return !!form.sport && form.title.trim().length >= 3;
+    if (step === 2) return !!form.venueId;
+    return Number(form.spots) >= 2;
+  })();
 
-const LEAGUE_GAME_TYPES = [
-  { key: 'regular', label: 'Regular' },
-  { key: 'playoff', label: 'Playoff' },
-];
-
-export function CreateGameScreen({ navigation }: CreateGameScreenProps) {
-  const [gameMode, setGameMode] = useState<GameMode>('open_play');
-  const [sport, setSport] = useState('');
-  const [skillLevel, setSkillLevel] = useState('');
-
-  const [leagues, setLeagues] = useState<League[]>([]);
-  const [selectedLeagueId, setSelectedLeagueId] = useState('');
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [team1Id, setTeam1Id] = useState('');
-  const [team2Id, setTeam2Id] = useState('');
-  const [leagueGameType, setLeagueGameType] = useState('regular');
-
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [selectedFacilityId, setSelectedFacilityId] = useState('');
-  const [spaces, setSpaces] = useState<Space[]>([]);
-  const [selectedSpaceId, setSelectedSpaceId] = useState('');
-  const [scheduledAt, setScheduledAt] = useState('');
-  const [playerLimit, setPlayerLimit] = useState('');
-  const [isRefereeRequired, setIsRefereeRequired] = useState(false);
-
-  const [isFacilitiesLoading, setIsFacilitiesLoading] = useState(false);
-  const [isLeaguesLoading, setIsLeaguesLoading] = useState(false);
-  const [isTeamsLoading, setIsTeamsLoading] = useState(false);
-  const [isSpacesLoading, setIsSpacesLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-
-  const loadFacilities = useCallback(async () => {
-    setIsFacilitiesLoading(true);
-    try {
-      const response = await api.getFacilities({ per_page: 50 });
-      setFacilities(response.data);
-    } catch {
-      setError('Failed to load facilities.');
-    } finally {
-      setIsFacilitiesLoading(false);
-    }
-  }, []);
-
-  const loadLeagues = useCallback(async () => {
-    setIsLeaguesLoading(true);
-    try {
-      const response = await api.getLeagues({ per_page: 50 });
-      setLeagues(response.data);
-    } catch {
-      setError('Failed to load leagues.');
-    } finally {
-      setIsLeaguesLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadFacilities();
-  }, [loadFacilities]);
-
-  useEffect(() => {
-    if (gameMode === 'league' && leagues.length === 0) {
-      loadLeagues();
-    }
-  }, [gameMode, leagues.length, loadLeagues]);
-
-  const handleLeagueSelect = async (leagueId: string) => {
-    setSelectedLeagueId(leagueId);
-    setTeam1Id('');
-    setTeam2Id('');
-    setTeams([]);
-
-    if (!leagueId) return;
-
-    setIsTeamsLoading(true);
-    try {
-      const response = await api.getTeams({ league_id: leagueId, per_page: 50 });
-      setTeams(response.data);
-    } catch {
-      setError('Failed to load teams for this league.');
-    } finally {
-      setIsTeamsLoading(false);
-    }
-  };
-
-  const handleFacilitySelect = async (facilityId: string) => {
-    setSelectedFacilityId(facilityId);
-    setSelectedSpaceId('');
-    setSpaces([]);
-
-    if (!facilityId) return;
-
-    setIsSpacesLoading(true);
-    try {
-      const facility = await api.getFacility(facilityId);
-      setSpaces(facility.spaces ?? []);
-    } catch {
-      setError('Failed to load spaces for this facility.');
-    } finally {
-      setIsSpacesLoading(false);
-    }
-  };
-
-  const validate = (): string | null => {
-    if (!scheduledAt) return 'Please enter a date and time.';
-    if (gameMode === 'open_play') {
-      if (!playerLimit || parseInt(playerLimit, 10) < 2)
-        return 'Max players must be at least 2.';
-      return null;
-    }
-    if (!selectedLeagueId) return 'Please select a league.';
-    if (!team1Id) return 'Please select Team 1.';
-    if (!team2Id) return 'Please select Team 2.';
-    if (team1Id === team2Id) return 'Team 1 and Team 2 must be different.';
-    return null;
-  };
-
-  const handleSubmit = async () => {
-    const validationError = validate();
-    if (validationError) {
-      Alert.alert('Validation Error', validationError);
+  const handleNext = () => {
+    if (!canAdvance) return;
+    if (step < STEP_COUNT) {
+      Haptics.selectionAsync();
+      setStep((s) => (s + 1) as Step);
       return;
     }
-
-    setIsSubmitting(true);
-    setError('');
-
-    try {
-      const payload =
-        gameMode === 'open_play'
-          ? {
-              facility_id: selectedFacilityId || undefined,
-              space_id: selectedSpaceId || undefined,
-              scheduled_at: scheduledAt,
-              game_type: 'friendly',
-              max_players: parseInt(playerLimit, 10),
-              referee_required: isRefereeRequired,
-              is_open_play: true,
-            }
-          : {
-              league_id: selectedLeagueId,
-              team1_id: team1Id,
-              team2_id: team2Id,
-              facility_id: selectedFacilityId || undefined,
-              space_id: selectedSpaceId || undefined,
-              scheduled_at: scheduledAt,
-              game_type: leagueGameType,
-              referee_required: isRefereeRequired,
-              is_open_play: false,
-            };
-
-      const game = await api.createGame(payload);
-
-      Alert.alert('Success', 'Game created successfully!', [
-        {
-          text: 'View Game',
-          onPress: () => {
-            navigation.goBack();
-            navigation.navigate('GameDetails', { id: game.id });
-          },
-        },
-      ]);
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to create game.';
-      setError(message);
-    } finally {
-      setIsSubmitting(false);
-    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setSubmitting(true);
+    setTimeout(() => {
+      setSubmitting(false);
+      toast.show({
+        variant: 'success',
+        title: `${form.title} created`,
+        description: 'Players can now find and join your game.',
+      });
+      navigation.goBack();
+    }, 600);
   };
 
-  const renderChip = (
-    selected: boolean,
-    label: string,
-    onPress: () => void,
-    icon?: string,
-    key?: string
-  ) => (
-    <TouchableOpacity
-      key={key ?? label}
-      style={[styles.chip, selected && styles.chipSelected]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      {icon ? <Text style={styles.chipIcon}>{icon}</Text> : null}
-      <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
+  const handleBack = () => {
+    if (step === 1) {
+      navigation.goBack();
+      return;
+    }
+    setStep((s) => (s - 1) as Step);
+  };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      keyboardShouldPersistTaps="handled"
-    >
-      {error ? (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => setError('')}>
-            <Text style={styles.errorDismiss}>✕</Text>
-          </TouchableOpacity>
+    <View style={styles.root}>
+      <ScreenHeader
+        title="Host a game"
+        hasNotifications={false}
+        variant="solid"
+      />
+      <View style={styles.progressWrap}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={8}
+          onPress={handleBack}
+          style={styles.backBtn}
+        >
+          <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+        </Pressable>
+        <View style={styles.progressBar}>
+          <ProgressBar
+            value={step / STEP_COUNT}
+            tone="brand"
+            size="sm"
+            accessibilityLabel={`Step ${step} of ${STEP_COUNT}`}
+          />
         </View>
-      ) : null}
+      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Game Type</Text>
-        <View style={styles.modeToggle}>
-          <TouchableOpacity
-            style={[
-              styles.modeButton,
-              gameMode === 'open_play' && styles.modeButtonActive,
-            ]}
-            onPress={() => setGameMode('open_play')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.modeButtonText,
-                gameMode === 'open_play' && styles.modeButtonTextActive,
-              ]}
-            >
-              Open Play
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 140 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text variant="eyebrow" color={colors.brand.primary}>
+          STEP {step} OF {STEP_COUNT}
+        </Text>
+        <Text variant="h1" color={colors.text.primary}>
+          {step === 1
+            ? "What's the game?"
+            : step === 2
+            ? 'Where & when?'
+            : 'Who and how much?'}
+        </Text>
+        <Text variant="body" color={colors.text.secondary}>
+          {step === 1
+            ? 'Pick a sport and give it a title.'
+            : step === 2
+            ? 'Choose a venue and date — players see the closest first.'
+            : 'Decide roster size and whether you want to charge.'}
+        </Text>
+
+        {step === 1 ? (
+          <View style={styles.stepBlock}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Sport
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.modeButton,
-              gameMode === 'league' && styles.modeButtonActive,
-            ]}
-            onPress={() => setGameMode('league')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.modeButtonText,
-                gameMode === 'league' && styles.modeButtonTextActive,
-              ]}
-            >
-              League Game
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+            <View style={styles.sportGrid}>
+              {SPORT_FILTERS.filter((s) => s.key !== 'allSports').map((sport) => {
+                const Icon = sport.Icon;
+                const selected = form.sport === sport.key;
+                return (
+                  <Pressable
+                    key={sport.key}
+                    accessibilityRole="button"
+                    accessibilityLabel={sport.label}
+                    accessibilityState={{ selected }}
+                    onPress={() =>
+                      setForm((f) => ({ ...f, sport: sport.key }))
+                    }
+                    style={({ pressed }) => [
+                      styles.sportChip,
+                      selected ? styles.sportChipSelected : null,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Icon
+                      size={22}
+                      color={selected ? colors.text.inverse : colors.brand.primary}
+                      strokeWidth={2.25}
+                    />
+                    <Text
+                      variant="button"
+                      color={
+                        selected ? colors.text.inverse : colors.text.primary
+                      }
+                    >
+                      {sport.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Sport</Text>
-        <View style={styles.chipRow}>
-          {SPORTS.map((s) =>
-            renderChip(sport === s.key, s.label, () => setSport(s.key), s.icon, s.key)
-          )}
-        </View>
-      </View>
+            <Input
+              label="Title"
+              placeholder="Friday night scrimmage"
+              value={form.title}
+              onChangeText={(v) => setForm((f) => ({ ...f, title: v }))}
+              maxLength={60}
+              helpText="Players see this in their feed."
+            />
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Skill Level</Text>
-        <View style={styles.chipRow}>
-          {SKILL_LEVELS.map((s) =>
-            renderChip(skillLevel === s.key, s.label, () => setSkillLevel(s.key), undefined, s.key)
-          )}
-        </View>
-      </View>
+            <Input
+              label="What to expect"
+              placeholder="Light vs dark shirts, 12-min subs, no slide tackles…"
+              value={form.description}
+              onChangeText={(v) => setForm((f) => ({ ...f, description: v }))}
+              variant="multiline"
+              maxLength={400}
+            />
 
-      {gameMode === 'league' ? (
-        <>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>League</Text>
-            {isLeaguesLoading ? (
-              <ActivityIndicator
-                size="small"
-                color={COLORS.primary}
-                style={styles.inlineLoader}
-              />
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.horizontalScroll}
+            <View>
+              <Text
+                variant="eyebrow"
+                color={colors.text.secondary}
+                style={styles.label}
               >
-                {leagues.map((l) =>
-                  renderChip(
-                    selectedLeagueId === l.id,
-                    l.name,
-                    () => handleLeagueSelect(l.id),
-                    '🏆',
-                    l.id
-                  )
-                )}
-                {leagues.length === 0 && (
-                  <Text style={styles.emptyHint}>No leagues available</Text>
-                )}
-              </ScrollView>
-            )}
-          </View>
-
-          {selectedLeagueId ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Teams</Text>
-              {isTeamsLoading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={COLORS.primary}
-                  style={styles.inlineLoader}
-                />
-              ) : (
-                <>
-                  <Text style={styles.subSectionTitle}>Team 1</Text>
-                  <View style={styles.chipRow}>
-                    {teams.map((t) =>
-                      renderChip(
-                        team1Id === t.id,
-                        t.name,
-                        () => setTeam1Id(t.id),
-                        undefined,
-                        `t1-${t.id}`
-                      )
-                    )}
-                    {teams.length === 0 && (
-                      <Text style={styles.emptyHint}>No teams in this league</Text>
-                    )}
-                  </View>
-                  <View style={styles.subSection}>
-                    <Text style={styles.subSectionTitle}>Team 2</Text>
-                    <View style={styles.chipRow}>
-                      {teams
-                        .filter((t) => t.id !== team1Id)
-                        .map((t) =>
-                          renderChip(
-                            team2Id === t.id,
-                            t.name,
-                            () => setTeam2Id(t.id),
-                            undefined,
-                            `t2-${t.id}`
-                          )
-                        )}
-                    </View>
-                  </View>
-                </>
-              )}
-            </View>
-          ) : null}
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Match Type</Text>
-            <View style={styles.chipRow}>
-              {LEAGUE_GAME_TYPES.map((g) =>
-                renderChip(
-                  leagueGameType === g.key,
-                  g.label,
-                  () => setLeagueGameType(g.key),
-                  undefined,
-                  g.key
-                )
-              )}
-            </View>
-          </View>
-        </>
-      ) : (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Max Players</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="e.g. 10"
-            placeholderTextColor={COLORS.disabled}
-            value={playerLimit}
-            onChangeText={setPlayerLimit}
-            keyboardType="number-pad"
-          />
-        </View>
-      )}
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Facility (optional)</Text>
-        {isFacilitiesLoading ? (
-          <ActivityIndicator
-            size="small"
-            color={COLORS.primary}
-            style={styles.inlineLoader}
-          />
-        ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.horizontalScroll}
-          >
-            {facilities.map((f) =>
-              renderChip(
-                selectedFacilityId === f.id,
-                f.name,
-                () => handleFacilitySelect(f.id),
-                '🏟️',
-                f.id
-              )
-            )}
-            {facilities.length === 0 && (
-              <Text style={styles.emptyHint}>No facilities available</Text>
-            )}
-          </ScrollView>
-        )}
-
-        {selectedFacilityId ? (
-          <View style={styles.subSection}>
-            <Text style={styles.subSectionTitle}>Space</Text>
-            {isSpacesLoading ? (
-              <ActivityIndicator
-                size="small"
-                color={COLORS.primary}
-                style={styles.inlineLoader}
+                Skill level
+              </Text>
+              <Tabs
+                variant="segmented"
+                items={(Object.keys(SKILL_LABELS) as GameSkillLevel[]).map((k) => ({
+                  key: k,
+                  label: SKILL_LABELS[k],
+                }))}
+                value={form.skill}
+                onChange={(k) =>
+                  setForm((f) => ({ ...f, skill: k as GameSkillLevel }))
+                }
               />
-            ) : (
-              <View style={styles.chipRow}>
-                {spaces.map((s) =>
-                  renderChip(
-                    selectedSpaceId === s.id,
-                    s.name,
-                    () => setSelectedSpaceId(s.id),
-                    undefined,
-                    s.id
-                  )
-                )}
-                {spaces.length === 0 && (
-                  <Text style={styles.emptyHint}>No spaces available</Text>
-                )}
-              </View>
-            )}
+            </View>
           </View>
         ) : null}
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Date & Time</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="YYYY-MM-DDTHH:mm:ss"
-          placeholderTextColor={COLORS.disabled}
-          value={scheduledAt}
-          onChangeText={setScheduledAt}
-          autoCapitalize="none"
-          autoCorrect={false}
+        {step === 2 ? (
+          <View style={styles.stepBlock}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Venue
+            </Text>
+            <View style={styles.venuesList}>
+              {FACILITIES.slice(0, 4).map((f) => {
+                const selected = form.venueId === f.id;
+                return (
+                  <Pressable
+                    key={f.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={f.name}
+                    accessibilityState={{ selected }}
+                    onPress={() =>
+                      setForm((p) => ({ ...p, venueId: f.id }))
+                    }
+                    style={({ pressed }) => [
+                      styles.venueRow,
+                      selected ? styles.venueRowSelected : null,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <View style={styles.venueIcon}>
+                      <MapPin
+                        size={18}
+                        color={
+                          selected ? colors.brand.deep : colors.brand.primary
+                        }
+                        strokeWidth={2.25}
+                      />
+                    </View>
+                    <View style={styles.venueBody}>
+                      <Text variant="button" color={colors.text.primary}>
+                        {f.name}
+                      </Text>
+                      <Text variant="bodySm" color={colors.text.secondary}>
+                        {f.city} · {f.distanceMiles} mi
+                      </Text>
+                    </View>
+                    <Text variant="bodySm" color={colors.text.secondary}>
+                      {f.hourlyRateCents === 0
+                        ? 'Free'
+                        : formatCurrency(f.hourlyRateCents) + '/hr'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.row}>
+              <Input
+                label="Date"
+                value={form.date}
+                onChangeText={(v) => setForm((f) => ({ ...f, date: v }))}
+                containerStyle={styles.flex1}
+              />
+              <Input
+                label="Time"
+                value={form.time}
+                onChangeText={(v) => setForm((f) => ({ ...f, time: v }))}
+                containerStyle={styles.flex1}
+              />
+            </View>
+            <Input
+              label="Duration (minutes)"
+              value={form.duration}
+              variant="number"
+              onChangeText={(v) => setForm((f) => ({ ...f, duration: v }))}
+            />
+          </View>
+        ) : null}
+
+        {step === 3 ? (
+          <View style={styles.stepBlock}>
+            <Input
+              label="Player spots"
+              value={form.spots}
+              variant="number"
+              onChangeText={(v) => setForm((f) => ({ ...f, spots: v }))}
+              helpText="Including yourself."
+            />
+
+            <View>
+              <Text
+                variant="eyebrow"
+                color={colors.text.secondary}
+                style={styles.label}
+              >
+                Player fee
+              </Text>
+              <Tabs
+                variant="segmented"
+                items={[
+                  { key: '0', label: 'Free' },
+                  { key: '500', label: '$5' },
+                  { key: '1000', label: '$10' },
+                  { key: '2000', label: '$20' },
+                ]}
+                value={String(form.feeCents)}
+                onChange={(k) =>
+                  setForm((f) => ({ ...f, feeCents: Number(k) }))
+                }
+              />
+              <Text variant="caption" color={colors.text.secondary} style={styles.help}>
+                Fees go through SportsYeti checkout — players are only charged once their spot is confirmed.
+              </Text>
+            </View>
+
+            <Card style={styles.summaryCard}>
+              <View style={styles.summaryHead}>
+                <View style={styles.summaryIcon}>
+                  <Sparkles size={18} color={colors.brand.primary} strokeWidth={2.25} />
+                </View>
+                <Text variant="h3" color={colors.text.primary}>
+                  Summary
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <TagIcon size={14} color={colors.text.secondary} strokeWidth={2.25} />
+                <Text variant="bodySm" color={colors.text.secondary}>
+                  {form.title || 'Untitled'} · {form.sport ?? '—'} · {SKILL_LABELS[form.skill]}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <MapPin size={14} color={colors.text.secondary} strokeWidth={2.25} />
+                <Text variant="bodySm" color={colors.text.secondary}>
+                  {FACILITIES.find((f) => f.id === form.venueId)?.name ?? '—'} · {form.date} · {form.time}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text variant="bodySm" color={colors.text.secondary}>
+                  {form.spots || '—'} spots ·{' '}
+                  {form.feeCents === 0 ? 'Free' : formatCurrency(form.feeCents) + '/player'}
+                </Text>
+              </View>
+            </Card>
+          </View>
+        ) : null}
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        <Button
+          label={step === STEP_COUNT ? (submitting ? 'Creating…' : 'Create game') : 'Continue'}
+          variant="gradient"
+          size="lg"
+          fullWidth
+          disabled={!canAdvance || submitting}
+          onPress={handleNext}
         />
       </View>
-
-      <View style={styles.section}>
-        <View style={styles.toggleRow}>
-          <Text style={styles.sectionTitle}>Referee Required</Text>
-          <Switch
-            value={isRefereeRequired}
-            onValueChange={setIsRefereeRequired}
-            trackColor={{ false: COLORS.border, true: COLORS.primaryLight }}
-            thumbColor={isRefereeRequired ? COLORS.primary : COLORS.disabled}
-          />
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-        onPress={handleSubmit}
-        disabled={isSubmitting}
-        activeOpacity={0.8}
-      >
-        {isSubmitting ? (
-          <ActivityIndicator size="small" color={COLORS.textLight} />
-        ) : (
-          <Text style={styles.submitButtonText}>Create Game</Text>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface.bg,
   },
-  contentContainer: {
-    padding: SPACING.md,
-    paddingBottom: SPACING.xxl,
-  },
-  errorBanner: {
+  progressWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.error + '15',
-    borderRadius: 8,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface.card,
   },
-  errorText: {
-    flex: 1,
-    color: COLORS.error,
-    fontSize: FONT_SIZES.sm,
-  },
-  errorDismiss: {
-    color: COLORS.error,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    paddingLeft: SPACING.sm,
-  },
-  section: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-  },
-  modeToggle: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    padding: 4,
-  },
-  modeButton: {
-    flex: 1,
-    paddingVertical: SPACING.sm,
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
-    borderRadius: 8,
+    justifyContent: 'center',
   },
-  modeButtonActive: {
-    backgroundColor: COLORS.primary,
+  progressBar: {
+    flex: 1,
   },
-  modeButtonText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
+  content: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    gap: spacing.md,
   },
-  modeButtonTextActive: {
-    color: COLORS.textLight,
+  stepBlock: {
+    gap: spacing.lg,
+    marginTop: spacing.lg,
   },
-  subSection: {
-    marginTop: SPACING.md,
+  label: {
+    marginBottom: spacing.sm,
   },
-  subSectionTitle: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.sm,
+  help: {
+    marginTop: spacing.sm,
   },
-  chipRow: {
+  sportGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.sm,
+    gap: spacing.sm,
   },
-  chip: {
+  sportChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface.card,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+    minHeight: 44,
+  },
+  sportChipSelected: {
+    backgroundColor: colors.brand.primary,
+    borderColor: colors.brand.primary,
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+  venuesList: {
+    gap: spacing.sm,
+  },
+  venueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface.card,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+  },
+  venueRowSelected: {
+    borderColor: colors.brand.primary,
+    backgroundColor: colors.brand.soft,
+  },
+  venueIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: colors.brand.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  chipSelected: {
-    backgroundColor: COLORS.primaryLight,
-    borderColor: COLORS.primary,
+  venueBody: {
+    flex: 1,
+    gap: 2,
   },
-  chipIcon: {
-    fontSize: FONT_SIZES.md,
-    marginRight: SPACING.xs,
-  },
-  chipLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  chipLabelSelected: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  horizontalScroll: {
-    flexGrow: 0,
-  },
-  inlineLoader: {
-    marginVertical: SPACING.sm,
-  },
-  emptyHint: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.disabled,
-    fontStyle: 'italic',
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    backgroundColor: COLORS.background,
-  },
-  toggleRow: {
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  flex1: {
+    flex: 1,
+  },
+  summaryCard: {
+    gap: spacing.md,
+  },
+  summaryHead: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
   },
-  submitButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: SPACING.md,
+  summaryIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.brand.soft,
     alignItems: 'center',
-    marginTop: SPACING.sm,
+    justifyContent: 'center',
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  submitButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: spacing.lg,
+    backgroundColor: colors.surface.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
 });

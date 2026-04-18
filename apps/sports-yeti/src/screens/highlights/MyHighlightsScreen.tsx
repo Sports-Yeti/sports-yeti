@@ -1,238 +1,255 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import { ChevronLeft, Film, Plus, Sparkles } from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
 import {
-  View,
+  Button,
+  Card,
+  EmptyState,
+  IconBadge,
+  Tag,
   Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
-} from 'react-native';
-import { useHighlightStore } from '../../stores/highlightStore';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import type { HighlightSummary } from '../../types';
+  useToast,
+} from '../../ui';
+import {
+  HIGHLIGHT_PROJECTS,
+  type HighlightProject,
+  type HighlightProjectStatus,
+} from '../../mocks/highlights';
+import { formatRelativeFromIso } from '../../lib/format';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-interface MyHighlightsScreenProps {
-  navigation: {
-    navigate: (screen: string, params?: Record<string, unknown>) => void;
-  };
-}
+type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
-const STATUS_BADGES: Record<string, { label: string; color: string }> = {
-  pending_payment: { label: 'Pending', color: COLORS.warning },
-  processing: { label: 'Processing', color: COLORS.primary },
-  completed: { label: 'Ready', color: COLORS.success },
-  failed: { label: 'Failed', color: COLORS.error },
+const STATUS_TONE: Record<HighlightProjectStatus, 'success' | 'warning' | 'live' | 'info'> = {
+  completed: 'success',
+  processing: 'info',
+  pending_payment: 'warning',
+  failed: 'live',
 };
 
-function HighlightCard({
-  item,
+const STATUS_LABEL: Record<HighlightProjectStatus, string> = {
+  completed: 'Ready',
+  processing: 'Processing',
+  pending_payment: 'Pending payment',
+  failed: 'Failed',
+};
+
+function ProjectCard({
+  project,
   onPress,
 }: {
-  item: HighlightSummary;
+  project: HighlightProject;
   onPress: () => void;
 }) {
-  const badge = STATUS_BADGES[item.status] || STATUS_BADGES.processing;
-  const date = new Date(item.created_at).toLocaleDateString();
-
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.cardHeader}>
-        <View style={[styles.badge, { backgroundColor: badge.color }]}>
-          <Text style={styles.badgeText}>{badge.label}</Text>
-        </View>
-        <Text style={styles.cardDate}>{date}</Text>
-      </View>
-      <View style={styles.cardBody}>
-        <Text style={styles.cardIcon}>🎬</Text>
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle}>
-            {item.status === 'completed'
-              ? `${item.clips_count} Highlight${item.clips_count !== 1 ? 's' : ''}`
-              : 'Highlight Generation'}
-          </Text>
-          {item.source_video_duration ? (
-            <Text style={styles.cardMeta}>
-              Source: {Math.round(item.source_video_duration)}s video
-            </Text>
-          ) : null}
-          {item.status === 'processing' ? (
-            <View style={styles.processingRow}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
-              <Text style={styles.processingText}>Analyzing video...</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={project.title}>
+      <Card style={styles.card}>
+        <View style={styles.cardHead}>
+          <Image
+            source={{ uri: project.thumbnail }}
+            style={styles.thumb}
+            contentFit="cover"
+            accessibilityLabel="Thumbnail"
+          />
+          <View style={styles.cardBody}>
+            <View style={styles.cardHeadRow}>
+              <Tag tone={STATUS_TONE[project.status]} size="sm" leadingDot label={STATUS_LABEL[project.status]} />
+              <Text variant="caption" color={colors.text.secondary}>
+                {formatRelativeFromIso(project.createdAt)}
+              </Text>
             </View>
-          ) : null}
-          {item.status === 'failed' && item.error_message ? (
-            <Text style={styles.errorText} numberOfLines={1}>
-              {item.error_message}
+            <Text variant="h3" color={colors.text.primary} numberOfLines={2}>
+              {project.title}
             </Text>
-          ) : null}
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {project.status === 'completed'
+                ? `${project.clipsCount} clip${project.clipsCount === 1 ? '' : 's'} · source ${Math.round(project.sourceVideoSeconds / 60)} min`
+                : project.status === 'processing'
+                ? `Analyzing source · ${Math.round(project.sourceVideoSeconds / 60)} min`
+                : project.status === 'failed'
+                ? project.errorMessage ?? 'Generation failed'
+                : 'Awaiting payment'}
+            </Text>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </Card>
+    </Pressable>
   );
 }
 
-export function MyHighlightsScreen({ navigation }: MyHighlightsScreenProps) {
-  const { highlights, isLoading, fetchHighlights } = useHighlightStore();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+export function MyHighlightsScreen() {
+  const navigation = useNavigation<Navigation>();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
 
-  useEffect(() => {
-    fetchHighlights();
-  }, []);
-
-  const onRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchHighlights();
-    setIsRefreshing(false);
-  };
-
-  const handlePress = (item: HighlightSummary) => {
-    if (item.status === 'completed') {
-      navigation.navigate('HighlightDetail', { id: item.id });
+  const handleProjectPress = (project: HighlightProject) => {
+    if (project.status === 'completed') {
+      navigation.navigate('HighlightDetail', { id: project.id });
+      return;
+    }
+    if (project.status === 'processing') {
+      toast.show({
+        variant: 'info',
+        title: 'Still analyzing',
+        description: "We'll push you a notification when this is ready (~2 min).",
+      });
+      return;
+    }
+    if (project.status === 'failed') {
+      toast.show({
+        variant: 'error',
+        title: 'Highlight failed',
+        description: project.errorMessage ?? 'Try uploading a higher quality clip.',
+        action: { label: 'New upload', onPress: () => navigation.navigate('HighlightUpload') },
+      });
+      return;
     }
   };
 
-  if (isLoading && highlights.length === 0) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={highlights}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <HighlightCard item={item} onPress={() => handlePress(item)} />
-        )}
-        contentContainerStyle={
-          highlights.length === 0 ? styles.emptyContainer : styles.list
-        }
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🎥</Text>
-            <Text style={styles.emptyTitle}>No Highlights Yet</Text>
-            <Text style={styles.emptyText}>
-              Upload a game video and let AI find the best moments for you.
-            </Text>
-          </View>
-        }
-      />
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('HighlightUpload')}
-        activeOpacity={0.8}
+    <View style={styles.root}>
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={8}
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
+          <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+        </Pressable>
+        <Text variant="h2" color={colors.text.primary}>
+          Highlights Studio
+        </Text>
+        <View style={styles.backBtn} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 120 },
+        ]}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.fabText}>+ New Highlight</Text>
-      </TouchableOpacity>
+        {HIGHLIGHT_PROJECTS.length === 0 ? (
+          <EmptyState
+            icon={
+              <Sparkles size={28} color={colors.brand.primary} strokeWidth={2.25} />
+            }
+            title="No highlights yet"
+            description="Upload a game video and AI will pull the best moments."
+            primaryAction={{
+              label: 'Upload your first',
+              onPress: () => navigation.navigate('HighlightUpload'),
+            }}
+          />
+        ) : (
+          <>
+            <Card style={styles.heroCard}>
+              <View style={styles.heroIcon}>
+                <IconBadge size={48} tone="brand">
+                  <Film size={22} color={colors.brand.deep} strokeWidth={2.25} />
+                </IconBadge>
+              </View>
+              <View style={styles.heroBody}>
+                <Text variant="h3" color={colors.text.primary}>
+                  Turn games into clips
+                </Text>
+                <Text variant="bodySm" color={colors.text.secondary}>
+                  Upload up to 60 minutes. AI scores moments and you decide what to post.
+                </Text>
+              </View>
+              <Button
+                label="New"
+                variant="gradient"
+                size="sm"
+                leadingIcon={
+                  <Plus size={14} color={colors.text.inverse} strokeWidth={2.5} />
+                }
+                onPress={() => navigation.navigate('HighlightUpload')}
+              />
+            </Card>
+
+            <View style={styles.list}>
+              {HIGHLIGHT_PROJECTS.map((p) => (
+                <ProjectCard
+                  key={p.id}
+                  project={p}
+                  onPress={() => handleProjectPress(p)}
+                />
+              ))}
+            </View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: { padding: SPACING.md },
-  emptyContainer: { flexGrow: 1 },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  badge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  badgeText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-  },
-  cardDate: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
-  cardBody: { flexDirection: 'row', alignItems: 'center' },
-  cardIcon: { fontSize: 36, marginRight: SPACING.md },
-  cardInfo: { flex: 1 },
-  cardTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  cardMeta: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  processingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: SPACING.xs,
-  },
-  processingText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.primary,
-    marginLeft: SPACING.xs,
-  },
-  errorText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.error,
-    marginTop: 2,
-  },
-  emptyState: {
+  root: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: colors.surface.bg,
+  },
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.xl,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  emptyIcon: { fontSize: 64, marginBottom: SPACING.md },
-  emptyTitle: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  emptyText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
+  content: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.lg,
   },
-  fab: {
-    position: 'absolute',
-    bottom: SPACING.lg,
-    right: SPACING.lg,
-    backgroundColor: COLORS.primary,
-    borderRadius: 28,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+  heroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
-  fabText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
+  heroIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroBody: {
+    flex: 1,
+    gap: 2,
+  },
+  list: {
+    gap: spacing.md,
+  },
+  card: {
+    gap: spacing.md,
+  },
+  cardHead: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  thumb: {
+    width: 96,
+    height: 96,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface.chip,
+  },
+  cardBody: {
+    flex: 1,
+    gap: 4,
+  },
+  cardHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });

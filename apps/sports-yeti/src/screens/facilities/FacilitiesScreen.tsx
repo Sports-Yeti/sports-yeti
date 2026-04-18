@@ -1,186 +1,233 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import { ChevronLeft, MapPin, Star } from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
+import { Card, EmptyState, SearchBar, Tabs, Tag, Text } from '../../ui';
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Image,
-} from 'react-native';
-import { api } from '../../services/api';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import type { Facility } from '../../types';
+  FACILITIES,
+  FACILITY_SPORT_LABEL,
+  type Facility,
+} from '../../mocks/facilities';
+import { formatCurrency } from '../../lib/format';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-interface FacilitiesScreenProps {
-  navigation: {
-    navigate: (screen: string, params?: Record<string, unknown>) => void;
-  };
-}
+type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
-export function FacilitiesScreen({ navigation }: FacilitiesScreenProps) {
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+const SPORT_TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'soccer', label: 'Soccer' },
+  { key: 'basketball', label: 'Basketball' },
+  { key: 'volleyball', label: 'Volleyball' },
+  { key: 'tennis', label: 'Tennis' },
+  { key: 'baseball', label: 'Baseball' },
+  { key: 'hockey', label: 'Hockey' },
+];
 
-  const loadFacilities = async () => {
-    try {
-      const response = await api.getFacilities();
-      setFacilities(response.data);
-    } catch (error) {
-      console.error('Failed to load facilities:', error);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadFacilities();
-  }, []);
-
-  const onRefresh = () => {
-    setIsRefreshing(true);
-    loadFacilities();
-  };
-
-  const renderFacility = ({ item }: { item: Facility }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('FacilityDetails', { id: item.id })}
+function FacilityCard({ facility, onPress }: { facility: Facility; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${facility.name} in ${facility.city}`}
     >
-      {item.image_url ? (
-        <Image source={{ uri: item.image_url }} style={styles.image} />
-      ) : (
-        <View style={styles.imagePlaceholder}>
-          <Text style={styles.imagePlaceholderText}>🏟️</Text>
-        </View>
-      )}
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>{item.name}</Text>
-        <Text style={styles.cardSubtitle}>
-          {item.city}, {item.state}
-        </Text>
-        <Text style={styles.cardDetail}>
-          {item.spaces_count || 0} spaces available
-        </Text>
-        {item.amenities && item.amenities.length > 0 && (
-          <View style={styles.amenitiesRow}>
-            {item.amenities.slice(0, 3).map((amenity, index) => (
-              <View key={index} style={styles.amenityTag}>
-                <Text style={styles.amenityText}>{amenity}</Text>
-              </View>
+      <Card style={styles.card}>
+        <Image
+          source={{ uri: facility.cover }}
+          style={styles.cover}
+          contentFit="cover"
+        />
+        <View style={styles.cardBody}>
+          <View style={styles.headRow}>
+            <Text variant="h3" color={colors.text.primary} style={styles.title}>
+              {facility.name}
+            </Text>
+            <View style={styles.rating}>
+              <Star size={14} color="#B26200" strokeWidth={2.25} />
+              <Text variant="caption" color={colors.text.secondary}>
+                {facility.rating.toFixed(1)} ({facility.reviewCount})
+              </Text>
+            </View>
+          </View>
+          <View style={styles.metaRow}>
+            <MapPin size={14} color={colors.text.secondary} strokeWidth={2.25} />
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {facility.city} · {facility.distanceMiles} mi
+            </Text>
+          </View>
+          <View style={styles.tagsRow}>
+            {facility.sports.slice(0, 3).map((s) => (
+              <Tag key={s} tone="brand" size="sm" label={FACILITY_SPORT_LABEL[s]} />
             ))}
           </View>
-        )}
-      </View>
-    </TouchableOpacity>
+          <View style={styles.priceRow}>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {facility.hours}
+            </Text>
+            <Text variant="button" color={colors.brand.primary}>
+              {facility.hourlyRateCents === 0
+                ? 'Free'
+                : `${formatCurrency(facility.hourlyRateCents)}/hr`}
+            </Text>
+          </View>
+        </View>
+      </Card>
+    </Pressable>
   );
+}
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
+export function FacilitiesScreen() {
+  const navigation = useNavigation<Navigation>();
+  const insets = useSafeAreaInsets();
+  const [search, setSearch] = useState('');
+  const [sport, setSport] = useState('all');
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return FACILITIES.filter((f) => {
+      if (sport !== 'all' && !f.sports.includes(sport as Facility['sports'][number])) return false;
+      if (q) {
+        const hay = `${f.name} ${f.city}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    }).sort((a, b) => a.distanceMiles - b.distanceMiles);
+  }, [search, sport]);
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={facilities}
-        renderItem={renderFacility}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No facilities available</Text>
-        }
-      />
+    <View style={styles.root}>
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={8}
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
+          <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+        </Pressable>
+        <Text variant="h2" color={colors.text.primary}>
+          Facilities
+        </Text>
+        <View style={styles.backBtn} />
+      </View>
+
+      <View style={styles.filtersWrap}>
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search venues by name or city…"
+          onFilterPress={() => undefined}
+        />
+        <Tabs variant="pill" scrollable items={SPORT_TABS} value={sport} onChange={setSport} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.list,
+          { paddingBottom: insets.bottom + spacing.xxl },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {visible.length === 0 ? (
+          <EmptyState
+            icon={<MapPin size={28} color={colors.brand.primary} strokeWidth={2.25} />}
+            title="No facilities match"
+            description="Try a different sport or city."
+            primaryAction={{
+              label: 'Reset',
+              onPress: () => {
+                setSearch('');
+                setSport('all');
+              },
+            }}
+          />
+        ) : (
+          visible.map((f) => (
+            <FacilityCard
+              key={f.id}
+              facility={f}
+              onPress={() => navigation.navigate('FacilityDetails', { id: f.id })}
+            />
+          ))
+        )}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface.bg,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  listContent: {
-    padding: SPACING.md,
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filtersWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
+  },
+  list: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.lg,
   },
   card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    marginBottom: SPACING.md,
+    padding: 0,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  image: {
+  cover: {
     width: '100%',
-    height: 150,
+    aspectRatio: 16 / 9,
+    backgroundColor: colors.surface.chip,
   },
-  imagePlaceholder: {
-    width: '100%',
-    height: 150,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+  cardBody: {
+    padding: spacing.lg,
+    gap: spacing.sm,
   },
-  imagePlaceholderText: {
-    fontSize: 48,
-  },
-  cardContent: {
-    padding: SPACING.md,
-  },
-  cardTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  cardSubtitle: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
-  },
-  cardDetail: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.primary,
-    marginBottom: SPACING.sm,
-  },
-  amenitiesRow: {
+  headRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  title: {
+    flex: 1,
+  },
+  rating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
     flexWrap: 'wrap',
-    gap: SPACING.xs,
   },
-  amenityTag: {
-    backgroundColor: COLORS.background,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: 4,
-  },
-  amenityText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-  },
-  emptyText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: SPACING.xl,
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.xs,
   },
 });

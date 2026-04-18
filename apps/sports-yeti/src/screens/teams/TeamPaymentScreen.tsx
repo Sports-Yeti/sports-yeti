@@ -1,451 +1,363 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { Bell, ChevronLeft, CreditCard, ShieldCheck } from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
 import {
-  View,
+  Avatar,
+  Button,
+  Card,
+  EmptyState,
+  IconBadge,
+  Modal,
+  ProgressBar,
+  Tag,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-} from 'react-native';
-import { api } from '../../services/api';
-import { useAuthStore } from '../../stores';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
+  useToast,
+} from '../../ui';
+import { TEAM_DETAILS, type RosterMember } from '../../mocks/teams';
+import { formatCurrency } from '../../lib/format';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-interface TeamPaymentScreenProps {
-  route: {
-    params: {
-      teamId: string;
-    };
-  };
-  navigation: {
-    goBack: () => void;
-  };
+type Navigation = NativeStackNavigationProp<RootStackParamList, 'TeamPayment'>;
+type Route = RouteProp<RootStackParamList, 'TeamPayment'>;
+
+const PAYMENT_TONE = {
+  paid: 'success' as const,
+  pending: 'warning' as const,
+  overdue: 'live' as const,
+};
+
+const PAYMENT_LABEL = {
+  paid: 'Paid',
+  pending: 'Pending',
+  overdue: 'Overdue',
+};
+
+function MemberRow({
+  member,
+  onNudge,
+  isCaptainView,
+}: {
+  member: RosterMember;
+  onNudge: () => void;
+  isCaptainView: boolean;
+}) {
+  return (
+    <View style={styles.memberRow}>
+      <Avatar uri={member.avatar} initials={member.name.charAt(0)} size={40} />
+      <View style={styles.memberBody}>
+        <Text variant="button" color={colors.text.primary}>
+          {member.name}
+          {member.isYou ? ' · You' : ''}
+        </Text>
+        <Text variant="caption" color={colors.text.secondary}>
+          {member.position}
+        </Text>
+      </View>
+      <Tag
+        tone={PAYMENT_TONE[member.paymentStatus]}
+        size="sm"
+        label={PAYMENT_LABEL[member.paymentStatus]}
+      />
+      {isCaptainView && member.paymentStatus !== 'paid' && !member.isYou ? (
+        <Pressable
+          onPress={onNudge}
+          accessibilityRole="button"
+          accessibilityLabel={`Remind ${member.name}`}
+          hitSlop={6}
+          style={styles.nudgeBtn}
+        >
+          <Bell size={16} color={colors.brand.primary} strokeWidth={2.25} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
 }
 
-interface PaymentMember {
-  id: string;
-  player_id: string;
-  name: string;
-  avatar_url: string | null;
-  payment_status: string;
-  role: string;
-}
+export function TeamPaymentScreen() {
+  const navigation = useNavigation<Navigation>();
+  const route = useRoute<Route>();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
+  const team = TEAM_DETAILS[route.params.teamId];
+  const [confirmPay, setConfirmPay] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [paid, setPaid] = useState(false);
 
-interface PaymentSummary {
-  team_id: string;
-  team_name: string;
-  league_name: string;
-  total_fee: number;
-  per_player_share: number;
-  roster_count: number;
-  paid_count: number;
-  pending_count: number;
-  is_complete: boolean;
-  members: PaymentMember[];
-}
-
-export function TeamPaymentScreen({ route }: TeamPaymentScreenProps) {
-  const { teamId } = route.params;
-  const { user } = useAuthStore();
-  const [summary, setSummary] = useState<PaymentSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isPaying, setIsPaying] = useState(false);
-
-  const loadSummary = useCallback(async () => {
-    try {
-      const data = await api.getTeamPaymentSummary(teamId);
-      setSummary(data);
-    } catch {
-      Alert.alert('Error', 'Failed to load payment summary');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [teamId]);
-
-  useEffect(() => {
-    loadSummary();
-  }, [loadSummary]);
-
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadSummary();
-  }, [loadSummary]);
-
-  const handlePayMyShare = async () => {
-    setIsPaying(true);
-    try {
-      const result = await api.createTeamPaymentIntent(teamId);
-      Alert.alert(
-        'Payment Created',
-        `Amount: $${(Number(result.amount) / 100).toFixed(2)}\n` +
-          `Currency: ${(result.currency ?? 'usd').toUpperCase()}\n\n` +
-          'In production, this would open the Stripe PaymentSheet.',
-        [{ text: 'OK', onPress: () => loadSummary() }]
-      );
-    } catch {
-      Alert.alert('Error', 'Failed to create payment. Please try again.');
-    } finally {
-      setIsPaying(false);
-    }
-  };
-
-  if (isLoading) {
+  if (!team) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+      <View style={styles.root}>
+        <EmptyState
+          title="Payment unavailable"
+          description="We couldn't load the team's payment summary."
+          primaryAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+        />
       </View>
     );
   }
 
-  if (!summary) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Payment summary not available</Text>
-      </View>
-    );
-  }
+  const youMember = team.roster.find((m) => m.isYou);
+  const isUnpaid =
+    !!youMember && (youMember.paymentStatus !== 'paid' || paid === false);
+  const youArePaid = paid || youMember?.paymentStatus === 'paid';
 
-  const totalFee = Number(summary.total_fee);
-  const perShare = Number(summary.per_player_share);
-  const currentPlayer = user?.player;
-  const myMembership = currentPlayer
-    ? summary.members.find((m) => m.player_id === currentPlayer.id)
-    : null;
-  const isUnpaid = myMembership ? myMembership.payment_status !== 'paid' : true;
+  const paidCount = team.roster.filter(
+    (m) => m.paymentStatus === 'paid' || (m.isYou && paid),
+  ).length;
+  const unpaidCount = team.roster.length - paidCount;
+  const collectedCents = paidCount * team.perPlayerCents;
+  const progress = team.feeTotalCents === 0 ? 1 : collectedCents / team.feeTotalCents;
+
+  const handlePay = () => {
+    setConfirmPay(false);
+    setPaying(true);
+    setTimeout(() => {
+      setPaying(false);
+      setPaid(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      toast.show({
+        variant: 'success',
+        title: `Paid ${formatCurrency(team.perPlayerCents)}`,
+        description: 'Receipt sent to your email.',
+      });
+    }, 700);
+  };
+
+  const handleNudge = (m: RosterMember) => {
+    Haptics.selectionAsync();
+    toast.show({
+      variant: 'success',
+      title: `Reminded ${m.name}`,
+    });
+  };
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-      }
-    >
-      <View style={styles.teamHeader}>
-        <View style={styles.teamAvatar}>
-          <Text style={styles.teamAvatarText}>
-            {summary.team_name.charAt(0).toUpperCase()}
+    <View style={styles.root}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + 140 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            hitSlop={8}
+            onPress={() => navigation.goBack()}
+            style={styles.iconButton}
+          >
+            <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
+          <View style={styles.spacer} />
+          <View style={styles.iconButton}>
+            <ShieldCheck size={20} color={colors.brand.primary} strokeWidth={2.25} />
+          </View>
+        </View>
+
+        <View style={styles.heroBlock}>
+          <IconBadge size={64} tone="brand">
+            <CreditCard
+              size={28}
+              color={colors.brand.deep}
+              strokeWidth={2.25}
+            />
+          </IconBadge>
+          <Text variant="h1" color={colors.text.primary} align="center">
+            {team.name}
+          </Text>
+          <Text variant="body" color={colors.text.secondary} align="center">
+            {team.league?.name ?? 'Season fee split'}
           </Text>
         </View>
-        <Text style={styles.teamName}>{summary.team_name}</Text>
-        <Text style={styles.leagueName}>{summary.league_name}</Text>
-        {summary.is_complete && (
-          <View style={styles.completeBadge}>
-            <Text style={styles.completeBadgeText}>✓ Fully Paid</Text>
-          </View>
-        )}
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Fee Breakdown</Text>
-        <View style={styles.feeCard}>
-          <View style={styles.feeRow}>
-            <Text style={styles.feeLabel}>Total Team Fee</Text>
-            <Text style={styles.feeValue}>${totalFee.toFixed(2)}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.feeRow}>
-            <Text style={styles.feeLabel}>Roster Size</Text>
-            <Text style={styles.feeValue}>{summary.roster_count}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.feeRow}>
-            <Text style={styles.feeLabelBold}>Per Player Share</Text>
-            <Text style={styles.feeValueBold}>${perShare.toFixed(2)}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{summary.paid_count}</Text>
-            <Text style={styles.statLabel}>Paid</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: COLORS.warning }]}>
-              {summary.pending_count}
+        <Card style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <Text variant="body" color={colors.text.secondary}>
+              Total team fee
             </Text>
-            <Text style={styles.statLabel}>Pending</Text>
+            <Text variant="button" color={colors.text.primary}>
+              {formatCurrency(team.feeTotalCents)}
+            </Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryRow}>
+            <Text variant="body" color={colors.text.secondary}>
+              Roster size
+            </Text>
+            <Text variant="button" color={colors.text.primary}>
+              {team.roster.length}
+            </Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryRow}>
+            <Text variant="body" color={colors.text.primary}>
+              Your share
+            </Text>
+            <Text variant="h3" color={colors.brand.primary}>
+              {formatCurrency(team.perPlayerCents)}
+            </Text>
+          </View>
+        </Card>
+
+        <Card style={styles.progressCard}>
+          <View style={styles.progressHeader}>
+            <Text variant="h3" color={colors.text.primary}>
+              {formatCurrency(collectedCents)} / {formatCurrency(team.feeTotalCents)}
+            </Text>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {paidCount} paid · {unpaidCount} pending
+            </Text>
+          </View>
+          <ProgressBar value={progress} tone="success" size="md" showLabel />
+        </Card>
+
+        <View style={styles.section}>
+          <Text variant="h2" color={colors.text.primary}>
+            Team members
+          </Text>
+          <View style={styles.membersList}>
+            {team.roster.map((m) => (
+              <MemberRow
+                key={m.id}
+                member={
+                  m.isYou && paid ? { ...m, paymentStatus: 'paid' as const } : m
+                }
+                isCaptainView={team.isCaptain}
+                onNudge={() => handleNudge(m)}
+              />
+            ))}
           </View>
         </View>
-      </View>
+      </ScrollView>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          Team Members ({summary.members.length})
-        </Text>
-        {summary.members.map((member) => {
-          const isPaid = member.payment_status === 'paid';
-          return (
-            <View key={member.id} style={styles.memberRow}>
-              <View style={styles.memberAvatar}>
-                <Text style={styles.memberAvatarText}>
-                  {member.name?.charAt(0).toUpperCase() ?? '?'}
-                </Text>
-              </View>
-              <View style={styles.memberInfo}>
-                <Text style={styles.memberName}>{member.name}</Text>
-                {member.role !== 'member' && (
-                  <Text style={styles.memberRole}>{member.role}</Text>
-                )}
-              </View>
-              <View
-                style={[
-                  styles.paymentBadge,
-                  isPaid ? styles.paidBadge : styles.pendingBadge,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.paymentBadgeText,
-                    isPaid ? styles.paidBadgeText : styles.pendingBadgeText,
-                  ]}
-                >
-                  {isPaid ? 'Paid' : 'Pending'}
-                </Text>
-              </View>
-            </View>
-          );
-        })}
-      </View>
-
-      {isUnpaid && (
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={[styles.payButton, isPaying && styles.payButtonDisabled]}
-            onPress={handlePayMyShare}
-            disabled={isPaying}
-          >
-            {isPaying ? (
-              <ActivityIndicator size="small" color={COLORS.surface} />
-            ) : (
-              <Text style={styles.payButtonText}>
-                Pay My Share — ${perShare.toFixed(2)}
-              </Text>
-            )}
-          </TouchableOpacity>
+      {isUnpaid ? (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+          <Button
+            label={
+              paying
+                ? 'Processing…'
+                : youArePaid
+                ? 'Already paid'
+                : `Pay your share · ${formatCurrency(team.perPlayerCents)}`
+            }
+            variant="gradient"
+            size="lg"
+            fullWidth
+            disabled={paying || youArePaid}
+            onPress={() => setConfirmPay(true)}
+          />
         </View>
-      )}
+      ) : null}
 
-      <View style={styles.bottomPadding} />
-    </ScrollView>
+      <Modal
+        visible={confirmPay}
+        onRequestClose={() => setConfirmPay(false)}
+        variant="info"
+        title="Confirm payment"
+        description={`${formatCurrency(team.perPlayerCents)} will be charged to your saved card via SportsYeti checkout. Refundable if you leave the team within 7 days.`}
+        primaryAction={{
+          label: paying ? 'Processing…' : `Pay ${formatCurrency(team.perPlayerCents)}`,
+          onPress: handlePay,
+        }}
+        secondaryAction={{
+          label: 'Cancel',
+          onPress: () => setConfirmPay(false),
+        }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface.bg,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
+  content: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xl,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  errorText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-  },
-  teamHeader: {
-    alignItems: 'center',
-    paddingVertical: SPACING.lg,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  teamAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  teamAvatarText: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  teamName: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  leagueName: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  completeBadge: {
-    marginTop: SPACING.sm,
-    backgroundColor: COLORS.success + '20',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: 12,
-  },
-  completeBadgeText: {
-    color: COLORS.success,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '700',
-  },
-  section: {
-    paddingHorizontal: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-  },
-  feeCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  feeRow: {
+  topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
   },
-  feeLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  feeValue: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '500',
-    color: COLORS.text,
-  },
-  feeLabelBold: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  feeValueBold: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  statCard: {
+  spacer: {
     flex: 1,
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: 12,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface.card,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    justifyContent: 'center',
+    ...shadows.soft,
   },
-  statValue: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    color: COLORS.success,
+  heroBlock: {
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  statLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+  summaryCard: {
+    gap: spacing.sm,
+    padding: spacing.lg,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: colors.border.soft,
+  },
+  progressCard: {
+    gap: spacing.md,
+  },
+  progressHeader: {
+    gap: 2,
+  },
+  section: {
+    gap: spacing.md,
+  },
+  membersList: {
+    gap: spacing.sm,
   },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: 8,
-    marginBottom: SPACING.sm,
+    gap: spacing.md,
+    backgroundColor: colors.surface.card,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    ...shadows.soft,
   },
-  memberAvatar: {
+  memberBody: {
+    flex: 1,
+    gap: 2,
+  },
+  nudgeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.brand.soft,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
   },
-  memberAvatarText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-  memberInfo: {
-    flex: 1,
-  },
-  memberName: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '500',
-    color: COLORS.text,
-  },
-  memberRole: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    textTransform: 'capitalize',
-  },
-  paymentBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: 4,
-  },
-  paidBadge: {
-    backgroundColor: COLORS.success + '20',
-  },
-  pendingBadge: {
-    backgroundColor: COLORS.warning + '20',
-  },
-  paymentBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-  },
-  paidBadgeText: {
-    color: COLORS.success,
-  },
-  pendingBadgeText: {
-    color: COLORS.warning,
-  },
-  payButton: {
-    backgroundColor: COLORS.success,
-    paddingVertical: SPACING.md,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  payButtonDisabled: {
-    opacity: 0.6,
-  },
-  payButtonText: {
-    color: COLORS.surface,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-  },
-  bottomPadding: {
-    height: SPACING.xxl,
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: spacing.lg,
+    backgroundColor: colors.surface.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
 });

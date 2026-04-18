@@ -1,309 +1,231 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronLeft, MessageCircle } from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
 import {
-  View,
+  Avatar,
+  EmptyState,
+  SearchBar,
+  Tabs,
+  Tag,
   Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  TextInput,
-} from 'react-native';
-import { api } from '../../services/api';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import type { Team, Game } from '../../types';
+} from '../../ui';
+import { CHATS, type ChatPreview } from '../../mocks/messages';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-interface ConversationItem {
-  id: string;
-  chatId: string;
-  name: string;
-  type: 'team' | 'game';
-  subtitle: string;
-  timestamp: string | null;
-}
+type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
-interface MessagesScreenProps {
-  navigation: {
-    navigate: (screen: string, params?: Record<string, unknown>) => void;
-  };
-}
+const TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'team', label: 'Teams' },
+  { key: 'direct', label: 'DMs' },
+  { key: 'event', label: 'Events' },
+];
 
-export function MessagesScreen({ navigation }: MessagesScreenProps) {
-  const [conversations, setConversations] = useState<ConversationItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const loadConversations = useCallback(async () => {
-    try {
-      const [teamsResponse, gamesResponse] = await Promise.all([
-        api.getTeams({ per_page: 20 }),
-        api.getGames({ per_page: 20, status: 'scheduled' }),
-      ]);
-
-      const teamChats: ConversationItem[] = teamsResponse.data.map(
-        (team: Team) => ({
-          id: `team-${team.id}`,
-          chatId: `team-${team.id}`,
-          name: team.name,
-          type: 'team' as const,
-          subtitle: `${team.players_count ?? 0} members`,
-          timestamp: null,
-        })
-      );
-
-      const gameChats: ConversationItem[] = gamesResponse.data
-        .filter((g: Game) => new Date(g.scheduled_at) > new Date())
-        .slice(0, 10)
-        .map((game: Game) => ({
-          id: `game-${game.id}`,
-          chatId: `game-${game.id}`,
-          name: `${game.team1?.name ?? 'TBD'} vs ${game.team2?.name ?? 'TBD'}`,
-          type: 'game' as const,
-          subtitle: new Date(game.scheduled_at).toLocaleDateString(),
-          timestamp: game.scheduled_at,
-        }));
-
-      setConversations([...teamChats, ...gameChats]);
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
-
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadConversations();
-  }, [loadConversations]);
-
-  const filteredConversations = conversations.filter((c) => {
-    if (!searchQuery) return true;
-    return c.name.toLowerCase().includes(searchQuery.toLowerCase());
-  });
-
-  const renderConversation = ({ item }: { item: ConversationItem }) => (
-    <TouchableOpacity
-      style={styles.conversationRow}
-      onPress={() =>
-        navigation.navigate('Chat', {
-          chatId: item.chatId,
-          title: item.name,
-        })
-      }
+function ChatRow({
+  chat,
+  onPress,
+}: {
+  chat: ChatPreview;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${chat.title}, ${chat.unreadCount} unread`}
+      style={({ pressed }) => [
+        styles.row,
+        pressed ? styles.pressed : null,
+      ]}
     >
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {item.type === 'team' ? '👥' : '🏀'}
+      <View style={styles.avatarShell}>
+        <Avatar uri={chat.avatar} initials={chat.title.charAt(0)} size={48} />
+        {chat.online ? <View style={styles.onlineDot} /> : null}
+      </View>
+      <View style={styles.rowBody}>
+        <View style={styles.headRow}>
+          <Text variant="button" color={colors.text.primary} style={styles.title}>
+            {chat.title}
+          </Text>
+          <Text variant="caption" color={colors.text.secondary}>
+            {chat.lastTimestamp}
+          </Text>
+        </View>
+        <Text
+          variant="bodySm"
+          color={colors.text.secondary}
+          numberOfLines={1}
+          style={styles.preview}
+        >
+          {chat.lastMessage}
         </Text>
-      </View>
-      <View style={styles.conversationContent}>
-        <View style={styles.conversationHeader}>
-          <Text style={styles.conversationName} numberOfLines={1}>
-            {item.name}
+        {chat.subtitle ? (
+          <Text variant="caption" color={colors.text.muted}>
+            {chat.subtitle}
           </Text>
-          {item.timestamp && (
-            <Text style={styles.timestampText}>
-              {new Date(item.timestamp).toLocaleDateString(undefined, {
-                month: 'short',
-                day: 'numeric',
-              })}
-            </Text>
-          )}
-        </View>
-        <View style={styles.subtitleRow}>
-          <View
-            style={[
-              styles.typeBadge,
-              {
-                backgroundColor:
-                  item.type === 'team'
-                    ? COLORS.primary + '15'
-                    : COLORS.secondary + '15',
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.typeBadgeText,
-                {
-                  color:
-                    item.type === 'team' ? COLORS.primary : COLORS.secondary,
-                },
-              ]}
-            >
-              {item.type === 'team' ? 'Team' : 'Game'}
-            </Text>
-          </View>
-          <Text style={styles.subtitleText} numberOfLines={1}>
-            {item.subtitle}
-          </Text>
-        </View>
+        ) : null}
       </View>
-    </TouchableOpacity>
+      {chat.unreadCount > 0 ? (
+        <Tag tone="brand" size="sm" label={String(chat.unreadCount)} />
+      ) : null}
+    </Pressable>
   );
+}
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
+export function MessagesScreen() {
+  const navigation = useNavigation<Navigation>();
+  const insets = useSafeAreaInsets();
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState('all');
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return CHATS.filter((c) => {
+      if (tab !== 'all' && c.kind !== tab) return false;
+      if (q) {
+        const hay = `${c.title} ${c.lastMessage}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [tab, search]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search conversations..."
-          placeholderTextColor={COLORS.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+    <View style={styles.root}>
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={8}
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
+          <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+        </Pressable>
+        <Text variant="h2" color={colors.text.primary}>
+          Messages
+        </Text>
+        <View style={styles.backBtn} />
       </View>
 
-      <FlatList
-        data={filteredConversations}
-        renderItem={renderConversation}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>💬</Text>
-            <Text style={styles.emptyTitle}>No Conversations</Text>
-            <Text style={styles.emptyText}>
-              Join a team or game to start chatting
-            </Text>
-          </View>
-        }
-      />
+      <View style={styles.filtersWrap}>
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search conversations…"
+          onFilterPress={() => undefined}
+        />
+        <Tabs variant="pill" scrollable items={TABS} value={tab} onChange={setTab} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.list,
+          { paddingBottom: insets.bottom + spacing.xxl },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {visible.length === 0 ? (
+          <EmptyState
+            icon={
+              <MessageCircle
+                size={28}
+                color={colors.brand.primary}
+                strokeWidth={2.25}
+              />
+            }
+            title="No conversations"
+            description="Join a team or game to start chatting with players."
+          />
+        ) : (
+          visible.map((c) => (
+            <ChatRow
+              key={c.id}
+              chat={c}
+              onPress={() =>
+                navigation.navigate('Chat', { chatId: c.id, title: c.title })
+              }
+            />
+          ))
+        )}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface.bg,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  searchContainer: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  searchInput: {
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  listContent: {
-    flexGrow: 1,
-  },
-  conversationRow: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.surface,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.primaryLight,
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.md,
   },
-  avatarText: {
-    fontSize: 22,
+  filtersWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
   },
-  conversationContent: {
+  list: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface.card,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    minHeight: 64,
+    ...shadows.soft,
+  },
+  pressed: {
+    opacity: 0.85,
+  },
+  avatarShell: {
+    position: 'relative',
+  },
+  onlineDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#2E7D32',
+    borderWidth: 2,
+    borderColor: colors.surface.card,
+  },
+  rowBody: {
     flex: 1,
+    gap: 2,
   },
-  conversationHeader: {
+  headRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.xs,
+    gap: spacing.sm,
   },
-  conversationName: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-    flex: 1,
-    marginRight: SPACING.sm,
-  },
-  timestampText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-  },
-  subtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  typeBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  typeBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '500',
-  },
-  subtitleText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
+  title: {
     flex: 1,
   },
-  separator: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginLeft: 48 + SPACING.md * 2,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.xxl * 2,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: SPACING.md,
-  },
-  emptyTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-  },
-  emptyText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
+  preview: {
+    marginRight: spacing.md,
   },
 });

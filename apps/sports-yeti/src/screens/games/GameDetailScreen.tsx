@@ -1,788 +1,421 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
+  CalendarPlus,
+  ChevronLeft,
+  Clock,
+  MapPin,
+  Share2,
+  Shield,
+  Users,
+} from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
+import {
+  Avatar,
+  AvatarStack,
+  Button,
+  Card,
+  EmptyState,
+  IconBadge,
   Modal,
-  TextInput,
-} from 'react-native';
-import { api } from '../../services/api';
-import { COLORS, SPACING, FONT_SIZES, GAME_STATUS } from '../../constants';
-import type { Game } from '../../types';
+  Tag,
+  Text,
+  useToast,
+} from '../../ui';
+import {
+  COMMON_GAME_RULES,
+  DISCOVER_GAMES,
+  GAME_HOSTS,
+  SARAH_HOST,
+  SKILL_LABELS,
+} from '../../mocks/games';
+import { FACILITIES } from '../../mocks/facilities';
+import { formatCurrency } from '../../lib/format';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-interface GameDetailScreenProps {
-  route: {
-    params: {
-      id: string;
-    };
-  };
-  navigation: {
-    navigate: (screen: string, params?: Record<string, unknown>) => void;
-    goBack: () => void;
-  };
-}
+type Navigation = NativeStackNavigationProp<RootStackParamList, 'GameDetails'>;
+type Route = RouteProp<RootStackParamList, 'GameDetails'>;
 
-export function GameDetailScreen({ route, navigation }: GameDetailScreenProps) {
-  const { id } = route.params;
-  const [game, setGame] = useState<Game | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isSubModalVisible, setIsSubModalVisible] = useState(false);
-  const [subPosition, setSubPosition] = useState('');
-  const [subMessage, setSubMessage] = useState('');
-  const [isSubmittingSub, setIsSubmittingSub] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
+export function GameDetailScreen() {
+  const navigation = useNavigation<Navigation>();
+  const route = useRoute<Route>();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
+  const game = DISCOVER_GAMES.find((g) => g.id === route.params.id);
+  const [joined, setJoined] = useState(false);
+  const [confirmJoin, setConfirmJoin] = useState(false);
 
-  const loadGame = async () => {
-    try {
-      setError(null);
-      const data = await api.getGame(id);
-      setGame(data);
-    } catch (err) {
-      console.error('Failed to load game:', err);
-      setError('Failed to load game details');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadGame();
-  }, [id]);
-
-  const onRefresh = () => {
-    setIsRefreshing(true);
-    loadGame();
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-        return COLORS.primary;
-      case 'in_progress':
-        return COLORS.warning;
-      case 'completed':
-        return COLORS.success;
-      case 'cancelled':
-      case 'postponed':
-        return COLORS.error;
-      default:
-        return COLORS.textSecondary;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  const handleOpenChat = () => {
-    navigation.navigate('Chat', { chatId: `game-${id}`, title: 'Game Chat' });
-  };
-
-  const handleRequestSub = async () => {
-    if (!game) return;
-    setIsSubmittingSub(true);
-    try {
-      await api.createSubRequest(game.id, {
-        team_id: game.team1_id ?? undefined,
-        position: subPosition.trim() || undefined,
-        message: subMessage.trim() || undefined,
-      });
-      setIsSubModalVisible(false);
-      setSubPosition('');
-      setSubMessage('');
-      Alert.alert('Success', 'Sub request submitted!');
-    } catch {
-      Alert.alert('Error', 'Failed to submit sub request.');
-    } finally {
-      setIsSubmittingSub(false);
-    }
-  };
-
-  const handleJoinGame = async () => {
-    if (!game) return;
-    setIsJoining(true);
-    try {
-      await api.joinGame(game.id);
-      Alert.alert('Success', 'You have joined the game!');
-      loadGame();
-    } catch {
-      Alert.alert('Error', 'Failed to join game. You may already be a participant or the game is full.');
-    } finally {
-      setIsJoining(false);
-    }
-  };
-
-  const handleTeamPress = (teamId: string) => {
-    navigation.navigate('TeamDetails', { id: teamId });
-  };
-
-  const handleFacilityPress = (facilityId: string) => {
-    navigation.navigate('FacilityDetails', { id: facilityId });
-  };
-
-  if (isLoading) {
+  if (!game) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+      <View style={styles.root}>
+        <EmptyState
+          title="Game not found"
+          description="It may have been cancelled or you opened a stale link."
+          primaryAction={{
+            label: 'Back to Discover',
+            onPress: () => navigation.goBack(),
+          }}
+        />
       </View>
     );
   }
 
-  if (error || !game) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorEmoji}>😞</Text>
-        <Text style={styles.errorText}>{error || 'Game not found'}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadGame}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const host = GAME_HOSTS[game.hostId] ?? SARAH_HOST;
+  const venue = FACILITIES.find((f) => f.id === game.venueId);
+  const Icon = game.Icon;
+  const spotsTone = game.spotsLeft <= 2 ? 'warning' : 'brand';
+
+  const handleJoin = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setJoined(true);
+    setConfirmJoin(false);
+    toast.show({
+      variant: 'success',
+      title: `You're in for ${game.title}`,
+      description: `${game.time} · ${game.location}`,
+      action: {
+        label: 'Add to schedule',
+        onPress: () => navigation.navigate('Schedule' as never),
+      },
+    });
+  };
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Status Badge */}
-      <View style={styles.statusContainer}>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(game.status) + '20' },
-          ]}
-        >
-          <View
-            style={[styles.statusDot, { backgroundColor: getStatusColor(game.status) }]}
-          />
-          <Text style={[styles.statusText, { color: getStatusColor(game.status) }]}>
-            {GAME_STATUS[game.status as keyof typeof GAME_STATUS] || game.status}
-          </Text>
-        </View>
-        <View style={styles.gameTypeBadge}>
-          <Text style={styles.gameTypeText}>{game.game_type}</Text>
-        </View>
-      </View>
-
-      {/* Matchup Card */}
-      <View style={styles.matchupCard}>
-        <TouchableOpacity
-          style={styles.teamSection}
-          onPress={() => game.team1 && game.team1_id && handleTeamPress(game.team1_id)}
-          disabled={!game.team1}
-        >
-          <View style={styles.teamAvatar}>
-            <Text style={styles.teamAvatarText}>
-              {game.team1?.name?.charAt(0).toUpperCase() || 'T1'}
-            </Text>
-          </View>
-          <Text style={styles.teamName} numberOfLines={2}>
-            {game.team1?.name || 'Team 1'}
-          </Text>
-          {game.status === 'completed' && (
-            <Text
-              style={[
-                styles.scoreText,
-                game.winner_team_id === game.team1_id && styles.winningScore,
-              ]}
-            >
-              {game.team1_score ?? '-'}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.vsContainer}>
-          <Text style={styles.vsText}>VS</Text>
-          {game.status === 'in_progress' && (
-            <View style={styles.liveIndicator}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>LIVE</Text>
-            </View>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={styles.teamSection}
-          onPress={() => game.team2 && game.team2_id && handleTeamPress(game.team2_id)}
-          disabled={!game.team2}
-        >
-          <View style={styles.teamAvatar}>
-            <Text style={styles.teamAvatarText}>
-              {game.team2?.name?.charAt(0).toUpperCase() || 'T2'}
-            </Text>
-          </View>
-          <Text style={styles.teamName} numberOfLines={2}>
-            {game.team2?.name || 'Team 2'}
-          </Text>
-          {game.status === 'completed' && (
-            <Text
-              style={[
-                styles.scoreText,
-                game.winner_team_id === game.team2_id && styles.winningScore,
-              ]}
-            >
-              {game.team2_score ?? '-'}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Date & Time Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Date & Time</Text>
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoIcon}>📅</Text>
-            <View>
-              <Text style={styles.infoLabel}>Date</Text>
-              <Text style={styles.infoValue}>{formatDate(game.scheduled_at)}</Text>
-            </View>
-          </View>
-          <View style={styles.separator} />
-          <View style={styles.infoRow}>
-            <Text style={styles.infoIcon}>🕐</Text>
-            <View>
-              <Text style={styles.infoLabel}>Time</Text>
-              <Text style={styles.infoValue}>{formatTime(game.scheduled_at)}</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Location Section */}
-      {game.facility && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location</Text>
-          <TouchableOpacity
-            style={styles.infoCard}
-            onPress={() => game.facility && handleFacilityPress(game.facility_id!)}
+    <View style={styles.root}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + 140 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            hitSlop={8}
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
           >
-            <View style={styles.locationContent}>
-              <Text style={styles.locationIcon}>🏟️</Text>
-              <View style={styles.locationInfo}>
-                <Text style={styles.locationName}>{game.facility.name}</Text>
-                <Text style={styles.locationAddress}>
-                  {game.facility.city}, {game.facility.state}
-                </Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </View>
-          </TouchableOpacity>
+            <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Share game"
+            hitSlop={8}
+            onPress={() => {
+              Haptics.selectionAsync();
+              toast.show({ variant: 'info', title: 'Share link copied' });
+            }}
+            style={styles.shareBtn}
+          >
+            <Share2 size={20} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
         </View>
-      )}
 
-      {/* League Info */}
-      {game.league && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>League</Text>
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoIcon}>🏆</Text>
-              <View>
-                <Text style={styles.infoValue}>{game.league.name}</Text>
-                <Text style={styles.infoLabel}>{game.league.sport_type}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Join Game Button (open play) */}
-      {(game.is_open_play ||
-        (game.game_type === 'friendly' && !game.team1_id && !game.team2_id)) &&
-        game.status === 'scheduled' && (
-          <View style={styles.section}>
-            {game.max_players != null && (
-              <Text style={styles.playerCountText}>
-                {game.current_players ?? 0} / {Number(game.max_players)} players
-              </Text>
+        <View style={styles.heroBlock}>
+          <View style={styles.heroTop}>
+            {game.isLive ? (
+              <Tag tone="live" leadingDot label="Live now" />
+            ) : (
+              <Tag tone="brand" label={game.status} />
             )}
-            <TouchableOpacity
-              style={[styles.joinGameButton, isJoining && styles.joinGameButtonDisabled]}
-              onPress={handleJoinGame}
-              disabled={
-                isJoining ||
-                (game.max_players != null &&
-                  (game.current_players ?? 0) >= Number(game.max_players))
-              }
-            >
-              {isJoining ? (
-                <ActivityIndicator size="small" color={COLORS.textLight} />
-              ) : (
-                <>
-                  <Text style={styles.joinGameButtonIcon}>🏀</Text>
-                  <Text style={styles.joinGameButtonText}>
-                    {game.max_players != null &&
-                    (game.current_players ?? 0) >= Number(game.max_players)
-                      ? 'Game Full'
-                      : 'Join Game'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {game.distance} away
+            </Text>
           </View>
-        )}
-
-      {/* Chat Button */}
-      <View style={styles.section}>
-        <TouchableOpacity style={styles.chatButton} onPress={handleOpenChat}>
-          <Text style={styles.chatButtonIcon}>💬</Text>
-          <Text style={styles.chatButtonText}>Open Game Chat</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Request Sub Button */}
-      {game.status === 'scheduled' && (
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.subButton}
-            onPress={() => setIsSubModalVisible(true)}
-          >
-            <Text style={styles.subButtonIcon}>🔄</Text>
-            <Text style={styles.subButtonText}>Request Sub</Text>
-          </TouchableOpacity>
+          <View style={styles.heroRow}>
+            <IconBadge size={64} tone="brand">
+              <Icon size={28} color={colors.brand.deep} strokeWidth={2.25} />
+            </IconBadge>
+            <View style={styles.heroText}>
+              <Text variant="h1" color={colors.text.primary}>
+                {game.title}
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {SKILL_LABELS[game.skillLevel]} · {Math.round(game.durationMinutes / 60 * 10) / 10}h
+              </Text>
+            </View>
+            <Text variant="h2" color={colors.brand.primary} align="right">
+              {game.priceCents === 0 ? 'Free' : formatCurrency(game.priceCents)}
+            </Text>
+          </View>
         </View>
-      )}
 
-      <View style={styles.bottomPadding} />
+        <Card style={styles.detailsCard}>
+          <View style={styles.detailRow}>
+            <Clock size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <View style={styles.detailBody}>
+              <Text variant="button" color={colors.text.primary}>
+                {game.time}
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {new Date(game.startsAt).toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.detailDivider} />
+          <View style={styles.detailRow}>
+            <MapPin size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <View style={styles.detailBody}>
+              <Text variant="button" color={colors.text.primary}>
+                {game.location}
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {venue ? `${venue.city} · ${venue.distanceMiles} mi away` : game.distance}
+              </Text>
+            </View>
+            {venue ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${venue.name}`}
+                hitSlop={8}
+                onPress={() =>
+                  navigation.navigate('FacilityDetails', { id: venue.id })
+                }
+              >
+                <Text variant="button" color={colors.brand.primary}>
+                  Venue
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <View style={styles.detailDivider} />
+          <View style={styles.detailRow}>
+            <Users size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <View style={styles.detailBody}>
+              <Text variant="button" color={colors.text.primary}>
+                {game.attendeeTotal}/{game.spotsTotal} going
+              </Text>
+              <Text variant="bodySm" color={spotsTone === 'warning' ? colors.status.live : colors.text.secondary}>
+                {game.spotsLeft} spot{game.spotsLeft === 1 ? '' : 's'} left
+              </Text>
+            </View>
+            <AvatarStack uris={game.attendees} totalCount={game.attendeeTotal} size={28} />
+          </View>
+        </Card>
+
+        <View style={styles.section}>
+          <Text variant="h2" color={colors.text.primary}>
+            Hosted by
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`View ${host.name}'s profile`}
+            style={styles.hostRow}
+            onPress={() => toast.show({ variant: 'info', title: `${host.name}'s profile` })}
+          >
+            <Avatar uri={host.avatar} initials={host.name.charAt(0)} size={56} />
+            <View style={styles.hostBody}>
+              <Text variant="h3" color={colors.text.primary}>
+                {host.name}
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {host.hosted} games hosted · ★ {host.rating.toFixed(1)}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <Text variant="h2" color={colors.text.primary}>
+            About this game
+          </Text>
+          <Text variant="body" color={colors.text.primary}>
+            {game.description}
+          </Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text variant="h2" color={colors.text.primary}>
+            House rules
+          </Text>
+          <View style={styles.rulesList}>
+            {COMMON_GAME_RULES.map((rule) => (
+              <Card key={rule.id} style={styles.ruleCard}>
+                <View style={styles.ruleHead}>
+                  <Shield size={18} color={colors.brand.primary} strokeWidth={2.25} />
+                  <Text variant="button" color={colors.text.primary}>
+                    {rule.label}
+                  </Text>
+                </View>
+                <Text variant="bodySm" color={colors.text.secondary}>
+                  {rule.detail}
+                </Text>
+              </Card>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        {joined ? (
+          <View style={styles.joinedRow}>
+            <Tag tone="success" leadingDot label="You're in" />
+            <Button
+              label="View in Schedule"
+              variant="ghost"
+              size="md"
+              leadingIcon={
+                <CalendarPlus
+                  size={16}
+                  color={colors.brand.primary}
+                  strokeWidth={2.5}
+                />
+              }
+              onPress={() => navigation.navigate('Schedule' as never)}
+            />
+          </View>
+        ) : (
+          <Button
+            label={
+              game.priceCents === 0
+                ? `Join ${game.title}`
+                : `Join · ${formatCurrency(game.priceCents)}`
+            }
+            variant="gradient"
+            size="lg"
+            fullWidth
+            onPress={() => setConfirmJoin(true)}
+          />
+        )}
+      </View>
 
       <Modal
-        visible={isSubModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsSubModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Request a Sub</Text>
-            <Text style={styles.modalSubtitle}>
-              Find a substitute player for this game
-            </Text>
-
-            <Text style={styles.modalLabel}>Position (optional)</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. Point Guard, Midfielder"
-              placeholderTextColor={COLORS.textSecondary}
-              value={subPosition}
-              onChangeText={setSubPosition}
-            />
-
-            <Text style={styles.modalLabel}>Message (optional)</Text>
-            <TextInput
-              style={[styles.modalInput, styles.modalTextArea]}
-              placeholder="Any additional details..."
-              placeholderTextColor={COLORS.textSecondary}
-              value={subMessage}
-              onChangeText={setSubMessage}
-              multiline
-              numberOfLines={3}
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setIsSubModalVisible(false)}
-                disabled={isSubmittingSub}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalSubmitButton, isSubmittingSub && styles.modalSubmitDisabled]}
-                onPress={handleRequestSub}
-                disabled={isSubmittingSub}
-              >
-                {isSubmittingSub ? (
-                  <ActivityIndicator size="small" color={COLORS.surface} />
-                ) : (
-                  <Text style={styles.modalSubmitText}>Submit</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        visible={confirmJoin}
+        onRequestClose={() => setConfirmJoin(false)}
+        variant="info"
+        title={`Confirm spot at ${game.title}`}
+        description={
+          game.priceCents === 0
+            ? `${game.time} at ${game.location}. You can cancel up to 2 hours before kickoff.`
+            : `${formatCurrency(game.priceCents)} will be charged when you confirm. Refundable up to 24 hours before.`
+        }
+        primaryAction={{ label: 'Confirm', onPress: handleJoin }}
+        secondaryAction={{
+          label: 'Not now',
+          onPress: () => setConfirmJoin(false),
+        }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface.bg,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
+  content: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xl,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    padding: SPACING.lg,
-  },
-  errorEmoji: {
-    fontSize: 64,
-    marginBottom: SPACING.md,
-  },
-  errorText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.lg,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  statusContainer: {
+  topBar: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: SPACING.sm,
-    paddingTop: SPACING.md,
-    paddingHorizontal: SPACING.md,
   },
-  statusBadge: {
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.soft,
+  },
+  shareBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.soft,
+  },
+  heroBlock: {
+    gap: spacing.lg,
+  },
+  heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: 20,
-    gap: SPACING.xs,
+    justifyContent: 'space-between',
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-  },
-  gameTypeBadge: {
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: 20,
-  },
-  gameTypeText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    textTransform: 'capitalize',
-  },
-  matchupCard: {
-    backgroundColor: COLORS.surface,
-    margin: SPACING.md,
-    borderRadius: 16,
-    padding: SPACING.lg,
+  heroRow: {
     flexDirection: 'row',
+    gap: spacing.lg,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  teamSection: {
+  heroText: {
     flex: 1,
-    alignItems: 'center',
+    gap: spacing.xs,
   },
-  teamAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
+  detailsCard: {
+    gap: spacing.md,
+    padding: spacing.lg,
   },
-  teamAvatarText: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  teamName: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-    textAlign: 'center',
-    marginBottom: SPACING.xs,
-  },
-  scoreText: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: 'bold',
-    color: COLORS.textSecondary,
-  },
-  winningScore: {
-    color: COLORS.success,
-  },
-  vsContainer: {
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-  },
-  vsText: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  liveIndicator: {
+  detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: SPACING.xs,
-    gap: 4,
+    gap: spacing.md,
   },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.error,
+  detailBody: {
+    flex: 1,
+    gap: 2,
   },
-  liveText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '700',
-    color: COLORS.error,
+  detailDivider: {
+    height: 1,
+    backgroundColor: colors.border.soft,
   },
   section: {
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
+    gap: spacing.md,
   },
-  sectionTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-  },
-  infoCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  infoRow: {
+  hostRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
+    gap: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.surface.card,
+    borderRadius: radii.lg,
+    ...shadows.soft,
   },
-  infoIcon: {
-    fontSize: 24,
-  },
-  infoLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-  },
-  infoValue: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    fontWeight: '500',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: COLORS.background,
-    marginVertical: SPACING.sm,
-  },
-  locationContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationIcon: {
-    fontSize: 32,
-    marginRight: SPACING.md,
-  },
-  locationInfo: {
+  hostBody: {
     flex: 1,
+    gap: 2,
   },
-  locationName: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
+  rulesList: {
+    gap: spacing.md,
   },
-  locationAddress: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
+  ruleCard: {
+    gap: spacing.sm,
+    padding: spacing.lg,
   },
-  chevron: {
-    fontSize: 24,
-    color: COLORS.textSecondary,
-  },
-  chatButton: {
-    backgroundColor: COLORS.primary,
+  ruleHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING.md,
-    borderRadius: 12,
-    gap: SPACING.sm,
+    gap: spacing.sm,
   },
-  chatButtonIcon: {
-    fontSize: 20,
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: spacing.lg,
+    backgroundColor: colors.surface.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
-  chatButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  joinGameButton: {
-    backgroundColor: COLORS.success,
+  joinedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING.md,
-    borderRadius: 12,
-    gap: SPACING.sm,
-  },
-  joinGameButtonDisabled: {
-    opacity: 0.6,
-  },
-  joinGameButtonIcon: {
-    fontSize: 20,
-  },
-  joinGameButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-  },
-  playerCountText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  subButton: {
-    backgroundColor: COLORS.secondary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING.md,
-    borderRadius: 12,
-    gap: SPACING.sm,
-  },
-  subButtonIcon: {
-    fontSize: 20,
-  },
-  subButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: SPACING.lg,
-    paddingBottom: SPACING.xxl,
-  },
-  modalTitle: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  modalSubtitle: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.lg,
-  },
-  modalLabel: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  modalInput: {
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: SPACING.md,
-  },
-  modalTextArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginTop: SPACING.sm,
-  },
-  modalCancelButton: {
-    flex: 1,
-    paddingVertical: SPACING.sm,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  modalCancelText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  modalSubmitButton: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.sm,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalSubmitDisabled: {
-    opacity: 0.6,
-  },
-  modalSubmitText: {
-    color: COLORS.surface,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  bottomPadding: {
-    height: SPACING.xl,
+    justifyContent: 'space-between',
   },
 });
