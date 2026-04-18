@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
+  CalendarPlus,
   Clock,
   MapPin,
   Plus,
@@ -15,15 +16,20 @@ import {
   AvatarStack,
   Button,
   Card,
+  EmptyState,
   IconBadge,
   ScreenHeader,
+  Tag,
   Text,
 } from '../../ui';
 import {
-  TODAYS_DROP_IN,
-  TODAYS_LIVE_MATCH,
   WEEK_DAYS,
+  eventsForDay,
   type DayCell,
+  type DropInSession,
+  type PracticeSession,
+  type ScheduleEvent,
+  type ScheduleMatch,
 } from '../../mocks/schedule';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
@@ -38,27 +44,33 @@ function DayPill({
   selected: boolean;
   onPress: () => void;
 }) {
+  const eyebrowColor = selected
+    ? colors.text.inverse
+    : day.isPast
+    ? colors.text.muted
+    : colors.text.secondary;
+  const dayColor = selected
+    ? colors.text.inverse
+    : day.isPast
+    ? colors.text.muted
+    : colors.text.primary;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={`${day.weekday} ${day.day}${day.isToday ? ', today' : ''}`}
+      accessibilityState={{ selected }}
       style={[
         dayStyles.pill,
         selected ? dayStyles.pillSelected : dayStyles.pillIdle,
         selected ? shadows.soft : null,
+        day.isPast && !selected ? dayStyles.pillPast : null,
       ]}
     >
-      <Text
-        variant="eyebrow"
-        color={selected ? colors.text.inverse : colors.text.muted}
-      >
+      <Text variant="eyebrow" color={eyebrowColor}>
         {day.weekday}
       </Text>
-      <Text
-        variant="h2"
-        color={selected ? colors.text.inverse : colors.text.primary}
-        align="center"
-      >
+      <Text variant="h2" color={dayColor} align="center">
         {day.day}
       </Text>
     </Pressable>
@@ -75,55 +87,58 @@ function TeamCrest({ abbreviation }: { abbreviation: string }) {
   );
 }
 
-function LiveMatchCard({
+function MatchEventCard({
+  event,
   onPress,
 }: {
+  event: ScheduleMatch;
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress}>
-      <Card glow style={styles.matchCard}>
+    <Pressable onPress={onPress} accessibilityRole="button">
+      <Card glow={event.isLive} style={styles.matchCard}>
         <View style={styles.matchHeaderRow}>
-          <Text variant="eyebrow" color={colors.status.live}>
-            ● Live Now
-          </Text>
+          {event.isLive ? (
+            <Tag tone="live" leadingDot label="Live now" size="sm" />
+          ) : (
+            <Text variant="eyebrow" color={colors.brand.primary}>
+              {event.league}
+            </Text>
+          )}
           <Text variant="bodySm" color={colors.text.secondary}>
-            {TODAYS_LIVE_MATCH.time}
+            {event.time}
           </Text>
         </View>
         <View style={styles.metaRow}>
           <MapPin size={14} color={colors.text.secondary} strokeWidth={2.25} />
           <Text variant="bodySm" color={colors.text.secondary}>
-            {TODAYS_LIVE_MATCH.location}
+            {event.location}
           </Text>
         </View>
-        <Text variant="eyebrow" color={colors.brand.primary}>
-          {TODAYS_LIVE_MATCH.league}
-        </Text>
         <View style={styles.matchupRow}>
           <View style={styles.teamColumn}>
-            <TeamCrest abbreviation={TODAYS_LIVE_MATCH.homeTeam.abbreviation} />
+            <TeamCrest abbreviation={event.homeTeam.abbreviation} />
             <Text
               variant="button"
               color={colors.text.primary}
               align="center"
               numberOfLines={2}
             >
-              {TODAYS_LIVE_MATCH.homeTeam.name}
+              {event.homeTeam.name}
             </Text>
           </View>
-          <Text variant="h1" color={colors.text.muted}>
+          <Text variant="h1" color={colors.text.secondary}>
             VS
           </Text>
           <View style={styles.teamColumn}>
-            <TeamCrest abbreviation={TODAYS_LIVE_MATCH.awayTeam.abbreviation} />
+            <TeamCrest abbreviation={event.awayTeam.abbreviation} />
             <Text
               variant="button"
               color={colors.text.primary}
               align="center"
               numberOfLines={2}
             >
-              {TODAYS_LIVE_MATCH.awayTeam.name}
+              {event.awayTeam.name}
             </Text>
           </View>
         </View>
@@ -132,24 +147,30 @@ function LiveMatchCard({
   );
 }
 
-function DropInCard({ onPress }: { onPress: () => void }) {
-  const Icon = TODAYS_DROP_IN.Icon;
+function DropInEventCard({
+  event,
+  onPress,
+}: {
+  event: DropInSession;
+  onPress: () => void;
+}) {
+  const Icon = event.Icon;
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} accessibilityRole="button">
       <Card style={styles.dropInCard}>
         <View style={styles.matchHeaderRow}>
           <View style={styles.metaRow}>
             <Clock size={14} color={colors.text.secondary} strokeWidth={2.25} />
             <Text variant="button" color={colors.text.primary}>
-              {TODAYS_DROP_IN.time}
+              {event.time}
             </Text>
           </View>
           <Text variant="bodySm" color={colors.text.secondary}>
-            {TODAYS_DROP_IN.location}
+            {event.location}
           </Text>
         </View>
         <Text variant="eyebrow" color={colors.brand.primary}>
-          OPEN GYM • COED HOOPS
+          DROP-IN
         </Text>
         <View style={styles.dropInRow}>
           <View style={styles.dropInLeft}>
@@ -157,12 +178,12 @@ function DropInCard({ onPress }: { onPress: () => void }) {
               <Icon size={22} color={colors.brand.primary} strokeWidth={2.25} />
             </IconBadge>
             <Text variant="h3" color={colors.text.primary}>
-              {TODAYS_DROP_IN.label}
+              {event.label}
             </Text>
           </View>
           <AvatarStack
-            uris={TODAYS_DROP_IN.attendees}
-            totalCount={TODAYS_DROP_IN.attendeeTotal}
+            uris={event.attendees}
+            totalCount={event.attendeeTotal}
             size={32}
           />
         </View>
@@ -171,9 +192,46 @@ function DropInCard({ onPress }: { onPress: () => void }) {
   );
 }
 
+function PracticeEventCard({ event }: { event: PracticeSession }) {
+  const Icon = event.Icon;
+  return (
+    <Card style={styles.dropInCard}>
+      <View style={styles.matchHeaderRow}>
+        <View style={styles.metaRow}>
+          <Clock size={14} color={colors.text.secondary} strokeWidth={2.25} />
+          <Text variant="button" color={colors.text.primary}>
+            {event.time}
+          </Text>
+        </View>
+        <Text variant="bodySm" color={colors.text.secondary}>
+          {event.location}
+        </Text>
+      </View>
+      <Text variant="eyebrow" color={colors.brand.primary}>
+        PRACTICE · {event.team.toUpperCase()}
+      </Text>
+      <View style={styles.dropInRow}>
+        <View style={styles.dropInLeft}>
+          <IconBadge size={48}>
+            <Icon size={22} color={colors.brand.primary} strokeWidth={2.25} />
+          </IconBadge>
+          <Text variant="h3" color={colors.text.primary}>
+            {event.label}
+          </Text>
+        </View>
+        <AvatarStack
+          uris={event.attendees}
+          totalCount={event.attendeeTotal}
+          size={32}
+        />
+      </View>
+    </Card>
+  );
+}
+
 function NeedMatchCta({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} accessibilityRole="button">
       <LinearGradient
         colors={[...colors.gradient.cta]}
         start={{ x: 0, y: 0 }}
@@ -210,11 +268,23 @@ export function ScheduleScreen() {
   const navigation = useNavigation<Navigation>();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const [selectedDayId, setSelectedDayId] = useState<string>(
-    WEEK_DAYS.find((d) => d.isToday)?.id ?? WEEK_DAYS[0]!.id,
-  );
+  const todayId = WEEK_DAYS.find((d) => d.isToday)?.id ?? WEEK_DAYS[0]!.id;
+  const [selectedDayId, setSelectedDayId] = useState<string>(todayId);
 
   const initials = (user?.name?.charAt(0) ?? 'S').toUpperCase();
+  const events = useMemo(() => eventsForDay(selectedDayId), [selectedDayId]);
+  const selectedDay = WEEK_DAYS.find((d) => d.id === selectedDayId);
+  const sectionTitle =
+    selectedDayId === todayId
+      ? "Today's Lineup"
+      : `${selectedDay?.weekday ?? ''} ${selectedDay?.day ?? ''} Lineup`;
+
+  const handleEventPress = (event: ScheduleEvent) => {
+    if (event.kind === 'practice') return;
+    if (event.gameId) {
+      navigation.navigate('GameDetails', { id: event.gameId });
+    }
+  };
 
   return (
     <View style={styles.root}>
@@ -222,6 +292,7 @@ export function ScheduleScreen() {
         initials={initials}
         hasNotifications
         onAvatarPress={() => navigation.navigate('Profile' as never)}
+        onBellPress={() => navigation.navigate('Notifications')}
       />
       <ScrollView
         style={styles.scroll}
@@ -232,15 +303,15 @@ export function ScheduleScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.hero}>
-          <Text variant="display" color={colors.brand.primary}>
+          <Text variant="displaySm" color={colors.brand.primary}>
             Schedule
           </Text>
           <Text
-            variant="bodyLg"
+            variant="body"
             color={colors.text.secondary}
             style={styles.heroSubtitle}
           >
-            Your upcoming matches and scrimmages.
+            Your upcoming matches, practices, and drop-ins.
           </Text>
         </View>
 
@@ -261,22 +332,55 @@ export function ScheduleScreen() {
 
         <View style={styles.section}>
           <Text variant="h1" color={colors.text.primary}>
-            Today's Lineup
+            {sectionTitle}
           </Text>
           <View style={styles.cardsColumn}>
-            <LiveMatchCard
-              onPress={() =>
-                navigation.navigate('GameDetails', { id: TODAYS_LIVE_MATCH.id })
-              }
-            />
-            <DropInCard
-              onPress={() =>
-                navigation.navigate('GameDetails', { id: TODAYS_DROP_IN.id })
-              }
-            />
-            <NeedMatchCta
-              onPress={() => navigation.navigate('CreateGame')}
-            />
+            {events.length === 0 ? (
+              <EmptyState
+                icon={
+                  <CalendarPlus
+                    size={28}
+                    color={colors.brand.primary}
+                    strokeWidth={2.25}
+                  />
+                }
+                title="Nothing on this day"
+                description="Find a pickup game, host one of your own, or book a facility."
+                primaryAction={{
+                  label: 'Find a game',
+                  onPress: () => navigation.navigate('Discover' as never),
+                }}
+                secondaryAction={{
+                  label: 'Host one',
+                  onPress: () => navigation.navigate('CreateGame'),
+                }}
+              />
+            ) : (
+              <>
+                {events.map((event) => {
+                  if (event.kind === 'match') {
+                    return (
+                      <MatchEventCard
+                        key={event.id}
+                        event={event}
+                        onPress={() => handleEventPress(event)}
+                      />
+                    );
+                  }
+                  if (event.kind === 'dropIn') {
+                    return (
+                      <DropInEventCard
+                        key={event.id}
+                        event={event}
+                        onPress={() => handleEventPress(event)}
+                      />
+                    );
+                  }
+                  return <PracticeEventCard key={event.id} event={event} />;
+                })}
+                <NeedMatchCta onPress={() => navigation.navigate('CreateGame')} />
+              </>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -357,10 +461,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    flex: 1,
   },
   cta: {
     borderRadius: radii.cardLg,
-    padding: spacing.xl,
+    padding: spacing.xxl,
     gap: spacing.md,
     overflow: 'hidden',
   },
@@ -386,6 +491,9 @@ const dayStyles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: colors.border.soft,
+  },
+  pillPast: {
+    opacity: 0.55,
   },
   pillSelected: {
     backgroundColor: colors.brand.primary,
