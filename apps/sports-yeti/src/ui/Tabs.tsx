@@ -37,78 +37,67 @@ export function Tabs({
   scrollable = false,
   style,
 }: TabsProps) {
-  const Container: React.ComponentType<{
-    contentContainerStyle?: StyleProp<ViewStyle>;
-    style?: StyleProp<ViewStyle>;
-    horizontal?: boolean;
-    showsHorizontalScrollIndicator?: boolean;
-    children?: React.ReactNode;
-  }> = scrollable ? ScrollView : View;
-
-  const containerProps = scrollable
-    ? {
-        horizontal: true,
-        showsHorizontalScrollIndicator: false,
-        contentContainerStyle: variantStyles[variant].containerScroll,
-      }
-    : { style: variantStyles[variant].container };
+  const tabs = items.map((item) => {
+    const selected = item.key === value;
+    return (
+      <Pressable
+        key={item.key}
+        onPress={() => !item.disabled && onChange(item.key)}
+        disabled={item.disabled}
+        accessibilityRole="tab"
+        accessibilityState={{ selected, disabled: item.disabled }}
+        accessibilityLabel={item.label}
+        style={({ pressed }) => [
+          variantStyles[variant].tab,
+          selected ? variantStyles[variant].tabSelected : null,
+          pressed ? styles.pressed : null,
+          item.disabled ? styles.disabled : null,
+        ]}
+      >
+        {item.icon ? <View style={styles.icon}>{item.icon}</View> : null}
+        <Text
+          variant="button"
+          color={
+            selected
+              ? variant === 'segmented'
+                ? colors.brand.deep
+                : colors.brand.primary
+              : colors.text.secondary
+          }
+        >
+          {item.label}
+        </Text>
+        {item.badge ? (
+          <View style={styles.badge}>
+            <Text
+              variant="caption"
+              color={colors.text.inverse}
+              style={styles.badgeText}
+            >
+              {item.badge}
+            </Text>
+          </View>
+        ) : null}
+      </Pressable>
+    );
+  });
 
   return (
     <View
       accessibilityRole="tablist"
-      style={[
-        variant === 'segmented' ? styles.segmentedWrap : null,
-        style,
-      ]}
+      style={[variant === 'segmented' ? styles.segmentedWrap : null, style]}
     >
-      <Container {...containerProps}>
-        {items.map((item) => {
-          const selected = item.key === value;
-          return (
-            <Pressable
-              key={item.key}
-              onPress={() => !item.disabled && onChange(item.key)}
-              disabled={item.disabled}
-              accessibilityRole="tab"
-              accessibilityState={{ selected, disabled: item.disabled }}
-              accessibilityLabel={item.label}
-              style={({ pressed }) => [
-                variantStyles[variant].tab,
-                selected ? variantStyles[variant].tabSelected : null,
-                pressed ? styles.pressed : null,
-                item.disabled ? styles.disabled : null,
-              ]}
-            >
-              {item.icon ? (
-                <View style={styles.icon}>{item.icon}</View>
-              ) : null}
-              <Text
-                variant="button"
-                color={
-                  selected
-                    ? variant === 'segmented'
-                      ? colors.brand.deep
-                      : colors.brand.primary
-                    : colors.text.secondary
-                }
-              >
-                {item.label}
-              </Text>
-              {item.badge ? (
-                <View style={styles.badge}>
-                  <Text
-                    variant="caption"
-                    color={colors.text.inverse}
-                    style={styles.badgeText}
-                  >
-                    {item.badge}
-                  </Text>
-                </View>
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </Container>
+      {scrollable ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={variantStyles[variant].containerScroll}
+        >
+          {tabs}
+        </ScrollView>
+      ) : (
+        <View style={variantStyles[variant].container}>{tabs}</View>
+      )}
     </View>
   );
 }

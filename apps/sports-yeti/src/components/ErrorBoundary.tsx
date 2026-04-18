@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ interface ErrorBoundaryState {
 
 /**
  * Error boundary component that catches React errors and reports them to Sentry.
- * Provides a user-friendly error screen with options to retry or report the issue.
+ * Provides a user-friendly error screen with a retry path.
  */
 export class ErrorBoundary extends Component<
   ErrorBoundaryProps,
@@ -42,8 +42,7 @@ export class ErrorBoundary extends Component<
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    // Log the error to Sentry
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     const eventId = Sentry.captureException(error, {
       extra: {
         componentStack: errorInfo.componentStack,
@@ -58,7 +57,6 @@ export class ErrorBoundary extends Component<
       eventId,
     });
 
-    // Also log to console in development
     if (__DEV__) {
       console.error('Error caught by ErrorBoundary:', error);
       console.error('Component stack:', errorInfo.componentStack);
@@ -74,13 +72,7 @@ export class ErrorBoundary extends Component<
     });
   };
 
-  handleReportFeedback = (): void => {
-    if (this.state.eventId) {
-      Sentry.showReportDialog({ eventId: this.state.eventId });
-    }
-  };
-
-  render(): ReactNode {
+  override render(): ReactNode {
     if (this.state.hasError) {
       // Custom fallback UI if provided
       if (this.props.fallback) {
@@ -115,20 +107,11 @@ export class ErrorBoundary extends Component<
               <TouchableOpacity
                 style={styles.primaryButton}
                 onPress={this.handleReload}
+                accessibilityRole="button"
+                accessibilityLabel="Try again"
               >
                 <Text style={styles.primaryButtonText}>Try Again</Text>
               </TouchableOpacity>
-
-              {this.state.eventId && (
-                <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={this.handleReportFeedback}
-                >
-                  <Text style={styles.secondaryButtonText}>
-                    Report Feedback
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
 
             {this.state.eventId && (
