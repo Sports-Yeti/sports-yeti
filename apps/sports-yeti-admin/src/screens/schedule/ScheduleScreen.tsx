@@ -188,7 +188,7 @@ export function ScheduleScreen() {
       />
 
       <View style={styles.toolbar}>
-        <Tabs items={TABS} value={view} onChange={setView} variant="segmented" />
+        <Tabs items={TABS} value={view} onChange={setView} variant="pillDark" />
         <View style={styles.toolbarRight}>
           <Pressable
             onPress={() => {

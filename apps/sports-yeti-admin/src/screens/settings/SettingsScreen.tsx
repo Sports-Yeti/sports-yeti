@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { type WebPressableState } from '../../lib/pressable';
 import {
@@ -10,8 +10,14 @@ import {
   Users,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
-import { PageHeader, PageScroll, type AdminRouteName } from '../../admin';
-import { Avatar, Button, Card, IconBadge, Input, Modal, Tag, Text, useToast } from '../../ui';
+import {
+  PageHeader,
+  PageScroll,
+  SectionHeader,
+  StickyActionBar,
+  type AdminRouteName,
+} from '../../admin';
+import { Avatar, Button, Card, Input, Modal, Tag, Text, useToast } from '../../ui';
 import { colors, radii, spacing } from '../../theme';
 import { useAuthStore } from '../../stores';
 import { ADMIN_TEAMMATES, CURRENT_ORG } from '../../mocks/org';
@@ -42,11 +48,40 @@ export function SettingsScreen() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmName, setConfirmName] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Watch every editable surface so the StickyActionBar can render
+  // only when the page actually has unsaved changes.
+  const dirty = useMemo(
+    () =>
+      orgName !== CURRENT_ORG.name ||
+      orgCity !== CURRENT_ORG.city ||
+      !requireMFA ||
+      !allowMarketplace ||
+      !allowSSO,
+    [orgName, orgCity, requireMFA, allowMarketplace, allowSSO],
+  );
+
+  const discardChanges = () => {
+    setOrgName(CURRENT_ORG.name);
+    setOrgCity(CURRENT_ORG.city);
+    setRequireMFA(true);
+    setAllowMarketplace(true);
+    setAllowSSO(true);
+  };
+
+  const saveChanges = () => {
+    setSaving(true);
+    setTimeout(() => {
+      setSaving(false);
+      toast.show({ variant: 'success', title: 'Settings saved' });
+    }, 600);
+  };
 
   return (
     <PageScroll>
       <PageHeader
-        variant="hero"
+        variant="flatHero"
         eyebrow="WORKSPACE"
         title="League Settings"
         subtitle="Manage your organization, teammates, billing, and security."
@@ -88,45 +123,51 @@ export function SettingsScreen() {
 
         <View style={styles.body}>
           {section === 'org' ? (
-            <Card>
-              <Text variant="h3" color={colors.text.primary}>
-                Organization
-              </Text>
+            <Card style={styles.sectionCard}>
+              <SectionHeader
+                icon={
+                  <Building2
+                    size={20}
+                    color={colors.brand.deep}
+                    strokeWidth={2.25}
+                  />
+                }
+                title="General Configuration"
+                description="Display name, location, and core operating defaults."
+              />
               <Input label="Display name" value={orgName} onChangeText={setOrgName} />
               <Input label="City" value={orgCity} onChangeText={setOrgCity} />
               <Input label="Time zone" value={CURRENT_ORG.timezone} disabled />
               <Input label="Currency" value={CURRENT_ORG.currency} disabled />
-              <View style={styles.actionsRow}>
-                <Button
-                  label="Save changes"
-                  variant="solid"
-                  size="md"
-                  onPress={() =>
-                    toast.show({ variant: 'success', title: 'Organization updated' })
-                  }
-                />
-              </View>
             </Card>
           ) : null}
 
           {section === 'team' ? (
-            <Card>
-              <View style={styles.cardHead}>
-                <Text variant="h3" color={colors.text.primary}>
-                  Team
-                </Text>
-                <Button
-                  label="Invite teammate"
-                  variant="solid"
-                  size="sm"
-                  onPress={() =>
-                    navigation.navigate('InvitePeople', { id: 'admin' })
-                  }
-                />
-              </View>
+            <Card style={styles.sectionCard}>
+              <SectionHeader
+                icon={
+                  <Users
+                    size={20}
+                    color={colors.brand.deep}
+                    strokeWidth={2.25}
+                  />
+                }
+                title="Team & roles"
+                description="Owners, admins, and viewers in your workspace."
+                trailing={
+                  <Button
+                    label="Invite teammate"
+                    variant="solid"
+                    size="sm"
+                    onPress={() =>
+                      navigation.navigate('InvitePeople', { id: 'admin' })
+                    }
+                  />
+                }
+              />
               {ADMIN_TEAMMATES.map((u) => (
                 <View key={u.id} style={styles.teamRow}>
-                  <Avatar uri={u.avatar} initials={u.initials} size={32} />
+                  <Avatar uri={u.avatar} initials={u.initials} size={36} />
                   <View style={styles.teamBody}>
                     <Text variant="bodySm" color={colors.text.primary} weight="600">
                       {u.name}
@@ -142,10 +183,18 @@ export function SettingsScreen() {
           ) : null}
 
           {section === 'billing' ? (
-            <Card>
-              <Text variant="h3" color={colors.text.primary}>
-                Plan & billing
-              </Text>
+            <Card style={styles.sectionCard}>
+              <SectionHeader
+                icon={
+                  <CreditCard
+                    size={20}
+                    color={colors.brand.deep}
+                    strokeWidth={2.25}
+                  />
+                }
+                title="Plan & billing"
+                description="Subscription, payout method, and tax settings."
+              />
               <View style={styles.planRow}>
                 <View>
                   <Text variant="bodySm" color={colors.text.primary} weight="600">
@@ -168,10 +217,18 @@ export function SettingsScreen() {
           ) : null}
 
           {section === 'security' ? (
-            <Card>
-              <Text variant="h3" color={colors.text.primary}>
-                Security & SSO
-              </Text>
+            <Card style={styles.sectionCard}>
+              <SectionHeader
+                icon={
+                  <ShieldCheck
+                    size={20}
+                    color={colors.brand.deep}
+                    strokeWidth={2.25}
+                  />
+                }
+                title="Security & SSO"
+                description="Authentication policies for admin access."
+              />
               <SettingToggle
                 title="Require 2FA for all admins"
                 description="Owners and admins must verify a TOTP code on every sign-in."
@@ -188,10 +245,14 @@ export function SettingsScreen() {
           ) : null}
 
           {section === 'integrations' ? (
-            <Card>
-              <Text variant="h3" color={colors.text.primary}>
-                Integrations
-              </Text>
+            <Card style={styles.sectionCard}>
+              <SectionHeader
+                icon={
+                  <Plug size={20} color={colors.brand.deep} strokeWidth={2.25} />
+                }
+                title="Integrations"
+                description="Connect Stripe, Slack, and the player-facing marketplace."
+              />
               <SettingToggle
                 title="Marketplace listings"
                 description="Allow players to post sub-for-hire and gear listings."
@@ -231,10 +292,15 @@ export function SettingsScreen() {
           ) : null}
 
           {section === 'privacy' ? (
-            <Card>
-              <Text variant="h3" color={colors.text.primary}>
-                Privacy & data
-              </Text>
+            <Card style={styles.sectionCard}>
+              <SectionHeader
+                icon={
+                  <Lock size={20} color={colors.brand.alpine} strokeWidth={2.25} />
+                }
+                title="Privacy & data"
+                description="Retention, GDPR / CCPA, and account deletion."
+                tone="alpine"
+              />
               <Text variant="bodySm" color={colors.text.secondary}>
                 Configure data retention, GDPR / CCPA exports, and deletion windows. Tools are
                 listed here so admins can find them; wiring lands with the next phase.
@@ -262,6 +328,17 @@ export function SettingsScreen() {
           ) : null}
         </View>
       </View>
+
+      <StickyActionBar
+        visible={dirty}
+        message="You have unsaved changes."
+        secondary={{ label: 'Discard changes', onPress: discardChanges }}
+        primary={{
+          label: 'Save configuration',
+          onPress: saveChanges,
+          loading: saving,
+        }}
+      />
 
       <Modal
         visible={confirmDelete}
@@ -365,6 +442,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 320,
     gap: spacing.md,
+  },
+  sectionCard: {
+    gap: spacing.lg,
   },
   cardHead: {
     flexDirection: 'row',
