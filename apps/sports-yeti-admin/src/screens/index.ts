@@ -11,6 +11,8 @@ export { TeamDetailScreen } from './teams/TeamDetailScreen';
 
 export { ScheduleScreen } from './schedule/ScheduleScreen';
 export { GameDetailScreen } from './schedule/GameDetailScreen';
+export { GameFormScreen } from './schedule/GameFormScreen';
+export { FixtureGeneratorScreen } from './schedule/FixtureGeneratorScreen';
 
 export { PlayerListScreen, RefereeListScreen } from './players/PlayerListScreen';
 

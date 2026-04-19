@@ -7,6 +7,7 @@ import {
   Trophy,
   Users,
   Wallet,
+  Wand2,
 } from 'lucide-react-native';
 import {
   PageHeader,
@@ -201,21 +202,35 @@ export function LeagueDetailScreen() {
       <Card>
         <View style={styles.cardHead}>
           <Text variant="h3" color={colors.text.primary}>
-            Schedule preview
+            Schedule
           </Text>
-          <Button
-            label="Open schedule"
-            variant="ghost"
-            size="sm"
-            leadingIcon={
-              <CalendarRange size={14} color={colors.brand.primary} strokeWidth={2.25} />
-            }
-            onPress={() => navigation.navigate('Schedule')}
-          />
+          <View style={styles.cardActions}>
+            <Button
+              label="Generate fixtures"
+              variant="solid"
+              size="sm"
+              leadingIcon={
+                <Wand2 size={14} color={colors.text.inverse} strokeWidth={2.25} />
+              }
+              onPress={() =>
+                navigation.navigate('FixtureGenerator', { id: league.id })
+              }
+            />
+            <Button
+              label="Open calendar"
+              variant="ghost"
+              size="sm"
+              leadingIcon={
+                <CalendarRange size={14} color={colors.brand.primary} strokeWidth={2.25} />
+              }
+              onPress={() => navigation.navigate('Schedule')}
+            />
+          </View>
         </View>
         <Text variant="bodySm" color={colors.text.muted}>
-          Generate fixtures from the Schedule page or edit individual matches there. Match scores
-          flow back into team standings automatically.
+          Generate an entire round-robin or playoff bracket in one pass, or
+          create matches one-off from the Schedule. Match scores flow back into
+          standings automatically.
         </Text>
       </Card>
     </PageScroll>
@@ -242,6 +257,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   metaGrid: {
     flexDirection: 'row',

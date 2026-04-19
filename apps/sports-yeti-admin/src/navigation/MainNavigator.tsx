@@ -16,7 +16,9 @@ import {
   FacilityFormScreen,
   FacilityListScreen,
   FinancialDashboardScreen,
+  FixtureGeneratorScreen,
   GameDetailScreen,
+  GameFormScreen,
   LeagueDetailScreen,
   LeagueFormScreen,
   LeagueListScreen,
@@ -46,6 +48,8 @@ export type MainStackParamList = {
   TeamDetail: { id: string };
   Schedule: undefined;
   GameDetail: { id: string };
+  GameForm: { id?: string } | undefined;
+  FixtureGenerator: { id?: string } | undefined;
   Players: undefined;
   Referees: undefined;
   Camps: undefined;
@@ -112,6 +116,8 @@ export function MainNavigator() {
         <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
         <Stack.Screen name="Schedule" component={ScheduleScreen} />
         <Stack.Screen name="GameDetail" component={GameDetailScreen} />
+        <Stack.Screen name="GameForm" component={GameFormScreen} />
+        <Stack.Screen name="FixtureGenerator" component={FixtureGeneratorScreen} />
         <Stack.Screen name="Players" component={PlayerListScreen} />
         <Stack.Screen name="Referees" component={RefereeListScreen} />
         <Stack.Screen name="Camps" component={CampListScreen} />

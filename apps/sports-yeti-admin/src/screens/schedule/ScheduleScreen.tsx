@@ -18,12 +18,12 @@ import {
 import { Button, Card, EmptyState, Modal, Tabs, Tag, Text, useToast } from '../../ui';
 import { colors, radii, spacing } from '../../theme';
 import {
-  GAMES,
   STATUS_LABEL,
   type Game,
   type GameStatus,
 } from '../../mocks/games';
 import { LEAGUES } from '../../mocks/leagues';
+import { useAllGames } from '../../stores';
 import { formatDate, formatTime } from '../../lib/format';
 import {
   moveDateInIso,
@@ -66,6 +66,7 @@ interface PendingMove {
 export function ScheduleScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
   const toast = useToast();
+  const allGames = useAllGames();
   const [view, setView] = useState('week');
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date('2026-04-19')));
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
@@ -82,14 +83,16 @@ export function ScheduleScreen() {
   }, [weekStart]);
 
   const visibleGames = useMemo<Game[]>(() => {
-    return GAMES.filter((g) =>
-      leagueFilter === 'all' ? true : g.leagueId === leagueFilter,
-    ).map((g) =>
-      overrides[g.id]
-        ? { ...g, startsAtIso: overrides[g.id]! }
-        : g,
-    );
-  }, [leagueFilter, overrides]);
+    return allGames
+      .filter((g) =>
+        leagueFilter === 'all' ? true : g.leagueId === leagueFilter,
+      )
+      .map((g) =>
+        overrides[g.id]
+          ? { ...g, startsAtIso: overrides[g.id]! }
+          : g,
+      );
+  }, [allGames, leagueFilter, overrides]);
 
   const gamesByDay = useMemo(() => {
     const map = new Map<string, Game[]>();
@@ -122,7 +125,7 @@ export function ScheduleScreen() {
         onPress: () =>
           setOverrides((prev) => {
             const next = { ...prev };
-            if (previousIso === GAMES.find((x) => x.id === game.id)?.startsAtIso) {
+            if (previousIso === allGames.find((x) => x.id === game.id)?.startsAtIso) {
               delete next[game.id];
             } else {
               next[game.id] = previousIso;
@@ -164,9 +167,7 @@ export function ScheduleScreen() {
               variant="ghost"
               size="sm"
               leadingIcon={<Wand2 size={14} color={colors.brand.primary} strokeWidth={2.25} />}
-              onPress={() =>
-                toast.show({ variant: 'info', title: 'Fixture generator coming soon' })
-              }
+              onPress={() => navigation.navigate('FixtureGenerator')}
             />
             <Button
               label="New game"
@@ -175,9 +176,7 @@ export function ScheduleScreen() {
               leadingIcon={
                 <CalendarPlus size={14} color={colors.text.inverse} strokeWidth={2.5} />
               }
-              onPress={() =>
-                toast.show({ variant: 'info', title: 'Game creator coming soon' })
-              }
+              onPress={() => navigation.navigate('GameForm')}
             />
           </>
         }

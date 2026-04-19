@@ -14,10 +14,11 @@ import {
 } from '../../admin';
 import { Button, Card, EmptyState, Modal, Tag, Text, useToast } from '../../ui';
 import { colors, spacing } from '../../theme';
-import { GAMES, STATUS_LABEL, type GameStatus } from '../../mocks/games';
+import { STATUS_LABEL, type GameStatus } from '../../mocks/games';
 import { facilityById } from '../../mocks/facilities';
 import { teamById } from '../../mocks/teams';
 import { peopleByKind } from '../../mocks/people';
+import { useGameById, useScheduleStore } from '../../stores';
 import { formatDate, formatTime } from '../../lib/format';
 
 interface ScreenNavigation {
@@ -36,7 +37,8 @@ export function GameDetailScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
   const route = useRoute<RouteProp<{ params: { id: string } }, 'params'>>();
   const toast = useToast();
-  const game = GAMES.find((g) => g.id === route.params.id);
+  const game = useGameById(route.params.id);
+  const cancelGame = useScheduleStore((s) => s.cancelGame);
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   if (!game) {
@@ -80,7 +82,7 @@ export function GameDetailScreen() {
               variant="ghost"
               size="sm"
               leadingIcon={<Pencil size={14} color={colors.brand.primary} strokeWidth={2.25} />}
-              onPress={() => toast.show({ variant: 'info', title: 'Game editor coming soon' })}
+              onPress={() => navigation.navigate('GameForm', { id: game.id })}
             />
             <Button
               label="Cancel game"
@@ -185,6 +187,7 @@ export function GameDetailScreen() {
         primaryAction={{
           label: 'Cancel game',
           onPress: () => {
+            cancelGame(game.id);
             setConfirmCancel(false);
             toast.show({ variant: 'info', title: 'Game cancelled' });
             navigation.navigate('Schedule');
