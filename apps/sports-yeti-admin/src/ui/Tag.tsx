@@ -15,7 +15,8 @@ export type TagTone =
   | 'success'
   | 'warning'
   | 'info'
-  | 'error';
+  | 'error'
+  | 'alpine';
 
 export type TagSize = 'sm' | 'md';
 
@@ -36,6 +37,7 @@ const TONE_BG: Record<TagTone, string> = {
   warning: '#FFF1DC',
   info: '#E0F2FE',
   error: '#FDE7E2',
+  alpine: colors.brand.alpineSoft,
 };
 
 const TONE_FG: Record<TagTone, string> = {
@@ -46,6 +48,7 @@ const TONE_FG: Record<TagTone, string> = {
   warning: colors.status.warning,
   info: colors.brand.deep,
   error: colors.status.error,
+  alpine: colors.brand.alpine,
 };
 
 const TONE_DOT: Record<TagTone, string> = {
@@ -56,6 +59,7 @@ const TONE_DOT: Record<TagTone, string> = {
   warning: colors.status.warning,
   info: colors.brand.primary,
   error: colors.status.error,
+  alpine: colors.brand.alpine,
 };
 
 const SIZE: Record<

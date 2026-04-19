@@ -30,7 +30,7 @@ import {
   PaymentDetailScreen,
   PaymentListScreen,
   PlayerListScreen,
-  RefereeListScreen,
+  RefereeMarketplaceScreen,
   ScheduleScreen,
   SettingsScreen,
   StatsScreen,
@@ -126,7 +126,7 @@ export function MainNavigator() {
         <Stack.Screen name="GameForm" component={GameFormScreen} />
         <Stack.Screen name="FixtureGenerator" component={FixtureGeneratorScreen} />
         <Stack.Screen name="Players" component={PlayerListScreen} />
-        <Stack.Screen name="Referees" component={RefereeListScreen} />
+        <Stack.Screen name="Referees" component={RefereeMarketplaceScreen} />
         <Stack.Screen name="InvitePeople" component={InvitePeopleScreen} />
         <Stack.Screen name="Camps" component={CampListScreen} />
         <Stack.Screen name="CampDetail" component={CampDetailScreen} />
