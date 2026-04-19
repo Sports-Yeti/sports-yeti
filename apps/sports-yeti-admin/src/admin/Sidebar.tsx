@@ -212,18 +212,25 @@ function NavItemRow({
       accessibilityState={{ selected: active }}
       style={({ hovered, pressed }: WebPressableState) => [
         styles.navItem,
-        collapsed ? styles.navItemCollapsed : null,
+        collapsed ? styles.navItemCollapsed : styles.navItemRightPill,
         active ? styles.navItemActive : null,
+        active && !collapsed ? styles.navItemActiveTranslate : null,
         hovered && !active ? styles.navItemHover : null,
         pressed ? styles.navItemPressed : null,
       ]}
     >
-      <Icon size={18} color={iconColor} strokeWidth={2.25} />
+      <Icon
+        size={20}
+        color={iconColor}
+        strokeWidth={active ? 2.5 : 2.25}
+        // Filled icon look on web — Lucide doesn't ship filled variants
+        // so we approximate with a thicker stroke.
+      />
       {!collapsed ? (
         <Text
           variant="bodySm"
           color={labelColor}
-          weight={active ? '600' : '500'}
+          weight={active ? '700' : '500'}
           style={styles.navItemLabel}
         >
           {item.label}
@@ -287,35 +294,51 @@ const styles = StyleSheet.create({
   },
   navContent: {
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    // Right-rounded-pill rows hug the LEFT edge of the sidebar and
+    // leave a rail of breathing room on the right (Stitch reference).
+    paddingLeft: 0,
+    paddingRight: spacing.sm,
     gap: spacing.lg,
   },
   group: {
-    gap: 2,
+    gap: spacing['2xs'],
   },
   groupLabel: {
-    paddingHorizontal: spacing.md,
+    paddingLeft: spacing.xl,
+    paddingRight: spacing.md,
     paddingTop: spacing.sm,
-    paddingBottom: 4,
+    paddingBottom: spacing.xs,
   },
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    borderRadius: radii.lg,
-    minHeight: 40,
+    paddingLeft: spacing.xl,
+    paddingRight: spacing.md,
+    paddingVertical: 12,
+    minHeight: 44,
+  },
+  navItemRightPill: {
+    // Pill is rounded only on the right — left edge is flush with the
+    // sidebar so the active row reads as a "tab bleeding off the rail".
+    borderTopRightRadius: radii.pill,
+    borderBottomRightRadius: radii.pill,
   },
   navItemCollapsed: {
     justifyContent: 'center',
     paddingHorizontal: 0,
+    borderRadius: radii.lg,
+    marginHorizontal: spacing.sm,
   },
   navItemHover: {
     backgroundColor: colors.surface.sidebarHover,
   },
   navItemActive: {
     backgroundColor: colors.surface.sidebarActive,
+  },
+  navItemActiveTranslate: {
+    // Subtle slide-in animation cue, matches Stitch `translate-x-1`.
+    transform: [{ translateX: 4 }],
   },
   navItemPressed: {
     opacity: 0.85,

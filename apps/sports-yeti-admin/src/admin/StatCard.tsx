@@ -7,7 +7,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react-native';
+import { ArrowDownRight, ArrowUpRight, TrendingUp } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../theme';
 import { Text } from '../ui';
 
@@ -16,49 +16,95 @@ interface StatCardProps {
   value: string;
   helper?: string;
   changePct?: number;
+  /**
+   * Render a "Steady" pill instead of a trend arrow when changePct = 0.
+   * Optional override of the steady label (default: "Steady").
+   */
+  steadyLabel?: string;
+  /**
+   * Free-form trend descriptor that renders below the value
+   * (e.g. "+3 from last season", "85% of projected total").
+   * Used when changePct is not numeric or when a sparkline is more
+   * meaningful than a percentage.
+   */
+  trendCopy?: string;
+  /**
+   * Renders a horizontal mini progress bar under the value
+   * (0-1). Surfaces "X% to goal" semantically.
+   */
+  progress?: number;
   onPress?: () => void;
   icon?: React.ReactNode;
   tone?: StatTone;
-  /** Render a "Steady" pill instead of a trend arrow when changePct = 0. */
-  steadyLabel?: string;
+  /**
+   * Adds a left-edge alpine-orange stripe — used for urgent /
+   * attention-required cards (Glacier ethos: tertiary container).
+   */
+  urgent?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
-type StatTone = 'brand' | 'success' | 'warning' | 'live' | 'alpine';
+type StatTone = 'brand' | 'success' | 'warning' | 'live' | 'alpine' | 'neutral';
 
 interface ToneStyles {
   bubbleBg: string;
   bubbleFg: string;
-  blob: string;
+  blobOuter: string;
+  blobInner: string;
+  valueColor: string;
+  progressFg: string;
 }
 
 // Tonal recipes — pair of muted background tints used for the icon
 // bubble + the decorative atmospheric blob in the corner.
 const TONE_STYLES: Record<StatTone, ToneStyles> = {
   brand: {
-    bubbleBg: colors.brand.soft,
-    bubbleFg: colors.brand.deep,
-    blob: 'rgba(63,177,250,0.18)',
+    bubbleBg: colors.surface.containerLow,
+    bubbleFg: colors.brand.primary,
+    blobOuter: 'rgba(63,177,250,0.20)',
+    blobInner: 'rgba(63,177,250,0.30)',
+    valueColor: colors.brand.primary,
+    progressFg: colors.brand.primary,
   },
   alpine: {
-    bubbleBg: colors.brand.alpineSoft,
+    bubbleBg: colors.surface.containerLow,
     bubbleFg: colors.brand.alpine,
-    blob: 'rgba(255,135,102,0.20)',
+    blobOuter: 'rgba(255,135,102,0.22)',
+    blobInner: 'rgba(255,135,102,0.32)',
+    valueColor: colors.brand.alpine,
+    progressFg: colors.brand.alpine,
   },
   success: {
-    bubbleBg: '#E2F4E4',
+    bubbleBg: colors.surface.containerLow,
     bubbleFg: colors.status.success,
-    blob: 'rgba(46,125,50,0.16)',
+    blobOuter: 'rgba(46,125,50,0.16)',
+    blobInner: 'rgba(46,125,50,0.24)',
+    valueColor: colors.status.success,
+    progressFg: colors.status.success,
   },
   warning: {
-    bubbleBg: '#FFF1DC',
+    bubbleBg: colors.surface.containerLow,
     bubbleFg: colors.status.warning,
-    blob: 'rgba(178,98,0,0.18)',
+    blobOuter: 'rgba(178,98,0,0.18)',
+    blobInner: 'rgba(178,98,0,0.26)',
+    valueColor: colors.status.warning,
+    progressFg: colors.status.warning,
   },
   live: {
-    bubbleBg: '#FDE7E2',
+    bubbleBg: colors.surface.containerLow,
     bubbleFg: colors.status.live,
-    blob: 'rgba(171,53,18,0.18)',
+    blobOuter: 'rgba(171,53,18,0.18)',
+    blobInner: 'rgba(171,53,18,0.26)',
+    valueColor: colors.status.live,
+    progressFg: colors.status.live,
+  },
+  neutral: {
+    bubbleBg: colors.surface.containerLow,
+    bubbleFg: colors.text.primary,
+    blobOuter: 'rgba(15,23,42,0.06)',
+    blobInner: 'rgba(15,23,42,0.10)',
+    valueColor: colors.text.primary,
+    progressFg: colors.text.primary,
   },
 };
 
@@ -67,22 +113,19 @@ export function StatCard({
   value,
   helper,
   changePct,
+  steadyLabel,
+  trendCopy,
+  progress,
   onPress,
   icon,
   tone = 'brand',
-  steadyLabel,
+  urgent = false,
   style,
 }: StatCardProps) {
   const toneStyles = TONE_STYLES[tone];
   const isSteady = typeof changePct === 'number' && changePct === 0;
-  const isUp =
-    typeof changePct === 'number' && !isSteady ? changePct > 0 : null;
+  const isUp = typeof changePct === 'number' && !isSteady ? changePct > 0 : null;
   const Arrow = isUp ? ArrowUpRight : ArrowDownRight;
-  const trendBg = isUp
-    ? 'rgba(46,125,50,0.12)'
-    : isUp === false
-    ? 'rgba(171,53,18,0.12)'
-    : 'transparent';
   const trendFg = isUp
     ? colors.status.success
     : isUp === false
@@ -90,15 +133,38 @@ export function StatCard({
     : colors.text.secondary;
 
   const inner = (
-    <View style={[styles.card, style]}>
-      {/* Atmospheric "frosty" blob in the corner — Glacier ethos §2. */}
+    <View
+      style={[styles.card, urgent ? styles.cardUrgent : null, style]}
+    >
+      {/*
+        Two stacked blobs — outer larger + softer, inner smaller + brighter.
+        Approximates CSS `blur-xl` on a single circle. RN ignores `filter`
+        so we fake the soft glow with overlapping translucent disks.
+      */}
       <View
-        style={[styles.blob, { backgroundColor: toneStyles.blob }]}
+        style={[styles.blobOuter, { backgroundColor: toneStyles.blobOuter }]}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
+      <View
+        style={[styles.blobInner, { backgroundColor: toneStyles.blobInner }]}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       />
 
       <View style={styles.headerRow}>
+        <View style={styles.labelStack}>
+          <Text variant="eyebrow" color={colors.text.secondary}>
+            {label}
+          </Text>
+          <Text
+            variant="display"
+            color={toneStyles.valueColor}
+            style={styles.value}
+          >
+            {value}
+          </Text>
+        </View>
         {icon ? (
           <View
             style={[
@@ -109,7 +175,23 @@ export function StatCard({
             {icon}
           </View>
         ) : null}
-        <View style={styles.spacer} />
+      </View>
+
+      {typeof progress === 'number' ? (
+        <View style={styles.progressTrack}>
+          <View
+            style={[
+              styles.progressFill,
+              {
+                width: `${Math.max(0, Math.min(100, progress * 100))}%`,
+                backgroundColor: toneStyles.progressFg,
+              },
+            ]}
+          />
+        </View>
+      ) : null}
+
+      <View style={styles.footerRow}>
         {typeof changePct === 'number' ? (
           isSteady ? (
             <View style={styles.steadyPill}>
@@ -118,23 +200,24 @@ export function StatCard({
               </Text>
             </View>
           ) : (
-            <View style={[styles.trendPill, { backgroundColor: trendBg }]}>
-              <Arrow size={12} color={trendFg} strokeWidth={2.5} />
-              <Text variant="caption" color={trendFg}>
+            <View style={styles.trendChange}>
+              <Arrow size={14} color={trendFg} strokeWidth={2.5} />
+              <Text variant="caption" color={trendFg} weight="600">
                 {`${isUp ? '+' : '-'}${Math.abs(changePct).toFixed(1)}%`}
               </Text>
             </View>
           )
+        ) : trendCopy ? (
+          <View style={styles.trendChange}>
+            <TrendingUp size={14} color={toneStyles.progressFg} strokeWidth={2.5} />
+            <Text variant="caption" color={toneStyles.progressFg} weight="600">
+              {trendCopy.split(' ')[0]}
+            </Text>
+            <Text variant="caption" color={colors.text.muted}>
+              {trendCopy.split(' ').slice(1).join(' ')}
+            </Text>
+          </View>
         ) : null}
-      </View>
-
-      <View style={styles.body}>
-        <Text variant="caption" color={colors.text.muted}>
-          {label}
-        </Text>
-        <Text variant="display" color={colors.text.primary} style={styles.value}>
-          {value}
-        </Text>
         {helper ? (
           <Text variant="caption" color={colors.text.muted}>
             {helper}
@@ -177,56 +260,82 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface.card,
     borderRadius: radii.cardLg,
     padding: spacing.xl,
-    gap: spacing.lg,
-    minHeight: 140,
+    gap: spacing.md,
+    minHeight: 152,
     overflow: 'hidden',
     position: 'relative',
     ...shadows.glow,
   },
-  blob: {
+  cardUrgent: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.brand.alpine,
+  },
+  // Outer atmospheric blob — large, soft, faint.
+  blobOuter: {
     position: 'absolute',
-    top: -40,
-    right: -40,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    top: -56,
+    right: -56,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+  },
+  // Inner blob — slightly smaller, slightly brighter — overlaps to
+  // simulate a CSS `blur-xl` halo on web.
+  blobInner: {
+    position: 'absolute',
+    top: -32,
+    right: -32,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  spacer: {
+  labelStack: {
     flex: 1,
+    gap: spacing['2xs'],
   },
   iconBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trendPill: {
+  value: {
+    fontSize: 40,
+    lineHeight: 44,
+    letterSpacing: -0.8,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.surface.containerHigh,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radii.pill,
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  trendChange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   steadyPill: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: radii.pill,
     backgroundColor: colors.surface.containerHigh,
-  },
-  body: {
-    gap: spacing['2xs'],
-  },
-  value: {
-    fontSize: 36,
-    lineHeight: 40,
-    letterSpacing: -0.6,
   },
 });

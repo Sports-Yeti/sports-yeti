@@ -10,7 +10,7 @@ import {
 import { colors, radii, spacing } from '../theme';
 import { Text } from './Text';
 
-export type TabsVariant = 'segmented' | 'underline' | 'pill';
+export type TabsVariant = 'segmented' | 'underline' | 'pill' | 'pillDark';
 
 export interface TabItem {
   key: string;
@@ -55,7 +55,13 @@ export function Tabs({
       >
         <Text
           variant="bodySm"
-          color={selected ? colors.text.primary : colors.text.secondary}
+          color={
+            variant === 'pillDark' && selected
+              ? colors.text.inverse
+              : selected
+              ? colors.text.primary
+              : colors.text.secondary
+          }
           weight={selected ? '600' : undefined}
         >
           {item.label}
@@ -195,6 +201,32 @@ const variantStyles: Record<TabsVariant, {
     },
     tabSelected: {
       backgroundColor: colors.brand.soft,
+    },
+  },
+  // "Glacier" filter pill — inactive on `containerLow`, active solid
+  // dark with inverse text. Mirrors the Stitch reference (Teams,
+  // Schedule, Analytics filter rows).
+  pillDark: {
+    container: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      flexWrap: 'wrap',
+    },
+    containerScroll: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    tab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 8,
+      borderRadius: radii.pill,
+      backgroundColor: colors.surface.containerLow,
+    },
+    tabSelected: {
+      backgroundColor: colors.text.primary,
     },
   },
 };

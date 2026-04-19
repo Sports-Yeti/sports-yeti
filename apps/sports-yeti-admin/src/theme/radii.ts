@@ -5,9 +5,10 @@ export const radii = {
   xl: 20,
   card: 12,
   // "Friendly aggressive" rounding for Glacier hero cards (ethos §5).
-  cardLg: 24,
+  // Tuned to match Stitch reference's `rounded-xl` (~28px).
+  cardLg: 28,
   // "Summit" — the most rounded surface, for hero panels.
-  summit: 32,
+  summit: 36,
   pill: 9999,
 } as const;
 
