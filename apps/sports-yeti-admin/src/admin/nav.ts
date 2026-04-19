@@ -9,6 +9,7 @@ import {
   FileText,
   Flag,
   Goal,
+  Inbox,
   LayoutDashboard,
   Megaphone,
   ScrollText,
@@ -23,6 +24,7 @@ import {
 
 export type AdminRouteName =
   | 'Dashboard'
+  | 'Operations'
   | 'Leagues'
   | 'LeagueDetail'
   | 'LeagueForm'
@@ -83,6 +85,13 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Dashboard',
         route: 'Dashboard',
         icon: LayoutDashboard,
+      },
+      {
+        id: 'operations',
+        label: 'Operations',
+        route: 'Operations',
+        icon: Inbox,
+        badgeKey: 'pendingTeams',
       },
     ],
   },
@@ -183,6 +192,7 @@ export const SETTINGS_ITEM: NavItem = {
 // inherit their parent item).
 export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   Dashboard: 'dashboard',
+  Operations: 'operations',
   Leagues: 'leagues',
   LeagueDetail: 'leagues',
   LeagueForm: 'leagues',
@@ -226,6 +236,7 @@ export interface BreadcrumbCrumb {
 
 export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   Dashboard: 'Dashboard',
+  Operations: 'Operations',
   Leagues: 'Leagues',
   LeagueDetail: 'League',
   LeagueForm: 'League editor',

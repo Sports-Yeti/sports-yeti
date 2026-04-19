@@ -26,6 +26,7 @@ import {
   MarketplaceScreen,
   NewsComposerScreen,
   NewsScreen,
+  OperationsScreen,
   PaymentDetailScreen,
   PaymentListScreen,
   PlayerListScreen,
@@ -43,6 +44,7 @@ import { navigate as rootNavigate } from './RootNavigator';
 
 export type MainStackParamList = {
   Dashboard: undefined;
+  Operations: undefined;
   Leagues: undefined;
   LeagueDetail: { id: string };
   LeagueForm: { id?: string } | undefined;
@@ -113,6 +115,7 @@ export function MainNavigator() {
         }}
       >
         <Stack.Screen name="Dashboard" component={DashboardScreen} />
+        <Stack.Screen name="Operations" component={OperationsScreen} />
         <Stack.Screen name="Leagues" component={LeagueListScreen} />
         <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} />
         <Stack.Screen name="LeagueForm" component={LeagueFormScreen} />

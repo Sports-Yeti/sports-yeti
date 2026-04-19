@@ -1,6 +1,7 @@
 export { LoginScreen } from './auth/LoginScreen';
 
 export { DashboardScreen } from './dashboard/DashboardScreen';
+export { OperationsScreen } from './operations/OperationsScreen';
 
 export { LeagueListScreen } from './leagues/LeagueListScreen';
 export { LeagueDetailScreen } from './leagues/LeagueDetailScreen';
