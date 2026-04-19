@@ -156,13 +156,7 @@ export function LeagueListScreen() {
             leadingIcon={
               <Plus size={14} color={colors.text.inverse} strokeWidth={2.5} />
             }
-            onPress={() =>
-              toast.show({
-                variant: 'info',
-                title: 'Create league wizard coming soon',
-                description: 'Mocked entry point — wire to API later.',
-              })
-            }
+            onPress={() => navigation.navigate('LeagueForm', undefined)}
           />
         }
       />

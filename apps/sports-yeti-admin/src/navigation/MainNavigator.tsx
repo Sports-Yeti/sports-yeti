@@ -7,14 +7,18 @@ import {
   AuditLogScreen,
   BookingCalendarScreen,
   BookingDetailScreen,
+  BookingFormScreen,
   CampDetailScreen,
+  CampFormScreen,
   CampListScreen,
   DashboardScreen,
   FacilityDetailScreen,
+  FacilityFormScreen,
   FacilityListScreen,
   FinancialDashboardScreen,
   GameDetailScreen,
   LeagueDetailScreen,
+  LeagueFormScreen,
   LeagueListScreen,
   MarketplaceScreen,
   NewsScreen,
@@ -28,6 +32,7 @@ import {
   TeamDetailScreen,
   TeamListScreen,
   WaiverDetailScreen,
+  WaiverFormScreen,
   WaiverListScreen,
 } from '../screens';
 import { navigate as rootNavigate } from './RootNavigator';
@@ -36,6 +41,7 @@ export type MainStackParamList = {
   Dashboard: undefined;
   Leagues: undefined;
   LeagueDetail: { id: string };
+  LeagueForm: { id?: string } | undefined;
   Teams: undefined;
   TeamDetail: { id: string };
   Schedule: undefined;
@@ -44,12 +50,16 @@ export type MainStackParamList = {
   Referees: undefined;
   Camps: undefined;
   CampDetail: { id: string };
+  CampForm: { id?: string } | undefined;
   Waivers: undefined;
   WaiverDetail: { id: string };
+  WaiverForm: { id?: string } | undefined;
   Facilities: undefined;
   FacilityDetail: { id: string };
+  FacilityForm: { id?: string } | undefined;
   Bookings: undefined;
   BookingDetail: { id: string };
+  BookingForm: { id?: string } | undefined;
   Payments: undefined;
   PaymentDetail: { id: string };
   Finance: undefined;
@@ -97,6 +107,7 @@ export function MainNavigator() {
         <Stack.Screen name="Dashboard" component={DashboardScreen} />
         <Stack.Screen name="Leagues" component={LeagueListScreen} />
         <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} />
+        <Stack.Screen name="LeagueForm" component={LeagueFormScreen} />
         <Stack.Screen name="Teams" component={TeamListScreen} />
         <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
         <Stack.Screen name="Schedule" component={ScheduleScreen} />
@@ -105,12 +116,16 @@ export function MainNavigator() {
         <Stack.Screen name="Referees" component={RefereeListScreen} />
         <Stack.Screen name="Camps" component={CampListScreen} />
         <Stack.Screen name="CampDetail" component={CampDetailScreen} />
+        <Stack.Screen name="CampForm" component={CampFormScreen} />
         <Stack.Screen name="Waivers" component={WaiverListScreen} />
         <Stack.Screen name="WaiverDetail" component={WaiverDetailScreen} />
+        <Stack.Screen name="WaiverForm" component={WaiverFormScreen} />
         <Stack.Screen name="Facilities" component={FacilityListScreen} />
         <Stack.Screen name="FacilityDetail" component={FacilityDetailScreen} />
+        <Stack.Screen name="FacilityForm" component={FacilityFormScreen} />
         <Stack.Screen name="Bookings" component={BookingCalendarScreen} />
         <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
+        <Stack.Screen name="BookingForm" component={BookingFormScreen} />
         <Stack.Screen name="Payments" component={PaymentListScreen} />
         <Stack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
         <Stack.Screen name="Finance" component={FinancialDashboardScreen} />

@@ -69,9 +69,7 @@ export function LeagueDetailScreen() {
               variant="ghost"
               size="sm"
               leadingIcon={<Edit3 size={14} color={colors.brand.primary} strokeWidth={2.25} />}
-              onPress={() =>
-                toast.show({ variant: 'info', title: 'League editor coming soon' })
-              }
+              onPress={() => navigation.navigate('LeagueForm', { id: league.id })}
             />
             <Button
               label="Open schedule"

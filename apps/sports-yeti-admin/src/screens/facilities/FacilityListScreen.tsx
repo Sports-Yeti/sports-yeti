@@ -9,7 +9,7 @@ import {
   PageScroll,
   type AdminRouteName,
 } from '../../admin';
-import { Button, Card, EmptyState, Input, Select, Tabs, Tag, Text, useToast } from '../../ui';
+import { Button, Card, EmptyState, Input, Select, Tabs, Tag, Text } from '../../ui';
 import { colors, radii, spacing } from '../../theme';
 import { FACILITIES, type Facility } from '../../mocks/facilities';
 import { SPORT_OPTIONS } from '../../mocks/leagues';
@@ -26,7 +26,6 @@ const TABS = [
 
 export function FacilityListScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
-  const toast = useToast();
   const [view, setView] = useState('grid');
   const [search, setSearch] = useState('');
   const [sport, setSport] = useState<string>('all');
@@ -53,7 +52,7 @@ export function FacilityListScreen() {
             size="sm"
             leadingIcon={<Plus size={14} color={colors.text.inverse} strokeWidth={2.5} />}
             onPress={() =>
-              toast.show({ variant: 'info', title: 'Facility editor coming soon' })
+              navigation.navigate('FacilityForm', undefined)
             }
           />
         }

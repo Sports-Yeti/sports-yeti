@@ -25,6 +25,7 @@ export type AdminRouteName =
   | 'Dashboard'
   | 'Leagues'
   | 'LeagueDetail'
+  | 'LeagueForm'
   | 'Teams'
   | 'TeamDetail'
   | 'Schedule'
@@ -33,12 +34,16 @@ export type AdminRouteName =
   | 'Referees'
   | 'Camps'
   | 'CampDetail'
+  | 'CampForm'
   | 'Waivers'
   | 'WaiverDetail'
+  | 'WaiverForm'
   | 'Facilities'
   | 'FacilityDetail'
+  | 'FacilityForm'
   | 'Bookings'
   | 'BookingDetail'
+  | 'BookingForm'
   | 'Payments'
   | 'PaymentDetail'
   | 'Finance'
@@ -176,6 +181,7 @@ export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   Dashboard: 'dashboard',
   Leagues: 'leagues',
   LeagueDetail: 'leagues',
+  LeagueForm: 'leagues',
   Teams: 'teams',
   TeamDetail: 'teams',
   Schedule: 'schedule',
@@ -184,12 +190,16 @@ export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   Referees: 'referees',
   Camps: 'camps',
   CampDetail: 'camps',
+  CampForm: 'camps',
   Waivers: 'waivers',
   WaiverDetail: 'waivers',
+  WaiverForm: 'waivers',
   Facilities: 'facilities',
   FacilityDetail: 'facilities',
+  FacilityForm: 'facilities',
   Bookings: 'bookings',
   BookingDetail: 'bookings',
+  BookingForm: 'bookings',
   Payments: 'payments',
   PaymentDetail: 'payments',
   Finance: 'finance',
@@ -210,6 +220,7 @@ export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   Dashboard: 'Dashboard',
   Leagues: 'Leagues',
   LeagueDetail: 'League',
+  LeagueForm: 'League editor',
   Teams: 'Teams',
   TeamDetail: 'Team',
   Schedule: 'Schedule',
@@ -218,12 +229,16 @@ export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   Referees: 'Referees',
   Camps: 'Camps',
   CampDetail: 'Camp',
+  CampForm: 'Camp editor',
   Waivers: 'Waivers',
   WaiverDetail: 'Waiver',
+  WaiverForm: 'Waiver editor',
   Facilities: 'Facilities',
   FacilityDetail: 'Facility',
+  FacilityForm: 'Facility editor',
   Bookings: 'Bookings',
   BookingDetail: 'Booking',
+  BookingForm: 'Booking editor',
   Payments: 'Payments',
   PaymentDetail: 'Payment',
   Finance: 'Finance',

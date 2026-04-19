@@ -102,6 +102,12 @@ export function BookingDetailScreen() {
         trailing={
           <>
             <Tag tone={STATUS_TONE[booking.status]} leadingDot label={STATUS_LABEL[booking.status]} />
+            <Button
+              label="Edit"
+              variant="ghost"
+              size="sm"
+              onPress={() => navigation.navigate('BookingForm', { id: booking.id })}
+            />
             {booking.status === 'confirmed' ? (
               <Button
                 label="Cancel booking"

@@ -172,9 +172,7 @@ export function BookingCalendarScreen() {
             variant="solid"
             size="sm"
             leadingIcon={<CalendarPlus size={14} color={colors.text.inverse} strokeWidth={2.5} />}
-            onPress={() =>
-              toast.show({ variant: 'info', title: 'Booking creator coming soon' })
-            }
+            onPress={() => navigation.navigate('BookingForm', undefined)}
           />
         }
       />

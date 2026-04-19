@@ -9,7 +9,7 @@ import {
   PageScroll,
   type AdminRouteName,
 } from '../../admin';
-import { Button, Card, EmptyState, Input, Select, Tabs, Tag, Text, useToast } from '../../ui';
+import { Button, Card, EmptyState, Input, Select, Tabs, Tag, Text } from '../../ui';
 import { colors, radii, spacing } from '../../theme';
 import { CAMPS, STATUS_LABEL, type Camp, type CampStatus } from '../../mocks/camps';
 import { formatCurrency, formatDate } from '../../lib/format';
@@ -35,7 +35,6 @@ const TABS = [
 
 export function CampListScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
-  const toast = useToast();
   const [tab, setTab] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -60,7 +59,7 @@ export function CampListScreen() {
             variant="solid"
             size="sm"
             leadingIcon={<Plus size={14} color={colors.text.inverse} strokeWidth={2.5} />}
-            onPress={() => toast.show({ variant: 'info', title: 'Camp wizard coming soon' })}
+            onPress={() => navigation.navigate('CampForm', undefined)}
           />
         }
       />

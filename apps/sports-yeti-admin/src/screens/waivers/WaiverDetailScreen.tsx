@@ -79,7 +79,7 @@ export function WaiverDetailScreen() {
               variant="solid"
               size="sm"
               leadingIcon={<Edit3 size={14} color={colors.text.inverse} strokeWidth={2.25} />}
-              onPress={() => toast.show({ variant: 'info', title: 'Waiver editor coming soon' })}
+              onPress={() => navigation.navigate('WaiverForm', { id: waiver.id })}
             />
           </>
         }

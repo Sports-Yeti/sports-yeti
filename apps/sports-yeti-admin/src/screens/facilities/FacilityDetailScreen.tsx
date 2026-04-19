@@ -8,7 +8,7 @@ import {
   StatCard,
   type AdminRouteName,
 } from '../../admin';
-import { Button, Card, EmptyState, Tag, Text, useToast } from '../../ui';
+import { Button, Card, EmptyState, Tag, Text } from '../../ui';
 import { colors, radii, spacing } from '../../theme';
 import { facilityById } from '../../mocks/facilities';
 import { BOOKINGS } from '../../mocks/bookings';
@@ -21,7 +21,6 @@ interface ScreenNavigation {
 export function FacilityDetailScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
   const route = useRoute<RouteProp<{ params: { id: string } }, 'params'>>();
-  const toast = useToast();
   const facility = facilityById(route.params.id);
 
   if (!facility) {
@@ -60,9 +59,7 @@ export function FacilityDetailScreen() {
             variant="ghost"
             size="sm"
             leadingIcon={<Edit3 size={14} color={colors.brand.primary} strokeWidth={2.25} />}
-            onPress={() =>
-              toast.show({ variant: 'info', title: 'Facility editor coming soon' })
-            }
+            onPress={() => navigation.navigate('FacilityForm', { id: facility.id })}
           />
         }
       />

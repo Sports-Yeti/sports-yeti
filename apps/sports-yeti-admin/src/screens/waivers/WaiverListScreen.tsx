@@ -118,7 +118,7 @@ export function WaiverListScreen() {
             variant="solid"
             size="sm"
             leadingIcon={<Plus size={14} color={colors.text.inverse} strokeWidth={2.5} />}
-            onPress={() => toast.show({ variant: 'info', title: 'Waiver editor coming soon' })}
+            onPress={() => navigation.navigate('WaiverForm', undefined)}
           />
         }
       />
