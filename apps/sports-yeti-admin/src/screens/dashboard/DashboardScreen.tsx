@@ -71,6 +71,8 @@ export function DashboardScreen() {
   return (
     <PageScroll>
       <PageHeader
+        variant="hero"
+        eyebrow="SEASON HUB"
         title={`${greeting()}, ${CURRENT_ADMIN.name.split(' ')[0]}`}
         subtitle={`${CURRENT_ORG.name} · season runs through ${formatDateMonth(
           CURRENT_ORG.seasonEndIso,

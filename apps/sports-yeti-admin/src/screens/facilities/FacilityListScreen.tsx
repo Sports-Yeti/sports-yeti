@@ -42,8 +42,13 @@ export function FacilityListScreen() {
   return (
     <PageScroll>
       <PageHeader
-        title="Facilities"
-        subtitle="Venues and bookable spaces"
+        variant="hero"
+        eyebrow="PORTFOLIO"
+        heroImage={{
+          uri: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1600&q=70',
+        }}
+        title="Facilities Portfolio"
+        subtitle="Venues, courts, and fields across all your locations."
         meta={`${visible.length} of ${FACILITIES.length} shown`}
         trailing={
           <Button

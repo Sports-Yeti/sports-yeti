@@ -146,8 +146,20 @@ function PeopleList({ defaultKind = 'all', routeName }: PeopleListProps) {
   return (
     <PageScroll>
       <PageHeader
-        title={routeName === 'Referees' ? 'Referees' : routeName === 'Players' ? 'Players' : 'People'}
-        subtitle={routeName === 'Referees' ? 'Officials, ratings, and assignments' : 'Players, referees, coaches, and parents in your org'}
+        variant="hero"
+        eyebrow={routeName === 'Referees' ? 'MARKETPLACE OVERVIEW' : 'ACTIVE ROSTER'}
+        title={
+          routeName === 'Referees'
+            ? 'Referee Roster'
+            : routeName === 'Players'
+            ? 'Players'
+            : 'People'
+        }
+        subtitle={
+          routeName === 'Referees'
+            ? 'Officials, certifications, ratings, and game assignments.'
+            : 'Players, referees, coaches, and parents in your org.'
+        }
         meta={`${visible.length} of ${PEOPLE.filter((p) => kind === 'all' || p.kind === kind).length} shown`}
         trailing={
           <Button

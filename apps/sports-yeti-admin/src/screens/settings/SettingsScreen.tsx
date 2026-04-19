@@ -46,8 +46,10 @@ export function SettingsScreen() {
   return (
     <PageScroll>
       <PageHeader
-        title="Settings"
-        subtitle="Manage your organization, teammates, billing, and security"
+        variant="hero"
+        eyebrow="WORKSPACE"
+        title="League Settings"
+        subtitle="Manage your organization, teammates, billing, and security."
       />
 
       <View style={styles.layout}>

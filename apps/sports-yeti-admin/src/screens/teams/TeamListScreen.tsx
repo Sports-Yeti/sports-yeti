@@ -147,6 +147,11 @@ export function TeamListScreen() {
   return (
     <PageScroll>
       <PageHeader
+        variant="hero"
+        eyebrow="ROSTER MANAGEMENT"
+        heroImage={{
+          uri: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&w=1600&q=70',
+        }}
         title="Teams"
         subtitle="Approvals, rosters, and per-team fees"
         meta={`${pendingCount} awaiting your review`}

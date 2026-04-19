@@ -157,6 +157,11 @@ export function ScheduleScreen() {
   return (
     <PageScroll>
       <PageHeader
+        variant="hero"
+        eyebrow="GAMES & SCHEDULING"
+        heroImage={{
+          uri: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1600&q=70',
+        }}
         title="Schedule"
         subtitle="Drag fixtures into open slots, surface conflicts, and publish your week."
         meta={`Week of ${formatDate(weekStart.toISOString())}`}

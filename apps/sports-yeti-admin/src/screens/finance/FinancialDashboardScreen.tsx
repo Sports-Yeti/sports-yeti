@@ -31,8 +31,10 @@ export function FinancialDashboardScreen() {
   return (
     <PageScroll>
       <PageHeader
+        variant="hero"
+        eyebrow="MONEY MOVEMENT"
         title="Finance"
-        subtitle="Net revenue, fees, and outstanding balances"
+        subtitle="Net revenue, fees, refunds, and outstanding balances at a glance."
         meta={`Next payout ${formatDate(summary.payoutDateIso)} · ${formatCurrency(summary.netCents)}`}
         trailing={
           <>

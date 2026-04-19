@@ -145,8 +145,10 @@ export function LeagueListScreen() {
   return (
     <PageScroll>
       <PageHeader
+        variant="hero"
+        eyebrow="COMPETITION"
         title="Leagues"
-        subtitle="Every league across your organization"
+        subtitle="Every league across your organization — draft, publish, or archive in one place."
         meta={`${visible.length} of ${LEAGUES.length} shown`}
         trailing={
           <Button

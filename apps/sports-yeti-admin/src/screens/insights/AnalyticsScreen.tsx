@@ -13,8 +13,10 @@ export function AnalyticsScreen() {
   return (
     <PageScroll>
       <PageHeader
-        title="Analytics"
-        subtitle="Cross-product trends across leagues, players, and venues"
+        variant="hero"
+        eyebrow="LEAGUE INTELLIGENCE"
+        title="A high-altitude view"
+        subtitle="Cross-product trends across leagues, players, and venues."
         meta="Last 12 weeks · auto-refreshed every 24h"
         trailing={
           <Button

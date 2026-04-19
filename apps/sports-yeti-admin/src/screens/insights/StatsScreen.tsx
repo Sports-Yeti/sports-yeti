@@ -265,8 +265,10 @@ export function StatsScreen() {
   return (
     <PageScroll>
       <PageHeader
+        variant="hero"
+        eyebrow="SEASON LEADERBOARD"
         title="Stats"
-        subtitle="Standings, leaders, and MVP voting · scoped to a league or org-wide"
+        subtitle="Standings, leaders, and MVP voting · scoped to a league or org-wide."
         meta={`${LEAGUES.length} leagues · ${TEAMS.length} teams · ${players.length} players`}
         trailing={
           <>
