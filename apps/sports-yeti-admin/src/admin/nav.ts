@@ -34,6 +34,7 @@ export type AdminRouteName =
   | 'FixtureGenerator'
   | 'Players'
   | 'Referees'
+  | 'InvitePeople'
   | 'Camps'
   | 'CampDetail'
   | 'CampForm'
@@ -193,6 +194,7 @@ export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   FixtureGenerator: 'schedule',
   Players: 'players',
   Referees: 'referees',
+  InvitePeople: 'players',
   Camps: 'camps',
   CampDetail: 'camps',
   CampForm: 'camps',
@@ -235,6 +237,7 @@ export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   FixtureGenerator: 'Generate fixtures',
   Players: 'Players',
   Referees: 'Referees',
+  InvitePeople: 'Invite people',
   Camps: 'Camps',
   CampDetail: 'Camp',
   CampForm: 'Camp editor',

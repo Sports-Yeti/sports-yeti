@@ -9,10 +9,16 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react-native';
-import { PageHeader, PageScroll } from '../../admin';
-import { Avatar, Button, Card, IconBadge, Input, Tag, Text, useToast } from '../../ui';
+import { useNavigation } from '@react-navigation/native';
+import { PageHeader, PageScroll, type AdminRouteName } from '../../admin';
+import { Avatar, Button, Card, IconBadge, Input, Modal, Tag, Text, useToast } from '../../ui';
 import { colors, radii, spacing } from '../../theme';
+import { useAuthStore } from '../../stores';
 import { ADMIN_TEAMMATES, CURRENT_ORG } from '../../mocks/org';
+
+interface ScreenNavigation {
+  navigate: (route: AdminRouteName, params?: { id?: string }) => void;
+}
 
 const SECTIONS = [
   { id: 'org', label: 'Organization', Icon: Building2 },
@@ -24,13 +30,18 @@ const SECTIONS = [
 ];
 
 export function SettingsScreen() {
+  const navigation = useNavigation() as unknown as ScreenNavigation;
   const toast = useToast();
+  const logout = useAuthStore((s) => s.logout);
   const [section, setSection] = useState('org');
   const [orgName, setOrgName] = useState(CURRENT_ORG.name);
   const [orgCity, setOrgCity] = useState(CURRENT_ORG.city);
   const [requireMFA, setRequireMFA] = useState(true);
   const [allowMarketplace, setAllowMarketplace] = useState(true);
   const [allowSSO, setAllowSSO] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmName, setConfirmName] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   return (
     <PageScroll>
@@ -107,7 +118,7 @@ export function SettingsScreen() {
                   variant="solid"
                   size="sm"
                   onPress={() =>
-                    toast.show({ variant: 'info', title: 'Invite flow coming soon' })
+                    navigation.navigate('InvitePeople', { id: 'admin' })
                   }
                 />
               </View>
@@ -239,15 +250,55 @@ export function SettingsScreen() {
                   label="Delete account"
                   variant="destructive"
                   size="md"
-                  onPress={() =>
-                    toast.show({ variant: 'info', title: 'Account deletion coming soon' })
-                  }
+                  onPress={() => {
+                    setConfirmName('');
+                    setConfirmDelete(true);
+                  }}
                 />
               </View>
             </Card>
           ) : null}
         </View>
       </View>
+
+      <Modal
+        visible={confirmDelete}
+        onRequestClose={() => setConfirmDelete(false)}
+        variant="destructive"
+        title={`Delete ${CURRENT_ORG.name}?`}
+        description="This is irreversible. All leagues, teams, payments, waivers, and audit history are permanently deleted. Type the org name to confirm."
+        primaryAction={{
+          label: deleting ? 'Deleting…' : 'Delete organization',
+          disabled: confirmName !== CURRENT_ORG.name || deleting,
+          onPress: () => {
+            setDeleting(true);
+            setTimeout(() => {
+              setDeleting(false);
+              setConfirmDelete(false);
+              toast.show({
+                variant: 'info',
+                title: `${CURRENT_ORG.name} scheduled for deletion`,
+                description:
+                  'Final deletion completes in 30 days. Sign back in to cancel.',
+              });
+              logout().catch(() => undefined);
+            }, 600);
+          },
+        }}
+        secondaryAction={{
+          label: 'Cancel',
+          onPress: () => setConfirmDelete(false),
+          disabled: deleting,
+        }}
+      >
+        <Input
+          autoFocus
+          value={confirmName}
+          onChangeText={setConfirmName}
+          placeholder={CURRENT_ORG.name}
+          accessibilityLabel="Organization name confirmation"
+        />
+      </Modal>
     </PageScroll>
   );
 }

@@ -47,6 +47,8 @@ interface PeopleListProps {
 function PeopleList({ defaultKind = 'all', routeName }: PeopleListProps) {
   const navigation = useNavigation() as unknown as ScreenNavigation;
   const toast = useToast();
+  const inviteSeed: string =
+    defaultKind === 'all' ? 'player' : (defaultKind as string);
   const [kind, setKind] = useState<PersonKind | 'all'>(defaultKind);
   const [search, setSearch] = useState('');
   const [experience, setExperience] = useState<string>('all');
@@ -153,7 +155,7 @@ function PeopleList({ defaultKind = 'all', routeName }: PeopleListProps) {
             variant="solid"
             size="sm"
             leadingIcon={<MailPlus size={14} color={colors.text.inverse} strokeWidth={2.5} />}
-            onPress={() => toast.show({ variant: 'info', title: 'Invite flow coming soon' })}
+            onPress={() => navigation.navigate('InvitePeople', { id: inviteSeed })}
           />
         }
       />

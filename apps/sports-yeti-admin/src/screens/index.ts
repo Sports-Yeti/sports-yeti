@@ -15,6 +15,7 @@ export { GameFormScreen } from './schedule/GameFormScreen';
 export { FixtureGeneratorScreen } from './schedule/FixtureGeneratorScreen';
 
 export { PlayerListScreen, RefereeListScreen } from './players/PlayerListScreen';
+export { InvitePeopleScreen } from './people/InvitePeopleScreen';
 
 export { CampListScreen } from './camps/CampListScreen';
 export { CampDetailScreen } from './camps/CampDetailScreen';

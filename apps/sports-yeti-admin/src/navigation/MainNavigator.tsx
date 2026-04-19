@@ -19,6 +19,7 @@ import {
   FixtureGeneratorScreen,
   GameDetailScreen,
   GameFormScreen,
+  InvitePeopleScreen,
   LeagueDetailScreen,
   LeagueFormScreen,
   LeagueListScreen,
@@ -53,6 +54,7 @@ export type MainStackParamList = {
   FixtureGenerator: { id?: string } | undefined;
   Players: undefined;
   Referees: undefined;
+  InvitePeople: { id?: string } | undefined;
   Camps: undefined;
   CampDetail: { id: string };
   CampForm: { id?: string } | undefined;
@@ -122,6 +124,7 @@ export function MainNavigator() {
         <Stack.Screen name="FixtureGenerator" component={FixtureGeneratorScreen} />
         <Stack.Screen name="Players" component={PlayerListScreen} />
         <Stack.Screen name="Referees" component={RefereeListScreen} />
+        <Stack.Screen name="InvitePeople" component={InvitePeopleScreen} />
         <Stack.Screen name="Camps" component={CampListScreen} />
         <Stack.Screen name="CampDetail" component={CampDetailScreen} />
         <Stack.Screen name="CampForm" component={CampFormScreen} />
