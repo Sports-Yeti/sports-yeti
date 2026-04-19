@@ -7,6 +7,7 @@ export type { Radii } from './radii';
 export { shadows } from './shadows';
 export { typography, fontFamilies } from './typography';
 export type { TypographyVariant } from './typography';
+export { uiTheme } from './ui-theme';
 
 // Layout constants used across the shell
 export const SIDEBAR_WIDTH = 248;

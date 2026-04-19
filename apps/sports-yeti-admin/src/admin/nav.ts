@@ -58,7 +58,8 @@ export type AdminRouteName =
   | 'Marketplace'
   | 'News'
   | 'NewsComposer'
-  | 'Settings';
+  | 'Settings'
+  | 'FormControls';
 
 export interface NavItem {
   id: string;
@@ -227,6 +228,7 @@ export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   News: 'news',
   NewsComposer: 'news',
   Settings: 'settings',
+  FormControls: 'form-controls',
 };
 
 export interface BreadcrumbCrumb {
@@ -271,4 +273,5 @@ export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   News: 'News & ads',
   NewsComposer: 'Compose announcement',
   Settings: 'Settings',
+  FormControls: 'Form controls',
 };

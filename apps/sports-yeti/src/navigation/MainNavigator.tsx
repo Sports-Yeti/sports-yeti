@@ -7,6 +7,7 @@ import {
   ChatScreen,
   ComponentShowcaseScreen,
   CreateGameScreen,
+  FormControlsScreen,
   DiscoverScreen,
   FacilitiesScreen,
   FacilityDetailScreen,
@@ -75,6 +76,7 @@ export type RootStackParamList = {
 
   // Dev
   ComponentShowcase: undefined;
+  FormControls: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -128,6 +130,7 @@ export function MainNavigator() {
       <Stack.Screen name="Messages" component={MessagesScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="ComponentShowcase" component={ComponentShowcaseScreen} />
+      <Stack.Screen name="FormControls" component={FormControlsScreen} />
     </Stack.Navigator>
   );
 }

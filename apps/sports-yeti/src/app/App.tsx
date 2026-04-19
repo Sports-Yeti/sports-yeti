@@ -9,7 +9,8 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 import { RootNavigator } from '../navigation';
 import { ErrorBoundary } from '../components';
 import { SENTRY_DSN, IS_PRODUCTION, STRIPE_PUBLISHABLE_KEY } from '../constants';
-import { colors, useFonts } from '../theme';
+import { UIThemeProvider } from '@sports-yeti/ui';
+import { colors, useFonts, uiTheme } from '../theme';
 import { ToastProvider } from '../ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -108,10 +109,12 @@ function AppContent() {
             publishableKey={STRIPE_PUBLISHABLE_KEY}
             merchantIdentifier="merchant.com.sportsyeti"
           >
-            <ToastProvider>
-              <StatusBar style="dark" />
-              <RootNavigator />
-            </ToastProvider>
+            <UIThemeProvider value={uiTheme}>
+              <ToastProvider>
+                <StatusBar style="dark" />
+                <RootNavigator />
+              </ToastProvider>
+            </UIThemeProvider>
           </StripeProvider>
         </SafeAreaProvider>
       </QueryClientProvider>

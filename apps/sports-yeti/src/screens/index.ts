@@ -7,6 +7,7 @@ export { ForgotPasswordScreen } from './auth/ForgotPasswordScreen';
 
 // Dev / design system reference
 export { ComponentShowcaseScreen } from './dev/ComponentShowcaseScreen';
+export { FormControlsScreen } from './dev/FormControlsScreen';
 
 // Tab screens (5 main navigation pages)
 export { DiscoverScreen } from './discover/DiscoverScreen';

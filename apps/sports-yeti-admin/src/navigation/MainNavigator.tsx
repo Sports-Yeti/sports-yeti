@@ -17,6 +17,7 @@ import {
   FacilityListScreen,
   FinancialDashboardScreen,
   FixtureGeneratorScreen,
+  FormControlsScreen,
   GameDetailScreen,
   GameFormScreen,
   InvitePeopleScreen,
@@ -79,6 +80,7 @@ export type MainStackParamList = {
   News: undefined;
   NewsComposer: { id?: string } | undefined;
   Settings: undefined;
+  FormControls: undefined;
 };
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -150,6 +152,7 @@ export function MainNavigator() {
         <Stack.Screen name="News" component={NewsScreen} />
         <Stack.Screen name="NewsComposer" component={NewsComposerScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="FormControls" component={FormControlsScreen} />
       </Stack.Navigator>
     </AppShell>
   );

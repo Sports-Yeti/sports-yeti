@@ -47,3 +47,5 @@ export { NewsScreen } from './insights/NewsScreen';
 export { NewsComposerScreen } from './insights/NewsComposerScreen';
 
 export { SettingsScreen } from './settings/SettingsScreen';
+
+export { FormControlsScreen } from './dev/FormControlsScreen';

@@ -221,6 +221,8 @@ Severity scale: **🔴 Critical** (blocks task or violates trust) · **🟠 High
 
 ## Step 3 — Component spec (added in this pass)
 
+> **Form controls have moved.** The `Input`/`Toast`/`Modal`/`BottomSheet`/`Tabs`/`Tag`/`ProgressBar`/`Skeleton`/`EmptyState` primitives listed below still live at `apps/sports-yeti/src/ui/<Name>.tsx`, but **all form-input primitives** (Input, PasswordInput, TextArea, NumberInput, Toggle, Checkbox, CheckboxGroup, RadioGroup, Select, Combobox, DatePicker, FileUpload + the `FormField`/`Form`/`FormSection`/`FormRow`/`FormActions` layout) now live in the shared `@sports-yeti/ui` package and are consumed by both this app **and** `apps/sports-yeti-admin`. See [`docs/design-system-form-controls.md`](../../../docs/design-system-form-controls.md) at the repo root for the full contract, theme adapter wiring, and live `<FormControlsGallery>` reference.
+
 All new primitives live at `apps/sports-yeti/src/ui/<Name>.tsx`. They are exported from `apps/sports-yeti/src/ui/index.ts` and follow the same conventions as existing ones (token-driven, `Pressable` over `TouchableOpacity`, `Text` for all text, lucide icons, accessibility props on every interactive element).
 
 ### 3.1 `Input`

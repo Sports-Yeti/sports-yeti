@@ -8,3 +8,4 @@ export { shadows } from './shadows';
 export { typography, fontFamilies } from './typography';
 export type { TypographyVariant } from './typography';
 export { useFonts } from './useFonts';
+export { uiTheme } from './ui-theme';
