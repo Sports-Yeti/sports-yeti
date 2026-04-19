@@ -12,6 +12,7 @@ import { colors, spacing } from '../../theme';
 import { bookingById, STATUS_LABEL, type BookingStatus } from '../../mocks/bookings';
 import { facilityById } from '../../mocks/facilities';
 import { formatCurrency, formatDate, formatTime } from '../../lib/format';
+import { usePaymentActions } from '../../lib/checkout';
 
 interface ScreenNavigation {
   navigate: (route: AdminRouteName, params?: { id?: string }) => void;
@@ -29,7 +30,9 @@ export function BookingDetailScreen() {
   const route = useRoute<RouteProp<{ params: { id: string } }, 'params'>>();
   const toast = useToast();
   const booking = bookingById(route.params.id);
+  const { chargeBalance, isProcessing } = usePaymentActions();
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [extraPaidCents, setExtraPaidCents] = useState(0);
 
   if (!booking) {
     return (
@@ -48,7 +51,42 @@ export function BookingDetailScreen() {
   }
 
   const facility = facilityById(booking.facilityId);
-  const balance = booking.amountCents - booking.paidCents;
+  const balance = Math.max(
+    0,
+    booking.amountCents - booking.paidCents - extraPaidCents,
+  );
+
+  const handleCharge = async () => {
+    const result = await chargeBalance({
+      bookingId: booking.id,
+      amountCents: balance,
+    });
+    if (result.status === 'success') {
+      setExtraPaidCents((c) => c + balance);
+      toast.show({
+        variant: 'success',
+        title: `Charged ${formatCurrency(balance)}`,
+        description: result.id
+          ? `Stripe ${result.id} captured.`
+          : 'Card on file charged via Stripe.',
+      });
+      return;
+    }
+    if (result.status === 'authentication_required') {
+      toast.show({
+        variant: 'warning',
+        title: 'Cardholder action needed',
+        description: result.error,
+      });
+      return;
+    }
+    toast.show({
+      variant: 'error',
+      title: 'Charge failed',
+      description: result.error,
+      action: { label: 'Retry', onPress: handleCharge },
+    });
+  };
 
   return (
     <PageScroll>
@@ -144,16 +182,15 @@ export function BookingDetailScreen() {
           </View>
           {balance > 0 ? (
             <Button
-              label={`Charge ${formatCurrency(balance)}`}
+              label={
+                isProcessing
+                  ? 'Charging…'
+                  : `Charge ${formatCurrency(balance)}`
+              }
               variant="solid"
               size="sm"
-              onPress={() =>
-                toast.show({
-                  variant: 'success',
-                  title: `Charged ${formatCurrency(balance)}`,
-                  description: 'Mock confirmation — wire to Stripe later.',
-                })
-              }
+              disabled={isProcessing}
+              onPress={handleCharge}
             />
           ) : null}
         </Card>

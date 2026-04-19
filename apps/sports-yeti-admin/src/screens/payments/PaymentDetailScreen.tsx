@@ -27,6 +27,7 @@ import {
   type PaymentStatus,
 } from '../../mocks/payments';
 import { formatCurrency, formatDateTime, formatRelative } from '../../lib/format';
+import { usePaymentActions } from '../../lib/checkout';
 
 interface ScreenNavigation {
   navigate: (route: AdminRouteName, params?: { id?: string }) => void;
@@ -46,6 +47,7 @@ export function PaymentDetailScreen() {
   const route = useRoute<RouteProp<{ params: { id: string } }, 'params'>>();
   const toast = useToast();
   const payment = paymentById(route.params.id);
+  const { refund, isProcessing } = usePaymentActions();
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
@@ -244,20 +246,43 @@ export function PaymentDetailScreen() {
         title="Issue a refund"
         description={`Refund up to ${formatCurrency(remainingRefundable)} from this payment. Processor fees on the refunded amount are forfeited.`}
         primaryAction={{
-          label: refundCents > 0 ? `Refund ${formatCurrency(refundCents)}` : 'Refund',
-          disabled: !canRefund,
-          onPress: () => {
-            setRefundOpen(false);
-            setRefundAmount('');
-            setRefundReason('');
+          label: isProcessing
+            ? 'Refunding…'
+            : refundCents > 0
+            ? `Refund ${formatCurrency(refundCents)}`
+            : 'Refund',
+          disabled: !canRefund || isProcessing,
+          onPress: async () => {
+            const result = await refund({
+              paymentId: payment.id,
+              amountCents: refundCents,
+              reason: refundReason.trim(),
+            });
+            if (result.status === 'success') {
+              setRefundOpen(false);
+              setRefundAmount('');
+              setRefundReason('');
+              toast.show({
+                variant: 'success',
+                title: `Refunded ${formatCurrency(refundCents)}`,
+                description: result.id
+                  ? `Stripe refund ${result.id} — credit lands in 3–5 days.`
+                  : 'The payer will see the credit in 3–5 days.',
+              });
+              return;
+            }
             toast.show({
-              variant: 'success',
-              title: `Refunded ${formatCurrency(refundCents)}`,
-              description: 'The payer will see the credit in 3–5 days.',
+              variant: 'error',
+              title: 'Refund failed',
+              description: result.error,
             });
           },
         }}
-        secondaryAction={{ label: 'Cancel', onPress: () => setRefundOpen(false) }}
+        secondaryAction={{
+          label: 'Cancel',
+          onPress: () => setRefundOpen(false),
+          disabled: isProcessing,
+        }}
       >
         <View style={styles.modalBody}>
           <Input
