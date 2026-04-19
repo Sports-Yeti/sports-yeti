@@ -7,6 +7,7 @@ import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
+  GripVertical,
   Wand2,
 } from 'lucide-react-native';
 import {
@@ -14,7 +15,7 @@ import {
   PageScroll,
   type AdminRouteName,
 } from '../../admin';
-import { Button, Card, EmptyState, Tabs, Tag, Text, useToast } from '../../ui';
+import { Button, Card, EmptyState, Modal, Tabs, Tag, Text, useToast } from '../../ui';
 import { colors, radii, spacing } from '../../theme';
 import {
   GAMES,
@@ -24,6 +25,11 @@ import {
 } from '../../mocks/games';
 import { LEAGUES } from '../../mocks/leagues';
 import { formatDate, formatTime } from '../../lib/format';
+import {
+  moveDateInIso,
+  useCalendarDrag,
+  type DragItem,
+} from '../../lib/dragReschedule';
 
 interface ScreenNavigation {
   navigate: (route: AdminRouteName, params?: { id?: string }) => void;
@@ -51,12 +57,21 @@ function startOfWeek(d: Date): Date {
   return x;
 }
 
+interface PendingMove {
+  game: Game;
+  fromYmd: string;
+  toYmd: string;
+}
+
 export function ScheduleScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
   const toast = useToast();
   const [view, setView] = useState('week');
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date('2026-04-19')));
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const drag = useCalendarDrag<DragItem>();
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -66,11 +81,15 @@ export function ScheduleScreen() {
     });
   }, [weekStart]);
 
-  const visibleGames = useMemo(() => {
+  const visibleGames = useMemo<Game[]>(() => {
     return GAMES.filter((g) =>
       leagueFilter === 'all' ? true : g.leagueId === leagueFilter,
+    ).map((g) =>
+      overrides[g.id]
+        ? { ...g, startsAtIso: overrides[g.id]! }
+        : g,
     );
-  }, [leagueFilter]);
+  }, [leagueFilter, overrides]);
 
   const gamesByDay = useMemo(() => {
     const map = new Map<string, Game[]>();
@@ -82,6 +101,55 @@ export function ScheduleScreen() {
     }
     return map;
   }, [visibleGames]);
+
+  const handleDrop = (game: Game, fromYmd: string, toYmd: string) => {
+    setPendingMove({ game, fromYmd, toYmd });
+  };
+
+  const confirmMove = () => {
+    if (!pendingMove) return;
+    const { game, toYmd } = pendingMove;
+    const previousIso = game.startsAtIso;
+    const nextIso = moveDateInIso(game.startsAtIso, toYmd);
+    setOverrides((prev) => ({ ...prev, [game.id]: nextIso }));
+    setPendingMove(null);
+    toast.show({
+      variant: 'success',
+      title: `Rescheduled to ${formatDate(nextIso, { weekday: 'short', month: 'short', day: 'numeric' })}`,
+      description: `${game.homeAbbreviation} vs ${game.awayAbbreviation} now at ${formatTime(nextIso)}.`,
+      action: {
+        label: 'Undo',
+        onPress: () =>
+          setOverrides((prev) => {
+            const next = { ...prev };
+            if (previousIso === GAMES.find((x) => x.id === game.id)?.startsAtIso) {
+              delete next[game.id];
+            } else {
+              next[game.id] = previousIso;
+            }
+            return next;
+          }),
+      },
+    });
+  };
+
+  // Conflict detection: any other game on the target day in the same space + overlapping time.
+  const conflictForPending = useMemo(() => {
+    if (!pendingMove) return null;
+    const { game, toYmd } = pendingMove;
+    const candidateStart = new Date(moveDateInIso(game.startsAtIso, toYmd)).getTime();
+    const candidateEnd = candidateStart + 90 * 60_000; // games default to 90 min
+    return (
+      visibleGames.find((other) => {
+        if (other.id === game.id) return false;
+        if (other.spaceName !== game.spaceName) return false;
+        if (other.startsAtIso.slice(0, 10) !== toYmd) return false;
+        const otherStart = new Date(other.startsAtIso).getTime();
+        const otherEnd = otherStart + 90 * 60_000;
+        return candidateStart < otherEnd && otherStart < candidateEnd;
+      }) ?? null
+    );
+  }, [pendingMove, visibleGames]);
 
   return (
     <PageScroll>
@@ -162,27 +230,49 @@ export function ScheduleScreen() {
             const dayGames = gamesByDay.get(ymd) ?? [];
             const isToday =
               new Date().toISOString().slice(0, 10) === ymd;
+            const isHovered = drag.hoveredYmd === ymd;
+            const dropProps = drag.targetProps(ymd, (item) => {
+              const game = visibleGames.find((g) => g.id === item.id);
+              if (game) handleDrop(game, item.ymd, ymd);
+            });
             return (
-              <Card key={ymd} style={[styles.dayCol, isToday ? styles.dayColToday : null]}>
-                <View style={styles.dayHead}>
-                  <Text variant="caption" color={colors.text.muted}>
-                    {d.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()}
-                  </Text>
-                  <Text
-                    variant="h2"
-                    color={isToday ? colors.brand.primary : colors.text.primary}
-                  >
-                    {d.getDate()}
-                  </Text>
-                </View>
-                {dayGames.length === 0 ? (
-                  <Text variant="caption" color={colors.text.muted} style={styles.dayEmpty}>
-                    No games
-                  </Text>
-                ) : (
-                  dayGames.map((g) => <GameTile key={g.id} game={g} onPress={() => navigation.navigate('GameDetail', { id: g.id })} />)
-                )}
-              </Card>
+              <View key={ymd} {...dropProps} style={styles.dayWrap}>
+                <Card
+                  style={[
+                    styles.dayCol,
+                    isToday ? styles.dayColToday : null,
+                    isHovered ? styles.dayColHover : null,
+                  ]}
+                >
+                  <View style={styles.dayHead}>
+                    <Text variant="caption" color={colors.text.muted}>
+                      {d.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()}
+                    </Text>
+                    <Text
+                      variant="h2"
+                      color={isToday ? colors.brand.primary : colors.text.primary}
+                    >
+                      {d.getDate()}
+                    </Text>
+                  </View>
+                  {dayGames.length === 0 ? (
+                    <Text variant="caption" color={colors.text.muted} style={styles.dayEmpty}>
+                      {isHovered ? 'Drop here' : 'No games'}
+                    </Text>
+                  ) : (
+                    dayGames.map((g) => (
+                      <GameTile
+                        key={g.id}
+                        game={g}
+                        ymd={ymd}
+                        sourceProps={drag.sourceProps({ id: g.id, ymd })}
+                        isDragging={drag.draggingId === g.id}
+                        onPress={() => navigation.navigate('GameDetail', { id: g.id })}
+                      />
+                    ))
+                  )}
+                </Card>
+              </View>
             );
           })}
         </View>
@@ -235,25 +325,71 @@ export function ScheduleScreen() {
           )}
         </Card>
       )}
+
+      <Modal
+        visible={!!pendingMove}
+        onRequestClose={() => setPendingMove(null)}
+        variant={conflictForPending ? 'destructive' : 'info'}
+        title="Reschedule game?"
+        description={
+          pendingMove
+            ? `Move ${pendingMove.game.homeAbbreviation} vs ${pendingMove.game.awayAbbreviation} from ${formatDate(pendingMove.game.startsAtIso, { weekday: 'short', month: 'short', day: 'numeric' })} to ${formatDate(moveDateInIso(pendingMove.game.startsAtIso, pendingMove.toYmd), { weekday: 'short', month: 'short', day: 'numeric' })} at ${formatTime(pendingMove.game.startsAtIso)}?`
+            : ''
+        }
+        primaryAction={{
+          label: conflictForPending ? 'Reschedule anyway' : 'Reschedule',
+          onPress: confirmMove,
+        }}
+        secondaryAction={{
+          label: 'Cancel',
+          onPress: () => setPendingMove(null),
+        }}
+      >
+        {conflictForPending ? (
+          <View style={styles.conflictBanner}>
+            <Text variant="caption" color={colors.status.error}>
+              Conflict detected
+            </Text>
+            <Text variant="bodySm" color={colors.text.primary}>
+              {conflictForPending.homeAbbreviation} vs {conflictForPending.awayAbbreviation}
+              {' '}is already on this date at the same space ({conflictForPending.spaceName},{' '}
+              {formatTime(conflictForPending.startsAtIso)}).
+            </Text>
+          </View>
+        ) : null}
+      </Modal>
     </PageScroll>
   );
 }
 
-function GameTile({ game, onPress }: { game: Game; onPress: () => void }) {
+interface GameTileProps {
+  game: Game;
+  ymd: string;
+  sourceProps: ReturnType<ReturnType<typeof useCalendarDrag<DragItem>>['sourceProps']>;
+  isDragging: boolean;
+  onPress: () => void;
+}
+
+function GameTile({ game, sourceProps, isDragging, onPress }: GameTileProps) {
   return (
     <Pressable
+      {...sourceProps}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${game.homeAbbreviation} vs ${game.awayAbbreviation} at ${formatTime(game.startsAtIso)}`}
+      accessibilityLabel={`${game.homeAbbreviation} vs ${game.awayAbbreviation} at ${formatTime(game.startsAtIso)}. Drag to reschedule.`}
       style={({ hovered }: WebPressableState) => [
         styles.gameTile,
         game.status === 'live' ? styles.gameTileLive : null,
         hovered ? styles.gameTileHover : null,
+        isDragging ? styles.gameTileDragging : null,
       ]}
     >
-      <Text variant="caption" color={colors.text.muted}>
-        {formatTime(game.startsAtIso)}
-      </Text>
+      <View style={styles.tileTopRow}>
+        <Text variant="caption" color={colors.text.muted}>
+          {formatTime(game.startsAtIso)}
+        </Text>
+        <GripVertical size={12} color={colors.text.muted} strokeWidth={2.25} />
+      </View>
       <Text variant="bodySm" color={colors.text.primary} weight="600">
         {game.homeAbbreviation} · {game.awayAbbreviation}
       </Text>
@@ -303,14 +439,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
-  dayCol: {
+  dayWrap: {
     flex: 1,
     minWidth: 140,
+  },
+  dayCol: {
     gap: spacing.sm,
     minHeight: 200,
   },
   dayColToday: {
     borderColor: colors.brand.primary,
+  },
+  dayColHover: {
+    borderColor: colors.brand.primary,
+    backgroundColor: colors.brand.soft,
   },
   dayHead: {
     paddingBottom: spacing.sm,
@@ -335,6 +477,21 @@ const styles = StyleSheet.create({
   },
   gameTileHover: {
     backgroundColor: colors.brand.soft,
+  },
+  gameTileDragging: {
+    opacity: 0.4,
+  },
+  tileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  conflictBanner: {
+    width: '100%',
+    backgroundColor: '#FDE7E2',
+    borderRadius: radii.sm,
+    padding: spacing.sm,
+    gap: 4,
   },
   cardHead: {
     flexDirection: 'row',

@@ -2,17 +2,38 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { type WebPressableState } from '../../lib/pressable';
 import { useNavigation } from '@react-navigation/native';
-import { CalendarPlus, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react-native';
+import {
+  CalendarPlus,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  GripVertical,
+} from 'lucide-react-native';
 import {
   PageHeader,
   PageScroll,
   type AdminRouteName,
 } from '../../admin';
-import { Button, Card, EmptyState, Select, Tabs, Tag, Text, useToast } from '../../ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  Modal,
+  Select,
+  Tabs,
+  Tag,
+  Text,
+  useToast,
+} from '../../ui';
 import { colors, radii, spacing } from '../../theme';
 import { BOOKINGS, STATUS_LABEL, type Booking, type BookingStatus } from '../../mocks/bookings';
 import { FACILITIES } from '../../mocks/facilities';
-import { formatTime } from '../../lib/format';
+import { formatDate, formatTime } from '../../lib/format';
+import {
+  moveDateInIso,
+  useCalendarDrag,
+  type DragItem,
+} from '../../lib/dragReschedule';
 
 interface ScreenNavigation {
   navigate: (route: AdminRouteName, params?: { id?: string }) => void;
@@ -39,12 +60,21 @@ function startOfWeek(d: Date): Date {
   return x;
 }
 
+interface PendingMove {
+  booking: Booking;
+  fromYmd: string;
+  toYmd: string;
+}
+
 export function BookingCalendarScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
   const toast = useToast();
   const [view, setView] = useState('week');
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date('2026-04-19')));
   const [facilityFilter, setFacilityFilter] = useState<string>('all');
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const drag = useCalendarDrag<DragItem>();
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
@@ -52,13 +82,22 @@ export function BookingCalendarScreen() {
     return d;
   }), [weekStart]);
 
-  const visible = useMemo(
-    () =>
+  const visible = useMemo<Booking[]>(() => {
+    const filtered =
       facilityFilter === 'all'
         ? BOOKINGS
-        : BOOKINGS.filter((b) => b.facilityId === facilityFilter),
-    [facilityFilter],
-  );
+        : BOOKINGS.filter((b) => b.facilityId === facilityFilter);
+    return filtered.map((b) => {
+      const newStart = overrides[b.id];
+      if (!newStart) return b;
+      const duration = new Date(b.endsAtIso).getTime() - new Date(b.startsAtIso).getTime();
+      return {
+        ...b,
+        startsAtIso: newStart,
+        endsAtIso: new Date(new Date(newStart).getTime() + duration).toISOString(),
+      };
+    });
+  }, [facilityFilter, overrides]);
 
   const byDay = useMemo(() => {
     const map = new Map<string, Booking[]>();
@@ -70,6 +109,56 @@ export function BookingCalendarScreen() {
     }
     return map;
   }, [visible]);
+
+  const handleDrop = (booking: Booking, fromYmd: string, toYmd: string) => {
+    setPendingMove({ booking, fromYmd, toYmd });
+  };
+
+  const confirmMove = () => {
+    if (!pendingMove) return;
+    const { booking, toYmd } = pendingMove;
+    const previousIso = booking.startsAtIso;
+    const nextIso = moveDateInIso(booking.startsAtIso, toYmd);
+    setOverrides((prev) => ({ ...prev, [booking.id]: nextIso }));
+    setPendingMove(null);
+    toast.show({
+      variant: 'success',
+      title: `${booking.spaceName} rescheduled`,
+      description: `${formatDate(nextIso, { weekday: 'short', month: 'short', day: 'numeric' })} · ${formatTime(nextIso)}`,
+      action: {
+        label: 'Undo',
+        onPress: () =>
+          setOverrides((prev) => {
+            const next = { ...prev };
+            const original = BOOKINGS.find((x) => x.id === booking.id)?.startsAtIso;
+            if (previousIso === original) {
+              delete next[booking.id];
+            } else {
+              next[booking.id] = previousIso;
+            }
+            return next;
+          }),
+      },
+    });
+  };
+
+  const conflictForPending = useMemo(() => {
+    if (!pendingMove) return null;
+    const { booking, toYmd } = pendingMove;
+    const candidateStart = new Date(moveDateInIso(booking.startsAtIso, toYmd)).getTime();
+    const duration = new Date(booking.endsAtIso).getTime() - new Date(booking.startsAtIso).getTime();
+    const candidateEnd = candidateStart + duration;
+    return (
+      visible.find((other) => {
+        if (other.id === booking.id) return false;
+        if (other.spaceId !== booking.spaceId) return false;
+        if (other.startsAtIso.slice(0, 10) !== toYmd) return false;
+        const otherStart = new Date(other.startsAtIso).getTime();
+        const otherEnd = new Date(other.endsAtIso).getTime();
+        return candidateStart < otherEnd && otherStart < candidateEnd;
+      }) ?? null
+    );
+  }, [pendingMove, visible]);
 
   return (
     <PageScroll>
@@ -145,46 +234,68 @@ export function BookingCalendarScreen() {
             const ymd = d.toISOString().slice(0, 10);
             const dayBookings = byDay.get(ymd) ?? [];
             const isToday = new Date().toISOString().slice(0, 10) === ymd;
+            const isHovered = drag.hoveredYmd === ymd;
+            const dropProps = drag.targetProps(ymd, (item) => {
+              const booking = visible.find((b) => b.id === item.id);
+              if (booking) handleDrop(booking, item.ymd, ymd);
+            });
             return (
-              <Card key={ymd} style={[styles.dayCol, isToday ? styles.dayColToday : null]}>
-                <View style={styles.dayHead}>
-                  <Text variant="caption" color={colors.text.muted}>
-                    {d.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()}
-                  </Text>
-                  <Text variant="h2" color={isToday ? colors.brand.primary : colors.text.primary}>
-                    {d.getDate()}
-                  </Text>
-                </View>
-                {dayBookings.length === 0 ? (
-                  <Text variant="caption" color={colors.text.muted} style={styles.dayEmpty}>
-                    No bookings
-                  </Text>
-                ) : (
-                  dayBookings.map((b) => (
-                    <Pressable
-                      key={b.id}
-                      onPress={() => navigation.navigate('BookingDetail', { id: b.id })}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${b.facilityName} ${b.spaceName} at ${formatTime(b.startsAtIso)}`}
-                      style={({ hovered }: WebPressableState) => [
-                        styles.bookingTile,
-                        hovered ? styles.bookingTileHover : null,
-                      ]}
-                    >
-                      <Text variant="caption" color={colors.text.muted}>
-                        {formatTime(b.startsAtIso)} – {formatTime(b.endsAtIso)}
-                      </Text>
-                      <Text variant="bodySm" color={colors.text.primary} weight="600" numberOfLines={1}>
-                        {b.spaceName}
-                      </Text>
-                      <Text variant="caption" color={colors.text.muted} numberOfLines={1}>
-                        {b.hostName}
-                      </Text>
-                      <Tag size="sm" tone={STATUS_TONE[b.status]} label={STATUS_LABEL[b.status]} />
-                    </Pressable>
-                  ))
-                )}
-              </Card>
+              <View key={ymd} {...dropProps} style={styles.dayWrap}>
+                <Card
+                  style={[
+                    styles.dayCol,
+                    isToday ? styles.dayColToday : null,
+                    isHovered ? styles.dayColHover : null,
+                  ]}
+                >
+                  <View style={styles.dayHead}>
+                    <Text variant="caption" color={colors.text.muted}>
+                      {d.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()}
+                    </Text>
+                    <Text variant="h2" color={isToday ? colors.brand.primary : colors.text.primary}>
+                      {d.getDate()}
+                    </Text>
+                  </View>
+                  {dayBookings.length === 0 ? (
+                    <Text variant="caption" color={colors.text.muted} style={styles.dayEmpty}>
+                      {isHovered ? 'Drop here' : 'No bookings'}
+                    </Text>
+                  ) : (
+                    dayBookings.map((b) => {
+                      const sourceProps = drag.sourceProps({ id: b.id, ymd });
+                      const isDragging = drag.draggingId === b.id;
+                      return (
+                        <Pressable
+                          key={b.id}
+                          {...sourceProps}
+                          onPress={() => navigation.navigate('BookingDetail', { id: b.id })}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${b.facilityName} ${b.spaceName} at ${formatTime(b.startsAtIso)}. Drag to reschedule.`}
+                          style={({ hovered }: WebPressableState) => [
+                            styles.bookingTile,
+                            hovered ? styles.bookingTileHover : null,
+                            isDragging ? styles.bookingTileDragging : null,
+                          ]}
+                        >
+                          <View style={styles.tileTopRow}>
+                            <Text variant="caption" color={colors.text.muted}>
+                              {formatTime(b.startsAtIso)} – {formatTime(b.endsAtIso)}
+                            </Text>
+                            <GripVertical size={12} color={colors.text.muted} strokeWidth={2.25} />
+                          </View>
+                          <Text variant="bodySm" color={colors.text.primary} weight="600" numberOfLines={1}>
+                            {b.spaceName}
+                          </Text>
+                          <Text variant="caption" color={colors.text.muted} numberOfLines={1}>
+                            {b.hostName}
+                          </Text>
+                          <Tag size="sm" tone={STATUS_TONE[b.status]} label={STATUS_LABEL[b.status]} />
+                        </Pressable>
+                      );
+                    })
+                  )}
+                </Card>
+              </View>
             );
           })}
         </View>
@@ -231,6 +342,35 @@ export function BookingCalendarScreen() {
           )}
         </Card>
       )}
+
+      <Modal
+        visible={!!pendingMove}
+        onRequestClose={() => setPendingMove(null)}
+        variant={conflictForPending ? 'destructive' : 'info'}
+        title="Reschedule booking?"
+        description={
+          pendingMove
+            ? `Move ${pendingMove.booking.spaceName} from ${formatDate(pendingMove.booking.startsAtIso, { weekday: 'short', month: 'short', day: 'numeric' })} to ${formatDate(moveDateInIso(pendingMove.booking.startsAtIso, pendingMove.toYmd), { weekday: 'short', month: 'short', day: 'numeric' })} at ${formatTime(pendingMove.booking.startsAtIso)}?`
+            : ''
+        }
+        primaryAction={{
+          label: conflictForPending ? 'Reschedule anyway' : 'Reschedule',
+          onPress: confirmMove,
+        }}
+        secondaryAction={{ label: 'Cancel', onPress: () => setPendingMove(null) }}
+      >
+        {conflictForPending ? (
+          <View style={styles.conflictBanner}>
+            <Text variant="caption" color={colors.status.error}>
+              Conflict detected
+            </Text>
+            <Text variant="bodySm" color={colors.text.primary}>
+              {conflictForPending.spaceName} is already booked by {conflictForPending.hostName} at{' '}
+              {formatTime(conflictForPending.startsAtIso)}.
+            </Text>
+          </View>
+        ) : null}
+      </Modal>
     </PageScroll>
   );
 }
@@ -271,14 +411,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
-  dayCol: {
+  dayWrap: {
     flex: 1,
     minWidth: 140,
+  },
+  dayCol: {
     gap: spacing.sm,
     minHeight: 200,
   },
   dayColToday: {
     borderColor: colors.brand.primary,
+  },
+  dayColHover: {
+    borderColor: colors.brand.primary,
+    backgroundColor: colors.brand.soft,
   },
   dayHead: {
     paddingBottom: spacing.sm,
@@ -299,6 +445,21 @@ const styles = StyleSheet.create({
   },
   bookingTileHover: {
     backgroundColor: colors.brand.soft,
+  },
+  bookingTileDragging: {
+    opacity: 0.4,
+  },
+  tileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  conflictBanner: {
+    width: '100%',
+    backgroundColor: '#FDE7E2',
+    borderRadius: radii.sm,
+    padding: spacing.sm,
+    gap: 4,
   },
   listRow: {
     flexDirection: 'row',
