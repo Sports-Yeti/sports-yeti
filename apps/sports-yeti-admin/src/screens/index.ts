@@ -41,5 +41,6 @@ export { StatsScreen } from './insights/StatsScreen';
 export { AuditLogScreen } from './insights/AuditLogScreen';
 export { MarketplaceScreen } from './insights/MarketplaceScreen';
 export { NewsScreen } from './insights/NewsScreen';
+export { NewsComposerScreen } from './insights/NewsComposerScreen';
 
 export { SettingsScreen } from './settings/SettingsScreen';

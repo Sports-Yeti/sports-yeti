@@ -54,6 +54,7 @@ export type AdminRouteName =
   | 'AuditLog'
   | 'Marketplace'
   | 'News'
+  | 'NewsComposer'
   | 'Settings';
 
 export interface NavItem {
@@ -212,6 +213,7 @@ export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   AuditLog: 'audit',
   Marketplace: 'marketplace',
   News: 'news',
+  NewsComposer: 'news',
   Settings: 'settings',
 };
 
@@ -253,5 +255,6 @@ export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   AuditLog: 'Audit log',
   Marketplace: 'Marketplace',
   News: 'News & ads',
+  NewsComposer: 'Compose announcement',
   Settings: 'Settings',
 };

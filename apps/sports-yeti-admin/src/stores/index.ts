@@ -5,3 +5,4 @@ export {
   useGameById,
   gameByIdLive,
 } from './scheduleStore';
+export { useNewsStore, useAllNewsPosts } from './newsStore';

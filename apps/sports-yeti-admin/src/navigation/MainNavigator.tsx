@@ -23,6 +23,7 @@ import {
   LeagueFormScreen,
   LeagueListScreen,
   MarketplaceScreen,
+  NewsComposerScreen,
   NewsScreen,
   PaymentDetailScreen,
   PaymentListScreen,
@@ -72,6 +73,7 @@ export type MainStackParamList = {
   AuditLog: undefined;
   Marketplace: undefined;
   News: undefined;
+  NewsComposer: { id?: string } | undefined;
   Settings: undefined;
 };
 
@@ -140,6 +142,7 @@ export function MainNavigator() {
         <Stack.Screen name="AuditLog" component={AuditLogScreen} />
         <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
         <Stack.Screen name="News" component={NewsScreen} />
+        <Stack.Screen name="NewsComposer" component={NewsComposerScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </AppShell>
