@@ -13,6 +13,7 @@ export const fontFamilies = {
 } as const;
 
 export type TypographyVariant =
+  | 'displayLg'
   | 'display'
   | 'h1'
   | 'h2'
@@ -27,6 +28,15 @@ export type TypographyVariant =
   | 'mono';
 
 export const typography: Record<TypographyVariant, TextStyle> = {
+  // "Summit" hero title — only used for top-level page headers
+  // (Glacier ethos §3 "Display-LG").
+  displayLg: {
+    fontFamily: SANS,
+    fontWeight: '800',
+    fontSize: 56,
+    lineHeight: 60,
+    letterSpacing: -1.12,
+  },
   display: {
     fontFamily: SANS,
     fontWeight: '800',

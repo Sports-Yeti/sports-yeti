@@ -20,4 +20,14 @@ export const shadows = {
     shadowOffset: { width: 0, height: 8 },
     elevation: 6,
   },
+  // "Ambient glow" for floating elements (Glacier ethos §4).
+  // Tinted with on-surface at 6% opacity, generous blur, slight Y offset
+  // so it reads as soft alpine light rather than a hard drop shadow.
+  glow: {
+    shadowColor: '#171C1F',
+    shadowOpacity: 0.06,
+    shadowRadius: 32,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 4,
+  },
 } as const;

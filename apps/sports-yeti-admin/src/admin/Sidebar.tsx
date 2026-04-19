@@ -6,7 +6,8 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ChevronsLeft, ChevronsRight, LogOut, Snowflake } from 'lucide-react-native';
 import {
   colors,
   radii,
@@ -61,18 +62,25 @@ export function Sidebar({
     >
       <View style={styles.header}>
         <View style={styles.brand}>
-          <View style={styles.brandMark}>
-            <Text variant="button" color={colors.text.inverse}>
-              SY
-            </Text>
-          </View>
+          <LinearGradient
+            colors={[...colors.gradient.cta]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.brandMark}
+          >
+            <Snowflake
+              size={18}
+              color={colors.text.inverse}
+              strokeWidth={2.5}
+            />
+          </LinearGradient>
           {!collapsed ? (
             <View style={styles.brandText}>
-              <Text variant="h4" color={colors.text.sidebarPrimary}>
+              <Text variant="h3" color={colors.brand.deep}>
                 {CURRENT_ORG.name}
               </Text>
-              <Text variant="caption" color={colors.text.sidebarMuted}>
-                {CURRENT_ORG.plan === 'pro' ? 'Pro plan' : CURRENT_ORG.plan}
+              <Text variant="caption" color={colors.text.muted}>
+                League Sanctuary
               </Text>
             </View>
           ) : null}
@@ -82,18 +90,21 @@ export function Sidebar({
           accessibilityRole="button"
           accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           hitSlop={6}
-          style={styles.collapseBtn}
+          style={({ hovered }: WebPressableState) => [
+            styles.collapseBtn,
+            hovered ? styles.collapseBtnHover : null,
+          ]}
         >
           {collapsed ? (
             <ChevronsRight
               size={14}
-              color={colors.text.sidebarMuted}
+              color={colors.text.muted}
               strokeWidth={2.25}
             />
           ) : (
             <ChevronsLeft
               size={14}
-              color={colors.text.sidebarMuted}
+              color={colors.text.muted}
               strokeWidth={2.25}
             />
           )}
@@ -110,7 +121,7 @@ export function Sidebar({
             {!collapsed ? (
               <Text
                 variant="eyebrow"
-                color={colors.text.sidebarMuted}
+                color={colors.text.muted}
                 style={styles.groupLabel}
               >
                 {group.label}
@@ -141,14 +152,14 @@ export function Sidebar({
           <Avatar
             uri={CURRENT_ADMIN.avatar}
             initials={CURRENT_ADMIN.initials}
-            size={32}
+            size={36}
           />
           {!collapsed ? (
             <View style={styles.userBody}>
-              <Text variant="bodySm" color={colors.text.sidebarPrimary}>
+              <Text variant="bodySm" color={colors.text.primary}>
                 {CURRENT_ADMIN.name}
               </Text>
-              <Text variant="caption" color={colors.text.sidebarMuted}>
+              <Text variant="caption" color={colors.text.muted}>
                 {CURRENT_ADMIN.email}
               </Text>
             </View>
@@ -158,11 +169,14 @@ export function Sidebar({
             accessibilityRole="button"
             accessibilityLabel="Sign out"
             hitSlop={6}
-            style={styles.logoutBtn}
+            style={({ hovered }: WebPressableState) => [
+              styles.logoutBtn,
+              hovered ? styles.logoutBtnHover : null,
+            ]}
           >
             <LogOut
               size={14}
-              color={colors.text.sidebarMuted}
+              color={colors.text.muted}
               strokeWidth={2.25}
             />
           </Pressable>
@@ -188,6 +202,8 @@ function NavItemRow({
   onPress,
 }: NavItemRowProps) {
   const Icon = item.icon;
+  const labelColor = active ? colors.brand.primary : colors.text.secondary;
+  const iconColor = active ? colors.brand.primary : colors.text.muted;
   return (
     <Pressable
       onPress={onPress}
@@ -202,19 +218,12 @@ function NavItemRow({
         pressed ? styles.navItemPressed : null,
       ]}
     >
-      <Icon
-        size={16}
-        color={
-          active ? colors.text.sidebarPrimary : colors.text.sidebarMuted
-        }
-        strokeWidth={2.25}
-      />
+      <Icon size={18} color={iconColor} strokeWidth={2.25} />
       {!collapsed ? (
         <Text
           variant="bodySm"
-          color={
-            active ? colors.text.sidebarPrimary : colors.text.sidebarMuted
-          }
+          color={labelColor}
+          weight={active ? '600' : '500'}
           style={styles.navItemLabel}
         >
           {item.label}
@@ -231,9 +240,10 @@ const styles = StyleSheet.create({
   container: {
     height: '100%',
     backgroundColor: colors.surface.sidebar,
+    paddingVertical: spacing.lg,
+    // Tonal-shift hairline rather than a hard line — Glacier "no-line" rule.
     borderRightWidth: 1,
     borderRightColor: colors.border.sidebar,
-    paddingVertical: spacing.lg,
   },
   header: {
     flexDirection: 'row',
@@ -241,24 +251,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.sidebar,
   },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
     flex: 1,
     minWidth: 0,
   },
   brandMark: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.md,
-    backgroundColor: colors.brand.primary,
+    width: 40,
+    height: 40,
+    borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.soft,
+    ...shadows.glow,
   },
   brandText: {
     flex: 1,
@@ -266,10 +273,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   collapseBtn: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  collapseBtnHover: {
+    backgroundColor: colors.surface.sidebarHover,
   },
   nav: {
     flex: 1,
@@ -290,11 +301,11 @@ const styles = StyleSheet.create({
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: radii.md,
-    minHeight: 32,
+    paddingVertical: 10,
+    borderRadius: radii.lg,
+    minHeight: 40,
   },
   navItemCollapsed: {
     justifyContent: 'center',
@@ -315,14 +326,12 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: spacing.sm,
     gap: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.sidebar,
     paddingTop: spacing.md,
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
   },
@@ -332,9 +341,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   logoutBtn: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logoutBtnHover: {
+    backgroundColor: colors.surface.sidebarHover,
   },
 });
