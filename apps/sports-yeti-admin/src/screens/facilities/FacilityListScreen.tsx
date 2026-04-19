@@ -5,13 +5,17 @@ import { useNavigation } from '@react-navigation/native';
 import { Image } from 'react-native';
 import { Plus, Star, Warehouse } from 'lucide-react-native';
 import {
+  FacilityPortfolioCard,
   PageHeader,
   PageScroll,
   type AdminRouteName,
 } from '../../admin';
-import { Button, Card, EmptyState, Input, Select, Tabs, Tag, Text } from '../../ui';
+import { Button, Card, EmptyState, Input, Select, Tabs, Tag, Text, useToast } from '../../ui';
 import { colors, radii, spacing } from '../../theme';
-import { FACILITIES, type Facility } from '../../mocks/facilities';
+import {
+  FACILITIES,
+  type Facility,
+} from '../../mocks/facilities';
 import { SPORT_OPTIONS } from '../../mocks/leagues';
 import { formatCurrency } from '../../lib/format';
 
@@ -20,13 +24,15 @@ interface ScreenNavigation {
 }
 
 const TABS = [
+  { key: 'portfolio', label: 'Portfolio' },
   { key: 'grid', label: 'Grid' },
   { key: 'list', label: 'List' },
 ];
 
 export function FacilityListScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
-  const [view, setView] = useState('grid');
+  const toast = useToast();
+  const [view, setView] = useState('portfolio');
   const [search, setSearch] = useState('');
   const [sport, setSport] = useState<string>('all');
 
@@ -91,6 +97,37 @@ export function FacilityListScreen() {
             description="Try widening filters, or add a new venue."
           />
         </Card>
+      ) : view === 'portfolio' ? (
+        <View style={styles.portfolio}>
+          {visible.map((f) => (
+            <FacilityPortfolioCard
+              key={f.id}
+              facility={f}
+              onPress={() => navigation.navigate('FacilityDetail', { id: f.id })}
+              onMore={() =>
+                toast.show({
+                  variant: 'info',
+                  title: `${f.name} actions`,
+                  description: 'Action menu coming soon.',
+                })
+              }
+              onAddSpace={() =>
+                toast.show({
+                  variant: 'info',
+                  title: `Add space to ${f.name}`,
+                  description: 'Space editor opens from FacilityDetail (mock).',
+                })
+              }
+              onSpacePress={(space) =>
+                toast.show({
+                  variant: 'info',
+                  title: space.name,
+                  description: space.statusDetail ?? 'Space details (mock).',
+                })
+              }
+            />
+          ))}
+        </View>
       ) : view === 'grid' ? (
         <View style={styles.grid}>
           {visible.map((f) => (
@@ -176,6 +213,9 @@ const styles = StyleSheet.create({
   searchField: {
     flex: 1,
     minWidth: 240,
+  },
+  portfolio: {
+    gap: spacing.lg,
   },
   grid: {
     flexDirection: 'row',

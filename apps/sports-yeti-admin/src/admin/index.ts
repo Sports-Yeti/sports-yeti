@@ -17,6 +17,7 @@ export { PageScroll } from './PageScroll';
 export { SectionHeader } from './SectionHeader';
 export type { SectionHeaderTone } from './SectionHeader';
 export { StickyActionBar } from './StickyActionBar';
+export { FacilityPortfolioCard } from './FacilityPortfolioCard';
 export {
   NAV_GROUPS,
   ROUTE_LABELS,
