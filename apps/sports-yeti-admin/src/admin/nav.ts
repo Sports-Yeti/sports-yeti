@@ -2,6 +2,8 @@ import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react-native';
 import {
   Activity,
+  Building2,
+  CalendarDays,
   CalendarRange,
   ChartBarBig,
   ClipboardList,
@@ -11,6 +13,7 @@ import {
   Goal,
   Inbox,
   LayoutDashboard,
+  Layers,
   Megaphone,
   ScrollText,
   Settings,
@@ -25,9 +28,18 @@ import {
 export type AdminRouteName =
   | 'Dashboard'
   | 'Operations'
+  | 'Approvals'
+  | 'Organizations'
+  | 'OrganizationDetail'
   | 'Leagues'
   | 'LeagueDetail'
   | 'LeagueForm'
+  | 'Seasons'
+  | 'SeasonDetail'
+  | 'SeasonForm'
+  | 'Divisions'
+  | 'DivisionDetail'
+  | 'DivisionForm'
   | 'Teams'
   | 'TeamDetail'
   | 'Schedule'
@@ -46,6 +58,17 @@ export type AdminRouteName =
   | 'Facilities'
   | 'FacilityDetail'
   | 'FacilityForm'
+  | 'SpaceForm'
+  | 'FacilityAvailability'
+  | 'ExternalRentalListing'
+  | 'ExternalBookingRequest'
+  | 'FmDashboard'
+  | 'FmAnalytics'
+  | 'OrgPulse'
+  | 'OrgMoney'
+  | 'OrgPeople'
+  | 'OrgIntegrations'
+  | 'OrgBranding'
   | 'Bookings'
   | 'BookingDetail'
   | 'BookingForm'
@@ -59,7 +82,8 @@ export type AdminRouteName =
   | 'News'
   | 'NewsComposer'
   | 'Settings'
-  | 'FormControls';
+  | 'FormControls'
+  | 'UIGallery';
 
 export interface NavItem {
   id: string;
@@ -78,8 +102,8 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    id: 'overview',
-    label: 'Overview',
+    id: 'workspace',
+    label: 'Workspace',
     items: [
       {
         id: 'dashboard',
@@ -88,11 +112,59 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: LayoutDashboard,
       },
       {
-        id: 'operations',
-        label: 'Operations',
-        route: 'Operations',
+        id: 'organizations',
+        label: 'Organizations',
+        route: 'Organizations',
+        icon: Building2,
+      },
+      {
+        id: 'org-pulse',
+        label: 'Org pulse',
+        route: 'OrgPulse',
+        icon: Activity,
+      },
+      {
+        id: 'org-money',
+        label: 'Org money',
+        route: 'OrgMoney',
+        icon: Wallet,
+      },
+      {
+        id: 'org-people',
+        label: 'Org people',
+        route: 'OrgPeople',
+        icon: Users,
+      },
+      {
+        id: 'org-integrations',
+        label: 'Integrations',
+        route: 'OrgIntegrations',
+        icon: ClipboardList,
+      },
+      {
+        id: 'org-branding',
+        label: 'Branding',
+        route: 'OrgBranding',
+        icon: Megaphone,
+      },
+    ],
+  },
+  {
+    id: 'operations',
+    label: 'Operations',
+    items: [
+      {
+        id: 'approvals',
+        label: 'Approvals',
+        route: 'Approvals',
         icon: Inbox,
         badgeKey: 'pendingTeams',
+      },
+      {
+        id: 'operations',
+        label: 'Operations (legacy)',
+        route: 'Operations',
+        icon: Inbox,
       },
     ],
   },
@@ -101,6 +173,18 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Competition',
     items: [
       { id: 'leagues', label: 'Leagues', route: 'Leagues', icon: Trophy },
+      {
+        id: 'seasons',
+        label: 'Seasons',
+        route: 'Seasons',
+        icon: CalendarDays,
+      },
+      {
+        id: 'divisions',
+        label: 'Divisions',
+        route: 'Divisions',
+        icon: Layers,
+      },
       {
         id: 'teams',
         label: 'Teams',
@@ -143,6 +227,18 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: ClipboardList,
         badgeKey: 'pendingBookings',
       },
+      {
+        id: 'fm-dashboard',
+        label: 'FM dashboard',
+        route: 'FmDashboard',
+        icon: LayoutDashboard,
+      },
+      {
+        id: 'fm-analytics',
+        label: 'FM analytics',
+        route: 'FmAnalytics',
+        icon: ChartBarBig,
+      },
     ],
   },
   {
@@ -180,6 +276,25 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'news', label: 'News & ads', route: 'News', icon: Megaphone },
     ],
   },
+  {
+    id: 'system',
+    label: 'System',
+    collapsed: true,
+    items: [
+      {
+        id: 'form-controls',
+        label: 'Form controls',
+        route: 'FormControls',
+        icon: ClipboardList,
+      },
+      {
+        id: 'ui-gallery',
+        label: 'UI gallery',
+        route: 'UIGallery',
+        icon: ChartBarBig,
+      },
+    ],
+  },
 ];
 
 export const SETTINGS_ITEM: NavItem = {
@@ -194,9 +309,18 @@ export const SETTINGS_ITEM: NavItem = {
 export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   Dashboard: 'dashboard',
   Operations: 'operations',
+  Approvals: 'approvals',
+  Organizations: 'organizations',
+  OrganizationDetail: 'organizations',
   Leagues: 'leagues',
   LeagueDetail: 'leagues',
   LeagueForm: 'leagues',
+  Seasons: 'seasons',
+  SeasonDetail: 'seasons',
+  SeasonForm: 'seasons',
+  Divisions: 'divisions',
+  DivisionDetail: 'divisions',
+  DivisionForm: 'divisions',
   Teams: 'teams',
   TeamDetail: 'teams',
   Schedule: 'schedule',
@@ -215,6 +339,17 @@ export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   Facilities: 'facilities',
   FacilityDetail: 'facilities',
   FacilityForm: 'facilities',
+  SpaceForm: 'facilities',
+  FacilityAvailability: 'facilities',
+  ExternalRentalListing: 'facilities',
+  ExternalBookingRequest: 'facilities',
+  FmDashboard: 'fm-dashboard',
+  FmAnalytics: 'fm-analytics',
+  OrgPulse: 'org-pulse',
+  OrgMoney: 'org-money',
+  OrgPeople: 'org-people',
+  OrgIntegrations: 'org-integrations',
+  OrgBranding: 'org-branding',
   Bookings: 'bookings',
   BookingDetail: 'bookings',
   BookingForm: 'bookings',
@@ -229,6 +364,7 @@ export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   NewsComposer: 'news',
   Settings: 'settings',
   FormControls: 'form-controls',
+  UIGallery: 'ui-gallery',
 };
 
 export interface BreadcrumbCrumb {
@@ -239,9 +375,18 @@ export interface BreadcrumbCrumb {
 export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   Dashboard: 'Dashboard',
   Operations: 'Operations',
+  Approvals: 'Approvals',
+  Organizations: 'Organizations',
+  OrganizationDetail: 'Organization',
   Leagues: 'Leagues',
   LeagueDetail: 'League',
   LeagueForm: 'League editor',
+  Seasons: 'Seasons',
+  SeasonDetail: 'Season',
+  SeasonForm: 'Season editor',
+  Divisions: 'Divisions',
+  DivisionDetail: 'Division',
+  DivisionForm: 'Division editor',
   Teams: 'Teams',
   TeamDetail: 'Team',
   Schedule: 'Schedule',
@@ -260,6 +405,17 @@ export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   Facilities: 'Facilities',
   FacilityDetail: 'Facility',
   FacilityForm: 'Facility editor',
+  SpaceForm: 'Space editor',
+  FacilityAvailability: 'Availability',
+  ExternalRentalListing: 'External listing',
+  ExternalBookingRequest: 'Rental request',
+  FmDashboard: 'FM dashboard',
+  FmAnalytics: 'FM analytics',
+  OrgPulse: 'Org pulse',
+  OrgMoney: 'Org money',
+  OrgPeople: 'Org people',
+  OrgIntegrations: 'Integrations',
+  OrgBranding: 'Branding',
   Bookings: 'Bookings',
   BookingDetail: 'Booking',
   BookingForm: 'Booking editor',
@@ -274,4 +430,5 @@ export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   NewsComposer: 'Compose announcement',
   Settings: 'Settings',
   FormControls: 'Form controls',
+  UIGallery: 'UI gallery',
 };

@@ -1,383 +1,201 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import { type WebPressableState } from '../../lib/pressable';
+import {
+  facilityById,
+  ORGANIZATIONS,
+  ownershipForFacility,
+  USERS,
+} from '@sports-yeti/mocks';
 import { PageHeader, PageScroll, type AdminRouteName } from '../../admin';
-import { Button, Card, Input, Tag, Text, useToast } from '../../ui';
-import { colors, radii, spacing } from '../../theme';
-import { facilityById } from '../../mocks/facilities';
-import { SPORT_OPTIONS, type SportKey } from '../../mocks/leagues';
+import { Button, Card, Input, Select, Tag, Text, useToast } from '../../ui';
+import { colors, spacing } from '../../theme';
 
 interface ScreenNavigation {
   navigate: (route: AdminRouteName, params?: { id?: string }) => void;
   goBack: () => void;
 }
 
-interface FormState {
-  name: string;
-  city: string;
-  address: string;
-  sports: SportKey[];
-  amenities: string[];
-  hoursLabel: string;
-  isActive: boolean;
-  cover: string;
-}
-
-const COMMON_AMENITIES = [
-  'Lights',
-  'Showers',
-  'Lockers',
-  'Bathrooms',
-  'Parking',
-  'Free parking',
-  'Scoreboard',
-  'Pro shop',
-  'Ball machine',
-  'Locker rooms',
-  'Skate sharpening',
-  'Restrooms',
-];
-
-function buildInitial(id?: string): FormState {
-  if (!id) {
-    return {
-      name: '',
-      city: '',
-      address: '',
-      sports: [],
-      amenities: [],
-      hoursLabel: 'Open today · 6:00 AM – 10:00 PM',
-      isActive: true,
-      cover: '',
-    };
-  }
-  const facility = facilityById(id);
-  if (!facility) return buildInitial(undefined);
-  return {
-    name: facility.name,
-    city: facility.city,
-    address: facility.address,
-    sports: facility.sports,
-    amenities: facility.amenities,
-    hoursLabel: facility.hoursLabel,
-    isActive: facility.isActive,
-    cover: facility.cover,
-  };
-}
-
 export function FacilityFormScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
-  const route = useRoute<RouteProp<{ params: { id?: string } }, 'params'>>();
-  const editingId = route.params?.id;
+  const route = useRoute<
+    RouteProp<{ params: { id?: string } }, 'params'>
+  >();
   const toast = useToast();
-  const [form, setForm] = useState<FormState>(() => buildInitial(editingId));
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [customAmenity, setCustomAmenity] = useState('');
+  const editingId = route.params?.id;
+  const editing = useMemo(
+    () => (editingId ? facilityById(editingId) : undefined),
+    [editingId],
+  );
+  const ownership = useMemo(
+    () => (editing ? ownershipForFacility(editing.id) : undefined),
+    [editing],
+  );
 
-  const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
-    setForm((p) => ({ ...p, [key]: value }));
+  const [name, setName] = useState(editing?.name ?? '');
+  const [address, setAddress] = useState(editing?.address ?? '');
+  const [city, setCity] = useState(editing?.city ?? '');
+  const [state, setState] = useState(editing?.state ?? '');
+  const [zip, setZip] = useState(editing?.zip ?? '');
+  const [ownerOrgId, setOwnerOrgId] = useState(
+    editing?.ownerOrgId ?? ORGANIZATIONS[0]?.id ?? '',
+  );
+  const [managerIds, setManagerIds] = useState<Set<string>>(
+    new Set(ownership?.managerUserIds ?? []),
+  );
 
-  const toggleSport = (sport: SportKey) =>
-    setForm((p) => ({
-      ...p,
-      sports: p.sports.includes(sport)
-        ? p.sports.filter((s) => s !== sport)
-        : [...p.sports, sport],
-    }));
+  function toggleManager(uid: string) {
+    setManagerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid);
+      else next.add(uid);
+      return next;
+    });
+  }
 
-  const toggleAmenity = (amenity: string) =>
-    setForm((p) => ({
-      ...p,
-      amenities: p.amenities.includes(amenity)
-        ? p.amenities.filter((a) => a !== amenity)
-        : [...p.amenities, amenity],
-    }));
-
-  const addCustomAmenity = () => {
-    const trimmed = customAmenity.trim();
-    if (!trimmed || form.amenities.includes(trimmed)) return;
-    setForm((p) => ({ ...p, amenities: [...p.amenities, trimmed] }));
-    setCustomAmenity('');
-  };
-
-  const errors = {
-    name: form.name.trim().length < 3 ? 'At least 3 characters' : undefined,
-    city: !form.city.trim() ? 'Required' : undefined,
-    address: !form.address.trim() ? 'Required' : undefined,
-    sports: form.sports.length === 0 ? 'Pick at least one sport' : undefined,
-  } as const;
-
-  const showError = (key: keyof typeof errors) =>
-    submitted ? errors[key] : undefined;
-  const isValid = Object.values(errors).every((e) => !e);
-
-  const handleSave = () => {
-    setSubmitted(true);
-    if (!isValid) {
-      toast.show({ variant: 'warning', title: 'Fix the highlighted fields' });
-      return;
-    }
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      toast.show({
-        variant: 'success',
-        title: editingId ? `${form.name} updated` : `${form.name} created`,
-        description: editingId
-          ? 'Facility details saved.'
-          : 'Add bookable spaces from the facility detail page next.',
-      });
-      navigation.goBack();
-    }, 600);
-  };
+  function onSubmit() {
+    toast.show({
+      variant: 'success',
+      title: editing ? 'Facility updated' : 'Facility created',
+      description: `${name} saved (mock).`,
+    });
+    navigation.goBack();
+  }
 
   return (
     <PageScroll>
       <PageHeader
-        title={editingId ? 'Edit facility' : 'New facility'}
-        subtitle={
-          editingId
-            ? 'Update venue contact info, sports, or amenities.'
-            : 'Add a venue to your roster. Bookable spaces are configured from the detail page after save.'
-        }
+        title={editing ? `Edit ${editing.name}` : 'New facility'}
+        subtitle="A facility belongs to an organization. Org admins assign one or more facility managers to operate it."
         crumbs={[
+          { label: 'Venues' },
           { label: 'Facilities', route: 'Facilities' },
-          { label: editingId ? form.name || 'Edit' : 'New' },
+          { label: editing ? editing.name : 'New facility' },
         ]}
         onNavigate={(r) => navigation.navigate(r)}
-        trailing={
-          <>
-            <Button
-              label="Cancel"
-              variant="ghost"
-              size="sm"
-              onPress={() => navigation.goBack()}
-              disabled={submitting}
-            />
-            <Button
-              label={submitting ? 'Saving…' : editingId ? 'Save changes' : 'Create facility'}
-              variant="solid"
-              size="sm"
-              onPress={handleSave}
-              disabled={submitting}
-            />
-          </>
-        }
       />
 
-      <Card style={styles.section}>
-        <Text variant="h3" color={colors.text.primary}>
-          Basics
-        </Text>
-        <Input
-          label="Facility name"
-          value={form.name}
-          onChangeText={(v) => update('name', v)}
-          error={showError('name')}
-          placeholder="Yeti Center"
-        />
-        <View style={styles.row}>
-          <Input
-            label="City"
-            value={form.city}
-            onChangeText={(v) => update('city', v)}
-            error={showError('city')}
-            placeholder="Denver, CO"
-            containerStyle={styles.flex}
-          />
-          <Input
-            label="Address"
-            value={form.address}
-            onChangeText={(v) => update('address', v)}
-            error={showError('address')}
-            placeholder="1840 Mile High Loop, Denver, CO"
-            containerStyle={styles.flex2}
-          />
-        </View>
-        <Input
-          label="Hours label"
-          value={form.hoursLabel}
-          onChangeText={(v) => update('hoursLabel', v)}
-          helpText="Free-text hours surfaced on the facility detail page"
-        />
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleBody}>
-            <Text variant="bodySm" color={colors.text.primary} weight="600">
-              Active
+      <Card padded>
+        <Text variant="h3">Identity</Text>
+        <View style={[styles.row, { gap: spacing.md }]}>
+          <View style={{ flex: 2 }}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Name
             </Text>
-            <Text variant="caption" color={colors.text.muted}>
-              Inactive facilities are hidden from public booking but stay in admin.
-            </Text>
+            <Input
+              value={name}
+              onChangeText={setName}
+              placeholder="Yeti Center"
+            />
           </View>
-          <Switch
-            value={form.isActive}
-            onValueChange={(v) => update('isActive', v)}
-            trackColor={{ false: colors.surface.chip, true: colors.brand.primary }}
-          />
-        </View>
-      </Card>
-
-      <Card style={styles.section}>
-        <View style={styles.sectionHead}>
-          <Text variant="h3" color={colors.text.primary}>
-            Sports
-          </Text>
-          {showError('sports') ? (
-            <Text variant="caption" color={colors.status.error}>
-              {showError('sports')}
+          <View style={{ flex: 1 }}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Owner organization
             </Text>
-          ) : null}
-        </View>
-        <View style={styles.chipRow}>
-          {SPORT_OPTIONS.map((s) => {
-            const selected = form.sports.includes(s.value);
-            return (
-              <Pressable
-                key={s.value}
-                onPress={() => toggleSport(s.value)}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: selected }}
-                accessibilityLabel={s.label}
-                style={({ hovered }: WebPressableState) => [
-                  styles.chip,
-                  selected ? styles.chipSelected : null,
-                  hovered ? styles.chipHover : null,
-                ]}
-              >
-                <Text
-                  variant="bodySm"
-                  color={selected ? colors.text.inverse : colors.text.primary}
-                >
-                  {s.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </Card>
-
-      <Card style={styles.section}>
-        <Text variant="h3" color={colors.text.primary}>
-          Amenities
-        </Text>
-        <View style={styles.amenityGrid}>
-          {COMMON_AMENITIES.map((a) => {
-            const selected = form.amenities.includes(a);
-            return (
-              <Pressable
-                key={a}
-                onPress={() => toggleAmenity(a)}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: selected }}
-                accessibilityLabel={a}
-                style={({ hovered }: WebPressableState) => [
-                  styles.chip,
-                  selected ? styles.chipSelected : null,
-                  hovered ? styles.chipHover : null,
-                ]}
-              >
-                <Text
-                  variant="bodySm"
-                  color={selected ? colors.text.inverse : colors.text.primary}
-                >
-                  {a}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {form.amenities.filter((a) => !COMMON_AMENITIES.includes(a)).length >
-        0 ? (
-          <View style={styles.customRow}>
-            <Text variant="caption" color={colors.text.muted}>
-              CUSTOM
-            </Text>
-            <View style={styles.chipRow}>
-              {form.amenities
-                .filter((a) => !COMMON_AMENITIES.includes(a))
-                .map((a) => (
-                  <Tag
-                    key={a}
-                    tone="brand"
-                    size="sm"
-                    label={a}
-                  />
-                ))}
-            </View>
-          </View>
-        ) : null}
-        <View style={styles.row}>
-          <Input
-            label="Add custom amenity"
-            value={customAmenity}
-            onChangeText={setCustomAmenity}
-            placeholder="EV charging"
-            containerStyle={styles.flex2}
-          />
-          <View style={styles.addBtnWrap}>
-            <Button
-              label="Add"
-              variant="ghost"
-              size="sm"
-              onPress={addCustomAmenity}
-              disabled={!customAmenity.trim()}
+            <Select
+              value={ownerOrgId}
+              onChange={setOwnerOrgId}
+              options={ORGANIZATIONS.map((o) => ({
+                value: o.id,
+                label: o.name,
+              }))}
             />
           </View>
         </View>
       </Card>
 
-      <Card style={styles.section}>
-        <Text variant="h3" color={colors.text.primary}>
-          Cover image
-        </Text>
-        <Input
-          label="Cover URL"
-          value={form.cover}
-          onChangeText={(v) => update('cover', v)}
-          helpText="Square or 16:9 preferred. Image upload comes after backend wiring."
-          placeholder="https://images.unsplash.com/…"
-        />
+      <Card padded>
+        <Text variant="h3">Address</Text>
+        <View style={[styles.row, { gap: spacing.md }]}>
+          <View style={{ flex: 2 }}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Street
+            </Text>
+            <Input
+              value={address}
+              onChangeText={setAddress}
+              placeholder="1200 Tundra Way"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              City
+            </Text>
+            <Input value={city} onChangeText={setCity} placeholder="Denver" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              State
+            </Text>
+            <Input value={state} onChangeText={setState} placeholder="CO" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Zip
+            </Text>
+            <Input value={zip} onChangeText={setZip} placeholder="80211" />
+          </View>
+        </View>
       </Card>
+
+      <Card padded>
+        <Text variant="h3">Facility managers</Text>
+        <Text variant="body" color={colors.text.secondary}>
+          FMs can approve external bookings, edit availability, and see
+          analytics for this facility.
+        </Text>
+        <View style={[styles.chipRow, { gap: spacing.xs }]}>
+          {USERS.map((u) => {
+            const selected = managerIds.has(u.id);
+            return (
+              <Button
+                key={u.id}
+                size="sm"
+                variant={selected ? 'solid' : 'outline'}
+                label={`${selected ? '✓ ' : ''}${u.name}`}
+                onPress={() => toggleManager(u.id)}
+              />
+            );
+          })}
+        </View>
+        <View style={[styles.chipRow, { gap: spacing.xs, marginTop: 8 }]}>
+          {Array.from(managerIds).map((id) => (
+            <Tag key={id} size="sm" tone="success" label={USERS.find((u) => u.id === id)?.name ?? id} />
+          ))}
+        </View>
+      </Card>
+
+      <View style={[styles.actions, { gap: spacing.sm }]}>
+        <Button
+          size="md"
+          variant="ghost"
+          label="Cancel"
+          onPress={() => navigation.goBack()}
+        />
+        <Button
+          size="md"
+          variant="solid"
+          label={editing ? 'Save changes' : 'Create facility'}
+          onPress={onSubmit}
+        />
+      </View>
     </PageScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { gap: spacing.md },
-  sectionHead: {
+  row: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
+    flexWrap: 'wrap',
   },
-  row: { flexDirection: 'row', gap: spacing.md, flexWrap: 'wrap', alignItems: 'flex-end' },
-  flex: { flex: 1, minWidth: 200 },
-  flex2: { flex: 2, minWidth: 280 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  amenityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.border.soft,
-    backgroundColor: colors.surface.card,
-    minHeight: 32,
-    justifyContent: 'center',
-  },
-  chipSelected: {
-    backgroundColor: colors.brand.primary,
-    borderColor: colors.brand.primary,
-  },
-  chipHover: { backgroundColor: colors.brand.soft },
-  customRow: { gap: spacing.xs },
-  addBtnWrap: { paddingBottom: 4 },
-  toggleRow: {
+  chipRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+    flexWrap: 'wrap',
   },
-  toggleBody: { flex: 1, gap: 2 },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    width: '100%',
+    marginTop: 12,
+  },
 });

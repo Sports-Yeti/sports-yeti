@@ -91,6 +91,7 @@
   },
   "workspaces": [
     "apps/*",
-    "ui"
+    "ui",
+    "mocks"
   ]
 }

@@ -1,7 +1,18 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Plus, Trophy } from 'lucide-react-native';
+import { SeasonPill } from '@sports-yeti/ui';
+import {
+  divisionsForSeason,
+  LEAGUES,
+  organizationById,
+  seasonById,
+  seasonsByLeague,
+  SPORT_OPTIONS,
+  type League,
+  type Season,
+} from '@sports-yeti/mocks';
 import {
   BulkActionBar,
   DataTable,
@@ -12,43 +23,21 @@ import {
 } from '../../admin';
 import { Button, Input, Modal, Select, Tag, Text, useToast } from '../../ui';
 import { colors, spacing } from '../../theme';
-import {
-  LEAGUES,
-  SPORT_OPTIONS,
-  type League,
-  type LeagueStatus,
-} from '../../mocks/leagues';
-import { formatCurrency, formatDate } from '../../lib/format';
 
 interface ScreenNavigation {
   navigate: (route: AdminRouteName, params?: { id?: string }) => void;
 }
 
-const STATUS_OPTIONS: { value: LeagueStatus | 'all'; label: string }[] = [
-  { value: 'all', label: 'All statuses' },
-  { value: 'published', label: 'Published' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'archived', label: 'Archived' },
+const SPORT_FILTER_OPTIONS = [
+  { value: 'all', label: 'All sports' },
+  ...SPORT_OPTIONS,
 ];
-
-const STATUS_TONE: Record<LeagueStatus, 'success' | 'warning' | 'neutral'> = {
-  published: 'success',
-  draft: 'warning',
-  archived: 'neutral',
-};
-
-const STATUS_LABEL: Record<LeagueStatus, string> = {
-  published: 'Published',
-  draft: 'Draft',
-  archived: 'Archived',
-};
 
 export function LeagueListScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [sport, setSport] = useState<string>('all');
-  const [status, setStatus] = useState<LeagueStatus | 'all'>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState<League | null>(null);
   const [confirmName, setConfirmName] = useState('');
@@ -57,11 +46,19 @@ export function LeagueListScreen() {
     const q = search.trim().toLowerCase();
     return LEAGUES.filter((l) => {
       if (sport !== 'all' && l.sport !== sport) return false;
-      if (status !== 'all' && l.status !== status) return false;
-      if (q && !`${l.name} ${l.city} ${l.sportLabel}`.toLowerCase().includes(q)) return false;
+      if (
+        q &&
+        !`${l.name} ${l.city} ${l.sportTagline}`.toLowerCase().includes(q)
+      )
+        return false;
       return true;
     });
-  }, [search, sport, status]);
+  }, [search, sport]);
+
+  function activeSeasonFor(l: League): Season | undefined {
+    if (l.activeSeasonId) return seasonById(l.activeSeasonId);
+    return seasonsByLeague(l.id)[0];
+  }
 
   const columns: DataTableColumn<League>[] = [
     {
@@ -75,62 +72,65 @@ export function LeagueListScreen() {
             {l.name}
           </Text>
           <Text variant="caption" color={colors.text.muted}>
-            {l.sportLabel} · {l.city}
+            {l.sportTagline} · {l.city}
           </Text>
         </View>
       ),
     },
     {
-      id: 'status',
-      header: 'Status',
-      width: 120,
+      id: 'org',
+      header: 'Organization',
+      width: 200,
       accessor: (l) => (
-        <Tag size="sm" tone={STATUS_TONE[l.status]} label={STATUS_LABEL[l.status]} leadingDot />
+        <Text variant="bodySm" color={colors.text.secondary}>
+          {organizationById(l.organizationId)?.name ?? '—'}
+        </Text>
       ),
     },
     {
       id: 'season',
-      header: 'Season',
-      width: 200,
-      accessor: (l) => (
-        <Text variant="bodySm" color={colors.text.secondary}>
-          {l.seasonName} · {formatDate(l.seasonStartIso, { month: 'short', day: 'numeric' })} – {formatDate(l.seasonEndIso, { month: 'short', day: 'numeric' })}
-        </Text>
-      ),
+      header: 'Active season',
+      width: 220,
+      accessor: (l) => {
+        const s = activeSeasonFor(l);
+        if (!s) {
+          return (
+            <Tag size="sm" tone="warning" label="No active season" />
+          );
+        }
+        return (
+          <View style={[styles.seasonStack, { gap: 4 }]}>
+            <SeasonPill cycle={s.cycle} year={s.year} />
+            <Text variant="caption" color={colors.text.muted}>
+              {s.label}
+            </Text>
+          </View>
+        );
+      },
     },
     {
-      id: 'teams',
-      header: 'Teams',
+      id: 'divisions',
+      header: 'Divisions',
+      width: 120,
+      align: 'right',
+      accessor: (l) => {
+        const s = activeSeasonFor(l);
+        const count = s ? divisionsForSeason(s.id).length : 0;
+        return (
+          <Text variant="bodySm" color={colors.text.primary}>
+            {count}
+          </Text>
+        );
+      },
+    },
+    {
+      id: 'seasons',
+      header: 'Seasons',
       width: 100,
       align: 'right',
-      sortable: true,
       accessor: (l) => (
         <Text variant="bodySm" color={colors.text.primary}>
-          {l.registeredTeams} / {l.maxTeams}
-        </Text>
-      ),
-    },
-    {
-      id: 'players',
-      header: 'Players',
-      width: 100,
-      align: 'right',
-      sortable: true,
-      accessor: (l) => (
-        <Text variant="bodySm" color={colors.text.primary}>
-          {l.registeredPlayers}
-        </Text>
-      ),
-    },
-    {
-      id: 'fee',
-      header: 'Fee',
-      width: 110,
-      align: 'right',
-      sortable: true,
-      accessor: (l) => (
-        <Text variant="bodySm" color={colors.brand.primary}>
-          {l.feeCents === 0 ? 'Free' : formatCurrency(l.feeCents)}
+          {seasonsByLeague(l.id).length}
         </Text>
       ),
     },
@@ -148,17 +148,17 @@ export function LeagueListScreen() {
         variant="hero"
         eyebrow="COMPETITION"
         title="Leagues"
-        subtitle="Every league across your organization — draft, publish, or archive in one place."
+        subtitle="Every league across your organizations. Each league hosts seasons; each season hosts divisions."
         meta={`${visible.length} of ${LEAGUES.length} shown`}
         trailing={
           <Button
-            label="Create league"
+            label="New league"
             variant="solid"
             size="sm"
             leadingIcon={
               <Plus size={14} color={colors.text.inverse} strokeWidth={2.5} />
             }
-            onPress={() => navigation.navigate('LeagueForm', undefined)}
+            onPress={() => navigation.navigate('LeagueForm')}
           />
         }
       />
@@ -172,18 +172,9 @@ export function LeagueListScreen() {
           containerStyle={styles.searchField}
         />
         <Select
-          options={[
-            { value: 'all', label: 'All sports' },
-            ...SPORT_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
-          ]}
+          options={SPORT_FILTER_OPTIONS}
           value={sport}
           onChange={setSport}
-          width={180}
-        />
-        <Select
-          options={STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
-          value={status}
-          onChange={(v) => setStatus(v as LeagueStatus | 'all')}
           width={180}
         />
       </View>
@@ -213,14 +204,6 @@ export function LeagueListScreen() {
         selectedCount={selected.size}
         onClear={() => setSelected(new Set())}
         actions={[
-          {
-            label: 'Publish',
-            onPress: () =>
-              toast.show({
-                variant: 'success',
-                title: `Published ${selected.size} league${selected.size === 1 ? '' : 's'}`,
-              }),
-          },
           {
             label: 'Archive',
             onPress: () =>
@@ -281,5 +264,8 @@ const styles = StyleSheet.create({
   },
   nameCell: {
     gap: 2,
+  },
+  seasonStack: {
+    flexDirection: 'column',
   },
 });

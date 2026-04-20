@@ -1,0 +1,8 @@
+{
+  "name": "@sports-yeti/mocks",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "mocks/src",
+  "projectType": "library",
+  "tags": ["scope:shared", "type:mocks"],
+  "targets": {}
+}

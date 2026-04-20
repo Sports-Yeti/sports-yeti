@@ -1,274 +1,287 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { type WebPressableState } from '../../lib/pressable';
+import { useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Image } from 'react-native';
-import { Plus, Star, Warehouse } from 'lucide-react-native';
+import { Plus, Warehouse } from 'lucide-react-native';
+import { OrgAvatar, Tag as UITag } from '@sports-yeti/ui';
 import {
-  FacilityPortfolioCard,
+  buildOrgFacilityTree,
+  FACILITIES,
+  ORGANIZATIONS,
+  rentalConfigForSpace,
+  type Facility,
+  type Space,
+  type SpaceRentalMode,
+} from '@sports-yeti/mocks';
+import {
+  DataTable,
   PageHeader,
   PageScroll,
   type AdminRouteName,
+  type DataTableColumn,
 } from '../../admin';
-import { Button, Card, EmptyState, Input, Select, Tabs, Tag, Text, useToast } from '../../ui';
-import { colors, radii, spacing } from '../../theme';
-import {
-  FACILITIES,
-  type Facility,
-} from '../../mocks/facilities';
-import { SPORT_OPTIONS } from '../../mocks/leagues';
-import { formatCurrency } from '../../lib/format';
+import { Button, Card, Input, Tabs, Tag, Text } from '../../ui';
+import { colors, spacing } from '../../theme';
 
 interface ScreenNavigation {
   navigate: (route: AdminRouteName, params?: { id?: string }) => void;
 }
 
-const TABS = [
-  { key: 'portfolio', label: 'Portfolio' },
-  { key: 'grid', label: 'Grid' },
+const VIEW_TABS = [
+  { key: 'portfolio', label: 'By organization' },
   { key: 'list', label: 'List' },
 ];
 
+const RENTAL_TONE: Record<
+  SpaceRentalMode,
+  'success' | 'info' | 'warning'
+> = {
+  internal: 'info',
+  external: 'success',
+  both: 'warning',
+};
+
+const RENTAL_LABEL: Record<SpaceRentalMode, string> = {
+  internal: 'Internal',
+  external: 'External',
+  both: 'Both',
+};
+
 export function FacilityListScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
-  const toast = useToast();
   const [view, setView] = useState('portfolio');
   const [search, setSearch] = useState('');
-  const [sport, setSport] = useState<string>('all');
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return FACILITIES.filter((f) => {
-      if (sport !== 'all' && !f.sports.includes(sport as Facility['sports'][number])) return false;
-      if (q && !`${f.name} ${f.city} ${f.address}`.toLowerCase().includes(q)) return false;
-      return true;
+    if (!q) return FACILITIES;
+    return FACILITIES.filter((f) =>
+      `${f.name} ${f.city} ${f.address}`.toLowerCase().includes(q),
+    );
+  }, [search]);
+
+  const orgTrees = useMemo(
+    () =>
+      ORGANIZATIONS.map((o) => buildOrgFacilityTree(o.id)).filter(
+        (tree): tree is NonNullable<typeof tree> => !!tree,
+      ),
+    [],
+  );
+
+  function spaceMixForFacility(facilityId: string): {
+    internal: number;
+    external: number;
+    both: number;
+  } {
+    const tree = orgTrees.find((t) =>
+      t.facilities.some((fac) => fac.facility.id === facilityId),
+    );
+    if (!tree) return { internal: 0, external: 0, both: 0 };
+    const facEntry = tree.facilities.find(
+      (f) => f.facility.id === facilityId,
+    );
+    const counts = { internal: 0, external: 0, both: 0 };
+    facEntry?.spaces.forEach((s: Space) => {
+      const cfg = rentalConfigForSpace(s.id);
+      if (!cfg) return;
+      counts[cfg.rentalMode] += 1;
     });
-  }, [search, sport]);
+    return counts;
+  }
+
+  const columns: DataTableColumn<Facility>[] = [
+    {
+      id: 'name',
+      header: 'Facility',
+      width: 280,
+      sortable: true,
+      accessor: (f) => (
+        <View style={styles.cellStack}>
+          <Text variant="bodySm" weight="600" color={colors.text.primary}>
+            {f.name}
+          </Text>
+          <Text variant="caption" color={colors.text.muted}>
+            {f.address} · {f.city}, {f.state}
+          </Text>
+        </View>
+      ),
+    },
+    {
+      id: 'mix',
+      header: 'Space mix',
+      width: 220,
+      accessor: (f) => {
+        const m = spaceMixForFacility(f.id);
+        return (
+          <View style={[styles.metaRow, { gap: spacing.xs }]}>
+            {m.internal > 0 ? (
+              <Tag size="sm" tone="info" label={`${m.internal} internal`} />
+            ) : null}
+            {m.external > 0 ? (
+              <Tag size="sm" tone="success" label={`${m.external} external`} />
+            ) : null}
+            {m.both > 0 ? (
+              <Tag size="sm" tone="warning" label={`${m.both} both`} />
+            ) : null}
+          </View>
+        );
+      },
+    },
+    {
+      id: 'amenities',
+      header: 'Amenities',
+      width: 220,
+      accessor: (f) => (
+        <Text variant="caption" color={colors.text.muted}>
+          {f.amenities.slice(0, 3).join(' · ')}
+          {f.amenities.length > 3 ? ` · +${f.amenities.length - 3}` : ''}
+        </Text>
+      ),
+    },
+  ];
 
   return (
     <PageScroll>
       <PageHeader
         variant="hero"
-        eyebrow="PORTFOLIO"
-        heroImage={{
-          uri: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1600&q=70',
-        }}
-        title="Facilities Portfolio"
-        subtitle="Venues, courts, and fields across all your locations."
+        eyebrow="VENUES"
+        title="Facilities"
+        subtitle="Org-owned venues. Spaces can be reserved for league play, listed for external rental, or both."
         meta={`${visible.length} of ${FACILITIES.length} shown`}
         trailing={
           <Button
             label="Add facility"
             variant="solid"
             size="sm"
-            leadingIcon={<Plus size={14} color={colors.text.inverse} strokeWidth={2.5} />}
-            onPress={() =>
-              navigation.navigate('FacilityForm', undefined)
+            leadingIcon={
+              <Plus size={14} color={colors.text.inverse} strokeWidth={2.5} />
             }
+            onPress={() => navigation.navigate('FacilityForm')}
           />
         }
       />
 
-      <View style={styles.toolbar}>
-        <Input
-          variant="search"
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search by name or city…"
-          containerStyle={styles.searchField}
-        />
-        <Select
-          options={[
-            { value: 'all', label: 'All sports' },
-            ...SPORT_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
-          ]}
-          value={sport}
-          onChange={setSport}
-          width={180}
-        />
-        <Tabs items={TABS} value={view} onChange={setView} variant="segmented" />
+      <View style={[styles.toolbar, { gap: spacing.sm }]}>
+        <Tabs items={VIEW_TABS} value={view} onChange={setView} />
+        <View style={{ flex: 1 }}>
+          <Input
+            variant="search"
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search by name or city…"
+          />
+        </View>
       </View>
 
-      {visible.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={<Warehouse size={20} color={colors.brand.primary} strokeWidth={2.25} />}
-            title="No facilities match"
-            description="Try widening filters, or add a new venue."
-          />
-        </Card>
-      ) : view === 'portfolio' ? (
-        <View style={styles.portfolio}>
-          {visible.map((f) => (
-            <FacilityPortfolioCard
-              key={f.id}
-              facility={f}
-              onPress={() => navigation.navigate('FacilityDetail', { id: f.id })}
-              onMore={() =>
-                toast.show({
-                  variant: 'info',
-                  title: `${f.name} actions`,
-                  description: 'Action menu coming soon.',
-                })
-              }
-              onAddSpace={() =>
-                toast.show({
-                  variant: 'info',
-                  title: `Add space to ${f.name}`,
-                  description: 'Space editor opens from FacilityDetail (mock).',
-                })
-              }
-              onSpacePress={(space) =>
-                toast.show({
-                  variant: 'info',
-                  title: space.name,
-                  description: space.statusDetail ?? 'Space details (mock).',
-                })
-              }
-            />
-          ))}
-        </View>
-      ) : view === 'grid' ? (
-        <View style={styles.grid}>
-          {visible.map((f) => (
-            <FacilityCard
-              key={f.id}
-              facility={f}
-              onPress={() => navigation.navigate('FacilityDetail', { id: f.id })}
-            />
-          ))}
-        </View>
-      ) : (
-        <Card>
-          {visible.map((f) => (
-            <Pressable
-              key={f.id}
-              onPress={() => navigation.navigate('FacilityDetail', { id: f.id })}
-              accessibilityRole="button"
-              accessibilityLabel={f.name}
-              style={({ hovered }: WebPressableState) => [
-                styles.listRow,
-                hovered ? styles.listRowHover : null,
-              ]}
-            >
-              <View style={styles.listBody}>
-                <Text variant="bodySm" color={colors.text.primary} weight="600">
-                  {f.name}
-                </Text>
+      {view === 'portfolio' ? (
+        orgTrees.map((tree) => (
+          <Card key={tree.org.id} padded>
+            <View style={[styles.orgHead, { gap: spacing.sm }]}>
+              <OrgAvatar
+                name={tree.org.name}
+                logoUrl={tree.org.logoUrl}
+                brandColor={tree.org.brandColor}
+                size="md"
+              />
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text variant="h3">{tree.org.name}</Text>
                 <Text variant="caption" color={colors.text.muted}>
-                  {f.city} · {f.spaces.length} spaces
+                  {tree.facilities.length} facilit
+                  {tree.facilities.length === 1 ? 'y' : 'ies'} ·{' '}
+                  {tree.facilities.reduce(
+                    (sum, fac) => sum + fac.spaces.length,
+                    0,
+                  )}{' '}
+                  spaces
                 </Text>
               </View>
-              <Tag size="sm" tone="brand" label={`${f.spaces.length} spaces`} />
-            </Pressable>
-          ))}
-        </Card>
+            </View>
+            {tree.facilities.map(({ facility, spaces }) => {
+              const mix = spaceMixForFacility(facility.id);
+              return (
+                <View
+                  key={facility.id}
+                  style={[styles.facilityRow, { gap: spacing.sm }]}
+                >
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text variant="bodySm" weight="600">
+                      {facility.name}
+                    </Text>
+                    <Text variant="caption" color={colors.text.muted}>
+                      {facility.address}, {facility.city}
+                    </Text>
+                  </View>
+                  <View style={[styles.metaRow, { gap: spacing.xs }]}>
+                    <UITag tone="neutral" size="sm" label={`${spaces.length} spaces`} />
+                    {(['internal', 'external', 'both'] as SpaceRentalMode[]).map(
+                      (mode) =>
+                        mix[mode] > 0 ? (
+                          <Tag
+                            key={mode}
+                            size="sm"
+                            tone={RENTAL_TONE[mode]}
+                            label={`${mix[mode]} ${RENTAL_LABEL[mode].toLowerCase()}`}
+                          />
+                        ) : null,
+                    )}
+                  </View>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    label="Open"
+                    onPress={() =>
+                      navigation.navigate('FacilityDetail', {
+                        id: facility.id,
+                      })
+                    }
+                  />
+                </View>
+              );
+            })}
+          </Card>
+        ))
+      ) : (
+        <DataTable<Facility>
+          columns={columns}
+          rows={visible}
+          rowKey={(f) => f.id}
+          onRowPress={(f) =>
+            navigation.navigate('FacilityDetail', { id: f.id })
+          }
+          emptyTitle="No facilities match"
+          emptyDescription="Try a different search or clear filters."
+          emptyIcon={<Warehouse size={32} color={colors.text.muted} />}
+        />
       )}
     </PageScroll>
-  );
-}
-
-function FacilityCard({ facility, onPress }: { facility: Facility; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={facility.name}
-      style={({ hovered }: WebPressableState) => [
-        styles.card,
-        hovered ? styles.cardHover : null,
-      ]}
-    >
-      <Image source={{ uri: facility.cover }} style={styles.cover} />
-      <View style={styles.cardBody}>
-        <Text variant="h4" color={colors.text.primary}>
-          {facility.name}
-        </Text>
-        <Text variant="caption" color={colors.text.muted}>
-          {facility.city} · {facility.spaces.length} spaces
-        </Text>
-        <View style={styles.cardMeta}>
-          <View style={styles.ratingRow}>
-            <Star size={12} color="#B26200" strokeWidth={2.25} />
-            <Text variant="caption" color={colors.text.secondary}>
-              {facility.rating.toFixed(1)} ({facility.reviewCount})
-            </Text>
-          </View>
-          <Text variant="caption" color={colors.brand.primary}>
-            from {formatCurrency(Math.min(...facility.spaces.map((s) => s.hourlyRateCents)))}/hr
-          </Text>
-        </View>
-      </View>
-    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   toolbar: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-    alignItems: 'flex-end',
-  },
-  searchField: {
-    flex: 1,
-    minWidth: 240,
-  },
-  portfolio: {
-    gap: spacing.lg,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  card: {
-    flex: 1,
-    minWidth: 280,
-    maxWidth: 360,
-    backgroundColor: colors.surface.card,
-    borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.border.soft,
-    overflow: 'hidden',
-  },
-  cardHover: {
-    borderColor: colors.border.strong,
-  },
-  cover: {
+    alignItems: 'center',
     width: '100%',
-    height: 140,
-    backgroundColor: colors.surface.chip,
+    flexWrap: 'wrap',
   },
-  cardBody: {
-    padding: spacing.md,
+  cellStack: {
+    flexDirection: 'column',
     gap: 4,
   },
-  cardMeta: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.xs,
+    flexWrap: 'wrap',
   },
-  ratingRow: {
+  orgHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    marginBottom: 12,
   },
-  listRow: {
+  facilityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.soft,
-  },
-  listRowHover: {
-    backgroundColor: colors.surface.bg,
-  },
-  listBody: {
-    flex: 1,
-    gap: 2,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
 });

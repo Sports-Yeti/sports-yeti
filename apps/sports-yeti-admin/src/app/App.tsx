@@ -6,6 +6,7 @@ import { UIThemeProvider } from '@sports-yeti/ui';
 import { uiTheme } from '../theme';
 import { RootNavigator } from '../navigation';
 import { ToastProvider } from '../ui';
+import { RoleStackProvider } from '../features/role-stack';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,10 +23,12 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <UIThemeProvider value={uiTheme}>
-          <ToastProvider>
-            <StatusBar style="light" />
-            <RootNavigator />
-          </ToastProvider>
+          <RoleStackProvider>
+            <ToastProvider>
+              <StatusBar style="light" />
+              <RootNavigator />
+            </ToastProvider>
+          </RoleStackProvider>
         </UIThemeProvider>
       </SafeAreaProvider>
     </QueryClientProvider>

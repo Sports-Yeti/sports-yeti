@@ -12,6 +12,7 @@ import { SENTRY_DSN, IS_PRODUCTION, STRIPE_PUBLISHABLE_KEY } from '../constants'
 import { UIThemeProvider } from '@sports-yeti/ui';
 import { colors, useFonts, uiTheme } from '../theme';
 import { ToastProvider } from '../ui';
+import { RoleStackProvider } from '../features/role-stack';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* no-op: ignore if already hidden */
@@ -110,10 +111,12 @@ function AppContent() {
             merchantIdentifier="merchant.com.sportsyeti"
           >
             <UIThemeProvider value={uiTheme}>
-              <ToastProvider>
-                <StatusBar style="dark" />
-                <RootNavigator />
-              </ToastProvider>
+              <RoleStackProvider>
+                <ToastProvider>
+                  <StatusBar style="dark" />
+                  <RootNavigator />
+                </ToastProvider>
+              </RoleStackProvider>
             </UIThemeProvider>
           </StripeProvider>
         </SafeAreaProvider>

@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores';
 import { AppShell, type AdminRouteName } from '../admin';
 import {
   AnalyticsScreen,
+  ApprovalsInboxScreen,
   AuditLogScreen,
   BookingCalendarScreen,
   BookingDetailScreen,
@@ -12,12 +13,27 @@ import {
   CampFormScreen,
   CampListScreen,
   DashboardScreen,
+  DivisionDetailScreen,
+  DivisionFormScreen,
+  DivisionListScreen,
+  ExternalBookingRequestScreen,
+  ExternalRentalListingScreen,
   FacilityDetailScreen,
+  FmAnalyticsScreen,
+  FmDashboardScreen,
+  OrgBrandingScreen,
+  OrgIntegrationsScreen,
+  OrgMoneyScreen,
+  OrgPeopleScreen,
+  OrgPulseScreen,
   FacilityFormScreen,
   FacilityListScreen,
+  RecurringAvailabilityEditor,
+  SpaceFormScreen,
   FinancialDashboardScreen,
   FixtureGeneratorScreen,
   FormControlsScreen,
+  UIGalleryScreen,
   GameDetailScreen,
   GameFormScreen,
   InvitePeopleScreen,
@@ -28,11 +44,16 @@ import {
   NewsComposerScreen,
   NewsScreen,
   OperationsScreen,
+  OrganizationDetailScreen,
+  OrganizationListScreen,
   PaymentDetailScreen,
   PaymentListScreen,
   PlayerListScreen,
   RefereeMarketplaceScreen,
   ScheduleScreen,
+  SeasonDetailScreen,
+  SeasonFormScreen,
+  SeasonListScreen,
   SettingsScreen,
   StatsScreen,
   TeamDetailScreen,
@@ -46,9 +67,18 @@ import { navigate as rootNavigate } from './RootNavigator';
 export type MainStackParamList = {
   Dashboard: undefined;
   Operations: undefined;
+  Approvals: undefined;
+  Organizations: undefined;
+  OrganizationDetail: { id: string };
   Leagues: undefined;
   LeagueDetail: { id: string };
   LeagueForm: { id?: string } | undefined;
+  Seasons: undefined;
+  SeasonDetail: { id: string };
+  SeasonForm: { id?: string } | undefined;
+  Divisions: undefined;
+  DivisionDetail: { id: string };
+  DivisionForm: { id?: string } | undefined;
   Teams: undefined;
   TeamDetail: { id: string };
   Schedule: undefined;
@@ -67,6 +97,17 @@ export type MainStackParamList = {
   Facilities: undefined;
   FacilityDetail: { id: string };
   FacilityForm: { id?: string } | undefined;
+  SpaceForm: { id?: string } | undefined;
+  FacilityAvailability: { id: string };
+  ExternalRentalListing: { id: string };
+  ExternalBookingRequest: { id: string };
+  FmDashboard: undefined;
+  FmAnalytics: undefined;
+  OrgPulse: undefined;
+  OrgMoney: undefined;
+  OrgPeople: undefined;
+  OrgIntegrations: undefined;
+  OrgBranding: { id?: string } | undefined;
   Bookings: undefined;
   BookingDetail: { id: string };
   BookingForm: { id?: string } | undefined;
@@ -81,6 +122,7 @@ export type MainStackParamList = {
   NewsComposer: { id?: string } | undefined;
   Settings: undefined;
   FormControls: undefined;
+  UIGallery: undefined;
 };
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -118,9 +160,21 @@ export function MainNavigator() {
       >
         <Stack.Screen name="Dashboard" component={DashboardScreen} />
         <Stack.Screen name="Operations" component={OperationsScreen} />
+        <Stack.Screen name="Approvals" component={ApprovalsInboxScreen} />
+        <Stack.Screen name="Organizations" component={OrganizationListScreen} />
+        <Stack.Screen
+          name="OrganizationDetail"
+          component={OrganizationDetailScreen}
+        />
         <Stack.Screen name="Leagues" component={LeagueListScreen} />
         <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} />
         <Stack.Screen name="LeagueForm" component={LeagueFormScreen} />
+        <Stack.Screen name="Seasons" component={SeasonListScreen} />
+        <Stack.Screen name="SeasonDetail" component={SeasonDetailScreen} />
+        <Stack.Screen name="SeasonForm" component={SeasonFormScreen} />
+        <Stack.Screen name="Divisions" component={DivisionListScreen} />
+        <Stack.Screen name="DivisionDetail" component={DivisionDetailScreen} />
+        <Stack.Screen name="DivisionForm" component={DivisionFormScreen} />
         <Stack.Screen name="Teams" component={TeamListScreen} />
         <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
         <Stack.Screen name="Schedule" component={ScheduleScreen} />
@@ -139,6 +193,29 @@ export function MainNavigator() {
         <Stack.Screen name="Facilities" component={FacilityListScreen} />
         <Stack.Screen name="FacilityDetail" component={FacilityDetailScreen} />
         <Stack.Screen name="FacilityForm" component={FacilityFormScreen} />
+        <Stack.Screen name="SpaceForm" component={SpaceFormScreen} />
+        <Stack.Screen
+          name="FacilityAvailability"
+          component={RecurringAvailabilityEditor}
+        />
+        <Stack.Screen
+          name="ExternalRentalListing"
+          component={ExternalRentalListingScreen}
+        />
+        <Stack.Screen
+          name="ExternalBookingRequest"
+          component={ExternalBookingRequestScreen}
+        />
+        <Stack.Screen name="FmDashboard" component={FmDashboardScreen} />
+        <Stack.Screen name="FmAnalytics" component={FmAnalyticsScreen} />
+        <Stack.Screen name="OrgPulse" component={OrgPulseScreen} />
+        <Stack.Screen name="OrgMoney" component={OrgMoneyScreen} />
+        <Stack.Screen name="OrgPeople" component={OrgPeopleScreen} />
+        <Stack.Screen
+          name="OrgIntegrations"
+          component={OrgIntegrationsScreen}
+        />
+        <Stack.Screen name="OrgBranding" component={OrgBrandingScreen} />
         <Stack.Screen name="Bookings" component={BookingCalendarScreen} />
         <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
         <Stack.Screen name="BookingForm" component={BookingFormScreen} />
@@ -153,6 +230,7 @@ export function MainNavigator() {
         <Stack.Screen name="NewsComposer" component={NewsComposerScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="FormControls" component={FormControlsScreen} />
+        <Stack.Screen name="UIGallery" component={UIGalleryScreen} />
       </Stack.Navigator>
     </AppShell>
   );
