@@ -43,6 +43,36 @@ export type GameStatusEyebrow =
 export type GameTimeBucket = 'live' | 'today' | 'tomorrow' | 'weekend' | 'later';
 export type GameSkillLevel = 'all' | 'beginner' | 'intermediate' | 'advanced';
 
+/** Per-roster-spot commitment + payment lifecycle. */
+export type GamePaymentStatus = 'paid' | 'committed' | 'pending';
+
+export interface GameAttendee {
+  id: string;
+  name: string;
+  avatar: string;
+  status: GamePaymentStatus;
+}
+
+/** Display labels for each sport. `allSports` is a filter, not a sport. */
+export const SPORT_LABEL: Record<Exclude<SportKey, 'allSports'>, string> = {
+  soccer: 'Soccer',
+  basketball: 'Basketball',
+  volleyball: 'Volleyball',
+  tennis: 'Tennis',
+  baseball: 'Baseball',
+};
+
+export function sportLabel(sport: SportKey): string | null {
+  if (sport === 'allSports') return null;
+  return SPORT_LABEL[sport];
+}
+
+export const PAYMENT_STATUS_LABEL: Record<GamePaymentStatus, string> = {
+  paid: 'Paid',
+  committed: 'Committed',
+  pending: 'Pending',
+};
+
 export interface DiscoverGame {
   id: string;
   title: string;
@@ -65,11 +95,52 @@ export interface DiscoverGame {
   spotsLeftTone?: 'brand' | 'warning';
   attendees: string[];
   attendeeTotal: number;
+  /** Detailed roster with commitment + payment status for the host view. */
+  roster: GameAttendee[];
   skillLevel: GameSkillLevel;
   timeBucket: GameTimeBucket;
   dayId: string; // matches WEEK_DAYS id
   hostId: string;
   description: string;
+}
+
+/**
+ * Build a small mock roster of `total` players. The first `paid` are paid,
+ * the next `committed` have RSVP'd but not paid, and the rest are pending
+ * invites. Names are deterministic so screenshots stay stable.
+ */
+function buildRoster(
+  prefix: string,
+  total: number,
+  paid: number,
+  committed: number,
+): GameAttendee[] {
+  const NAMES = [
+    'Marcus L.',
+    'Rio T.',
+    'Jamie R.',
+    'Coast Squad',
+    'Leo P.',
+    'Priya S.',
+    'Ada M.',
+    'Theo K.',
+    'Ines B.',
+    'Sam V.',
+    'Kai N.',
+    'June O.',
+  ];
+  const list: GameAttendee[] = [];
+  for (let i = 0; i < total; i += 1) {
+    const status: GamePaymentStatus =
+      i < paid ? 'paid' : i < paid + committed ? 'committed' : 'pending';
+    list.push({
+      id: `${prefix}-p${i}`,
+      name: NAMES[i % NAMES.length]!,
+      avatar: PLAYER_AVATARS[i % PLAYER_AVATARS.length]!,
+      status,
+    });
+  }
+  return list;
 }
 
 export const DISCOVER_GAMES: DiscoverGame[] = [
@@ -95,6 +166,7 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     spotsLeftTone: 'brand',
     attendees: PLAYER_AVATARS.slice(0, 3),
     attendeeTotal: 12,
+    roster: buildRoster('friday-night-scrimmage', 12, 8, 3),
     skillLevel: 'intermediate',
     timeBucket: 'live',
     dayId: 'fri',
@@ -124,6 +196,7 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     spotsLeftTone: 'brand',
     attendees: PLAYER_AVATARS.slice(2, 5),
     attendeeTotal: 10,
+    roster: buildRoster('open-gym-5v5', 10, 6, 2),
     skillLevel: 'all',
     timeBucket: 'tomorrow',
     dayId: 'sat',
@@ -153,6 +226,7 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     spotsLeftTone: 'warning',
     attendees: PLAYER_AVATARS.slice(5, 6),
     attendeeTotal: 10,
+    roster: buildRoster('beach-volley-coed', 10, 4, 4),
     skillLevel: 'beginner',
     timeBucket: 'weekend',
     dayId: 'sat',
@@ -182,6 +256,7 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     spotsLeftTone: 'brand',
     attendees: PLAYER_AVATARS.slice(1, 4),
     attendeeTotal: 4,
+    roster: buildRoster('tuesday-tennis-doubles', 4, 3, 1),
     skillLevel: 'intermediate',
     timeBucket: 'later',
     dayId: 'tue',
@@ -211,6 +286,7 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     spotsLeftTone: 'brand',
     attendees: PLAYER_AVATARS.slice(0, 4),
     attendeeTotal: 12,
+    roster: buildRoster('sunday-softball-league', 12, 7, 3),
     skillLevel: 'all',
     timeBucket: 'weekend',
     dayId: 'sun',

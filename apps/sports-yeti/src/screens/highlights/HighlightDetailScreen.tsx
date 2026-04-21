@@ -222,7 +222,8 @@ export function HighlightDetailScreen() {
       description: `${selected.size} clip${selected.size === 1 ? '' : 's'} live now.`,
       action: {
         label: 'View',
-        onPress: () => navigation.navigate('Highlights' as never),
+        onPress: () =>
+          navigation.navigate('MainTabs', { screen: 'Highlights' }),
       },
     });
   };
@@ -339,7 +340,9 @@ export function HighlightDetailScreen() {
               label="View on feed"
               variant="ghost"
               size="md"
-              onPress={() => navigation.navigate('Highlights' as never)}
+              onPress={() =>
+                navigation.navigate('MainTabs', { screen: 'Highlights' })
+              }
             />
           </View>
         ) : (

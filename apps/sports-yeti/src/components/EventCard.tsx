@@ -7,9 +7,10 @@ import {
   Button,
   Card,
   IconBadge,
+  Tag,
   Text,
 } from '../ui';
-import type { DiscoverGame } from '../mocks/games';
+import { sportLabel, type DiscoverGame } from '../mocks/games';
 
 interface EventCardProps {
   game: DiscoverGame;
@@ -22,6 +23,7 @@ export function EventCard({ game, onPress, onJoinPress }: EventCardProps) {
   const eyebrowColor = game.isLive ? colors.status.live : colors.brand.primary;
   const spotsColor =
     game.spotsLeftTone === 'warning' ? colors.status.live : colors.brand.primary;
+  const sport = sportLabel(game.sport);
 
   return (
     <Pressable onPress={onPress} accessibilityRole="button">
@@ -36,9 +38,14 @@ export function EventCard({ game, onPress, onJoinPress }: EventCardProps) {
               />
             </IconBadge>
             <View style={styles.titleColumn}>
-              <Text variant="eyebrow" color={eyebrowColor}>
-                {game.status}
-              </Text>
+              <View style={styles.eyebrowRow}>
+                <Text variant="eyebrow" color={eyebrowColor}>
+                  {game.status}
+                </Text>
+                {sport ? (
+                  <Tag tone="brand" size="sm" leadingDot label={sport} />
+                ) : null}
+              </View>
               <Text variant="h2" color={colors.text.primary}>
                 {game.title}
               </Text>
@@ -108,6 +115,12 @@ const styles = StyleSheet.create({
   titleColumn: {
     flex: 1,
     gap: 4,
+  },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   priceColumn: {
     alignItems: 'flex-end',

@@ -7,11 +7,15 @@ import * as Haptics from 'expo-haptics';
 import {
   CalendarPlus,
   ChevronLeft,
+  ChevronRight,
   Clock,
+  Lock,
   MapPin,
+  MessageSquare,
   Share2,
   Shield,
   Users,
+  XCircle,
 } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
@@ -30,10 +34,16 @@ import {
   COMMON_GAME_RULES,
   DISCOVER_GAMES,
   GAME_HOSTS,
+  PAYMENT_STATUS_LABEL,
   SARAH_HOST,
   SKILL_LABELS,
+  sportLabel,
+  type GameAttendee,
+  type GamePaymentStatus,
 } from '../../mocks/games';
 import { FACILITIES } from '../../mocks/facilities';
+import { CHATS } from '../../mocks/messages';
+import { MY_SCHEDULE } from '../../mocks/schedule';
 import { formatCurrency } from '../../lib/format';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
@@ -46,8 +56,13 @@ export function GameDetailScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const game = DISCOVER_GAMES.find((g) => g.id === route.params.id);
-  const [joined, setJoined] = useState(false);
+  // Pre-existing schedule entry for this game means the player is already
+  // committed (paid or RSVP'd). The Join CTA is replaced with a Cancel CTA
+  // gated on the cancellation window — the same model the Schedule tab uses.
+  const scheduleEntry = MY_SCHEDULE.find((e) => e.gameId === route.params.id);
+  const [joined, setJoined] = useState(!!scheduleEntry);
   const [confirmJoin, setConfirmJoin] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   if (!game) {
     return (
@@ -69,6 +84,45 @@ export function GameDetailScreen() {
   const Icon = game.Icon;
   const spotsTone = game.spotsLeft <= 2 ? 'warning' : 'brand';
 
+  const lockerRoom = scheduleEntry
+    ? CHATS.find((c) => c.id === scheduleEntry.lockerRoomChatId)
+    : undefined;
+  const cancelDeadline = scheduleEntry
+    ? new Date(scheduleEntry.cancelByISO)
+    : null;
+  const canCancel = !!cancelDeadline && cancelDeadline.getTime() > Date.now();
+  const cancelWindowLabel = scheduleEntry
+    ? canCancel
+      ? `${scheduleEntry.cancelPolicyLabel} · until ${cancelDeadline!.toLocaleString(
+          undefined,
+          { weekday: 'short', hour: 'numeric', minute: '2-digit' },
+        )}`
+      : 'Cancellation window closed'
+    : '';
+
+  const openLockerRoom = () => {
+    if (!scheduleEntry) return;
+    Haptics.selectionAsync();
+    navigation.navigate('Chat', {
+      chatId: scheduleEntry.lockerRoomChatId,
+      title: lockerRoom?.title ?? 'Locker Room',
+    });
+  };
+
+  const handleCancel = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    setConfirmCancel(false);
+    setJoined(false);
+    toast.show({
+      variant: 'success',
+      title: 'Cancelled your spot',
+      description:
+        scheduleEntry?.commitment === 'paid'
+          ? 'Refund issued to your original payment method.'
+          : 'You’ve been removed from the roster.',
+    });
+  };
+
   const handleJoin = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setJoined(true);
@@ -79,7 +133,8 @@ export function GameDetailScreen() {
       description: `${game.time} · ${game.location}`,
       action: {
         label: 'Add to schedule',
-        onPress: () => navigation.navigate('Schedule' as never),
+        onPress: () =>
+          navigation.navigate('MainTabs', { screen: 'Schedule' }),
       },
     });
   };
@@ -119,11 +174,20 @@ export function GameDetailScreen() {
 
         <View style={styles.heroBlock}>
           <View style={styles.heroTop}>
-            {game.isLive ? (
-              <Tag tone="live" leadingDot label="Live now" />
-            ) : (
-              <Tag tone="brand" label={game.status} />
-            )}
+            <View style={styles.heroTopTags}>
+              {game.isLive ? (
+                <Tag tone="live" leadingDot label="Live now" />
+              ) : (
+                <Tag tone="brand" label={game.status} />
+              )}
+              {sportLabel(game.sport) ? (
+                <Tag
+                  tone="info"
+                  leadingDot
+                  label={sportLabel(game.sport)!}
+                />
+              ) : null}
+            </View>
             <Text variant="bodySm" color={colors.text.secondary}>
               {game.distance} away
             </Text>
@@ -226,6 +290,125 @@ export function GameDetailScreen() {
         </View>
 
         <View style={styles.section}>
+          <View style={styles.rosterHead}>
+            <Text variant="h2" color={colors.text.primary}>
+              Roster
+            </Text>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {game.roster.filter((a) => a.status === 'paid').length} paid ·{' '}
+              {game.roster.filter((a) => a.status === 'committed').length}{' '}
+              committed ·{' '}
+              {game.roster.filter((a) => a.status === 'pending').length} pending
+            </Text>
+          </View>
+          <Card style={styles.rosterCard}>
+            {game.roster.map((attendee, idx) => (
+              <RosterRow
+                key={attendee.id}
+                attendee={attendee}
+                showDivider={idx < game.roster.length - 1}
+              />
+            ))}
+          </Card>
+        </View>
+
+        {joined && scheduleEntry ? (
+          <View style={styles.section}>
+            <Text variant="h2" color={colors.text.primary}>
+              Chat
+            </Text>
+            <Card style={styles.lockerCard}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${lockerRoom?.title ?? 'Locker Room'}`}
+                onPress={openLockerRoom}
+                style={({ pressed }) => [
+                  styles.lockerRow,
+                  pressed ? styles.lockerPressed : null,
+                ]}
+              >
+                <View style={styles.lockerIcon}>
+                  <MessageSquare
+                    size={20}
+                    color={colors.brand.deep}
+                    strokeWidth={2.25}
+                  />
+                </View>
+                <View style={styles.lockerBody}>
+                  <Text variant="eyebrow" color={colors.brand.primary}>
+                    LOCKER ROOM
+                  </Text>
+                  <Text variant="button" color={colors.text.primary} numberOfLines={1}>
+                    {lockerRoom?.title ?? 'Locker Room'}
+                  </Text>
+                  <Text
+                    variant="bodySm"
+                    color={colors.text.secondary}
+                    numberOfLines={2}
+                  >
+                    {lockerRoom?.lastMessage ??
+                      'Say hi to the rest of the squad.'}
+                  </Text>
+                </View>
+                <View style={styles.lockerTrailing}>
+                  {lockerRoom && lockerRoom.unreadCount > 0 ? (
+                    <View style={styles.unreadPill}>
+                      <Text variant="caption" color={colors.text.inverse}>
+                        {lockerRoom.unreadCount}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <ChevronRight
+                    size={18}
+                    color={colors.text.secondary}
+                    strokeWidth={2.25}
+                  />
+                </View>
+              </Pressable>
+            </Card>
+            <Card style={styles.cancelCard}>
+              <View style={styles.cancelHead}>
+                {canCancel ? (
+                  <Shield
+                    size={18}
+                    color={colors.brand.primary}
+                    strokeWidth={2.25}
+                  />
+                ) : (
+                  <Lock
+                    size={18}
+                    color={colors.text.muted}
+                    strokeWidth={2.25}
+                  />
+                )}
+                <Text variant="button" color={colors.text.primary}>
+                  Cancellation policy
+                </Text>
+              </View>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {cancelWindowLabel}
+              </Text>
+              {canCancel ? (
+                <Button
+                  label="Cancel my spot"
+                  variant="ghost"
+                  size="md"
+                  onPress={() => setConfirmCancel(true)}
+                  leadingIcon={
+                    <XCircle
+                      size={16}
+                      color={colors.brand.primary}
+                      strokeWidth={2.5}
+                    />
+                  }
+                  style={styles.cancelBtn}
+                />
+              ) : null}
+            </Card>
+          </View>
+        ) : null}
+
+        <View style={styles.section}>
           <Text variant="h2" color={colors.text.primary}>
             About this game
           </Text>
@@ -259,7 +442,15 @@ export function GameDetailScreen() {
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         {joined ? (
           <View style={styles.joinedRow}>
-            <Tag tone="success" leadingDot label="You're in" />
+            <Tag
+              tone={scheduleEntry?.commitment === 'committed' ? 'brand' : 'success'}
+              leadingDot
+              label={
+                scheduleEntry?.commitment === 'committed'
+                  ? 'Committed'
+                  : "You're in"
+              }
+            />
             <Button
               label="View in Schedule"
               variant="ghost"
@@ -271,7 +462,9 @@ export function GameDetailScreen() {
                   strokeWidth={2.5}
                 />
               }
-              onPress={() => navigation.navigate('Schedule' as never)}
+              onPress={() =>
+                navigation.navigate('MainTabs', { screen: 'Schedule' })
+              }
             />
           </View>
         ) : (
@@ -305,6 +498,62 @@ export function GameDetailScreen() {
           onPress: () => setConfirmJoin(false),
         }}
       />
+
+      <Modal
+        visible={confirmCancel}
+        onRequestClose={() => setConfirmCancel(false)}
+        variant="destructive"
+        title="Cancel your spot?"
+        description={
+          scheduleEntry?.commitment === 'paid'
+            ? `${scheduleEntry.cancelPolicyLabel}. Refund processes to the original payment method within 3–5 business days.`
+            : `${scheduleEntry?.cancelPolicyLabel ?? 'Free cancellation'}. The host will be notified so they can fill your spot.`
+        }
+        primaryAction={{ label: 'Cancel my spot', onPress: handleCancel }}
+        secondaryAction={{
+          label: 'Keep it',
+          onPress: () => setConfirmCancel(false),
+        }}
+      />
+    </View>
+  );
+}
+
+const STATUS_TONE: Record<GamePaymentStatus, 'success' | 'brand' | 'warning'> = {
+  paid: 'success',
+  committed: 'brand',
+  pending: 'warning',
+};
+
+interface RosterRowProps {
+  attendee: GameAttendee;
+  showDivider: boolean;
+}
+
+function RosterRow({ attendee, showDivider }: RosterRowProps) {
+  return (
+    <View>
+      <View style={styles.rosterRow}>
+        <Avatar
+          uri={attendee.avatar}
+          initials={attendee.name.charAt(0)}
+          size={36}
+        />
+        <Text
+          variant="button"
+          color={colors.text.primary}
+          style={styles.rosterName}
+        >
+          {attendee.name}
+        </Text>
+        <Tag
+          size="sm"
+          leadingDot
+          tone={STATUS_TONE[attendee.status]}
+          label={PAYMENT_STATUS_LABEL[attendee.status]}
+        />
+      </View>
+      {showDivider ? <View style={styles.rosterDivider} /> : null}
     </View>
   );
 }
@@ -348,6 +597,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  heroTopTags: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    flex: 1,
   },
   heroRow: {
     flexDirection: 'row',
@@ -391,6 +648,30 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  rosterHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  rosterCard: {
+    padding: spacing.md,
+    gap: 0,
+  },
+  rosterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  rosterName: {
+    flex: 1,
+  },
+  rosterDivider: {
+    height: 1,
+    backgroundColor: colors.border.soft,
+  },
   rulesList: {
     gap: spacing.md,
   },
@@ -417,5 +698,56 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  lockerCard: {
+    padding: 0,
+  },
+  lockerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  lockerPressed: {
+    opacity: 0.75,
+  },
+  lockerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.brand.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockerBody: {
+    flex: 1,
+    gap: 2,
+  },
+  lockerTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  unreadPill: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: colors.status.live,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelCard: {
+    gap: spacing.sm,
+    padding: spacing.lg,
+  },
+  cancelHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  cancelBtn: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
   },
 });

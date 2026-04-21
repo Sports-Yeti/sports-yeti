@@ -1,4 +1,5 @@
 import React from 'react';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
@@ -21,11 +22,14 @@ import {
   MyHighlightsScreen,
   NotificationsScreen,
   PlayerDirectoryScreen,
+  PlayerProfileScreen,
+  BookmarkedHighlightsScreen,
   ProfileEditScreen,
   ProfileTabScreen,
   RoleHomeScreen,
   RolesScreen,
   ScheduleScreen,
+  ScheduledEventDetailScreen,
   SettingsScreen,
   SquadsScreen,
   TeamDetailScreen,
@@ -63,12 +67,15 @@ export type MainTabParamList = {
 };
 
 export type RootStackParamList = {
-  // Tabs container
-  MainTabs: undefined;
+  // Tabs container — typed as a nested navigator so callers can do
+  // `navigation.navigate('MainTabs', { screen: 'Schedule' })` from any
+  // sibling stack screen (GameDetail, HighlightDetail, etc.).
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
 
   // Discover / Schedule stack
   GameDetails: { id: string };
   CreateGame: undefined;
+  ScheduledEventDetail: { id: string };
 
   // Teams stack
   TeamDetails: { id: string };
@@ -84,6 +91,8 @@ export type RootStackParamList = {
 
   // Profile stack
   ProfileEdit: undefined;
+  PlayerProfile: { playerId: string };
+  BookmarkedHighlights: undefined;
   Settings: undefined;
   Notifications: undefined;
   Waivers: undefined;
@@ -270,6 +279,10 @@ export function MainNavigator() {
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="GameDetails" component={GameDetailScreen} />
       <Stack.Screen name="CreateGame" component={CreateGameScreen} />
+      <Stack.Screen
+        name="ScheduledEventDetail"
+        component={ScheduledEventDetailScreen}
+      />
       <Stack.Screen name="TeamDetails" component={TeamDetailScreen} />
       <Stack.Screen name="TeamPayment" component={TeamPaymentScreen} />
       <Stack.Screen name="PlayerDirectory" component={PlayerDirectoryScreen} />
@@ -278,6 +291,11 @@ export function MainNavigator() {
       <Stack.Screen name="HighlightUpload" component={HighlightUploadScreen} />
       <Stack.Screen name="HighlightDetail" component={HighlightDetailScreen} />
       <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
+      <Stack.Screen name="PlayerProfile" component={PlayerProfileScreen} />
+      <Stack.Screen
+        name="BookmarkedHighlights"
+        component={BookmarkedHighlightsScreen}
+      />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Waivers" component={WaiversScreen} />
