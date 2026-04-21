@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,14 +18,29 @@ import {
   Text,
   useToast,
 } from '../../ui';
-import { Pressable } from 'react-native';
 import { SquadCard } from '../../components/SquadCard';
-import { SQUADS, type Squad } from '../../mocks/teams';
+import {
+  POSITIONS_BY_SPORT,
+  SQUADS,
+  TEAM_DETAILS,
+  type CostMode,
+  type SportKey,
+  type Squad,
+} from '../../mocks/teams';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
+type Tab = 'mine' | 'discover';
+type SportFilter = 'all' | SportKey;
+type LevelFilter = 'all' | 'INTERMEDIATE' | 'ADVANCED' | 'RECREATIONAL';
+type CostFilter = 'all' | CostMode;
 
-const SPORT_CHIPS: { key: string; label: string }[] = [
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'mine', label: 'My Teams' },
+  { key: 'discover', label: 'Find a Team' },
+];
+
+const SPORT_CHIPS: { key: SportFilter; label: string }[] = [
   { key: 'all', label: 'All sports' },
   { key: 'soccer', label: 'Soccer' },
   { key: 'basketball', label: 'Basketball' },
@@ -35,38 +50,92 @@ const SPORT_CHIPS: { key: string; label: string }[] = [
   { key: 'hockey', label: 'Hockey' },
 ];
 
-const LEVEL_CHIPS: { key: 'all' | 'INTERMEDIATE' | 'ADVANCED' | 'RECREATIONAL'; label: string }[] = [
+const LEVEL_CHIPS: { key: LevelFilter; label: string }[] = [
   { key: 'all', label: 'All levels' },
   { key: 'RECREATIONAL', label: 'Recreational' },
   { key: 'INTERMEDIATE', label: 'Intermediate' },
   { key: 'ADVANCED', label: 'Advanced' },
 ];
 
+const COST_CHIPS: { key: CostFilter; label: string }[] = [
+  { key: 'all', label: 'Any cost' },
+  { key: 'free', label: 'Free' },
+  { key: 'paid', label: 'Paid' },
+];
+
+function deriveChatLocked(squadId: string): boolean {
+  const team = TEAM_DETAILS[squadId];
+  if (!team) return false;
+  if (team.costMode === 'free') return false;
+  if (team.membership !== 'member' && team.membership !== 'captain') return false;
+  return team.hasUnpaidShare;
+}
+
 export function SquadsScreen() {
   const navigation = useNavigation<Navigation>();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const toast = useToast();
+  const [tab, setTab] = useState<Tab>('mine');
   const [search, setSearch] = useState('');
-  const [sport, setSport] = useState<string>('all');
-  const [level, setLevel] = useState<(typeof LEVEL_CHIPS)[number]['key']>('all');
+  const [sport, setSport] = useState<SportFilter>('all');
+  const [position, setPosition] = useState<string>('all');
+  const [level, setLevel] = useState<LevelFilter>('all');
+  const [cost, setCost] = useState<CostFilter>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
   const initials = (user?.name?.charAt(0) ?? 'S').toUpperCase();
 
-  const filteredSquads = useMemo(() => {
+  const myTeams = useMemo(
+    () => SQUADS.filter((s) => s.membership !== 'none'),
+    [],
+  );
+
+  const positionOptions = useMemo<string[]>(
+    () => (sport === 'all' ? [] : POSITIONS_BY_SPORT[sport]),
+    [sport],
+  );
+
+  const discoverable = useMemo(() => {
     const q = search.trim().toLowerCase();
     return SQUADS.filter((s: Squad) => {
+      // Hide full rosters from discovery so players don't apply for nothing.
+      if (s.rosterCount >= s.rosterMax) return false;
+      // Don't surface teams the user is already on.
+      if (s.membership === 'member' || s.membership === 'captain') return false;
       if (sport !== 'all' && s.sportKey !== sport) return false;
       if (level !== 'all' && s.level !== level) return false;
+      if (cost !== 'all' && s.costMode !== cost) return false;
+      if (position !== 'all') {
+        const matchesPosition = s.needs.some(
+          (n) => n.label.toLowerCase() === position.toLowerCase(),
+        );
+        if (!matchesPosition) return false;
+      }
       if (q) {
-        const hay = `${s.name} ${s.location} ${s.sport}`.toLowerCase();
+        const needsHay = s.needs.map((n) => n.label).join(' ');
+        const hay = `${s.name} ${s.location} ${s.sport} ${needsHay}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [search, sport, level]);
+  }, [search, sport, level, cost, position]);
+
+  const visibleList = tab === 'mine' ? myTeams : discoverable;
+
+  const resetFilters = () => {
+    setSearch('');
+    setSport('all');
+    setPosition('all');
+    setLevel('all');
+    setCost('all');
+  };
+
+  const sectionTitle =
+    tab === 'mine'
+      ? `${myTeams.length} team${myTeams.length === 1 ? '' : 's'} you're on`
+      : `${discoverable.length} team${discoverable.length === 1 ? '' : 's'} recruiting`;
 
   return (
     <View style={styles.root}>
@@ -86,98 +155,144 @@ export function SquadsScreen() {
       >
         <View style={styles.hero}>
           <Text variant="displaySm" color={colors.text.primary}>
-            Find Your
+            Your
           </Text>
           <Text variant="displaySm" color={colors.brand.primary}>
-            Squad.
+            Teams.
           </Text>
           <Text
             variant="body"
             color={colors.text.secondary}
             style={styles.heroSubtitle}
           >
-            Local teams looking for players. Apply, get matched, play more.
+            Manage the squads you play for. Find a new one when you're ready.
           </Text>
         </View>
 
-        <SearchBar
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search teams, sports, or cities…"
-          onFilterPress={() => setFilterOpen(true)}
+        <Tabs
+          variant="segmented"
+          items={TABS}
+          value={tab}
+          onChange={(k) => setTab(k as Tab)}
         />
 
-        <View style={styles.filterRow}>
-          <Chip
-            label={
-              SPORT_CHIPS.find((s) => s.key === sport)?.label ?? 'Sport'
-            }
-            selected={sport !== 'all'}
-            onPress={() => setFilterOpen(true)}
-            trailingIcon={
-              <ChevronDown
-                size={14}
-                color={
-                  sport !== 'all'
-                    ? colors.text.inverse
-                    : colors.text.primary
+        {tab === 'discover' ? (
+          <>
+            <SearchBar
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search teams, sports, positions…"
+              onFilterPress={() => setFilterOpen(true)}
+            />
+
+            <View style={styles.filterRow}>
+              <Chip
+                label={
+                  SPORT_CHIPS.find((s) => s.key === sport)?.label ?? 'Sport'
                 }
-                strokeWidth={2.25}
-              />
-            }
-          />
-          <Chip
-            label={
-              LEVEL_CHIPS.find((l) => l.key === level)?.label ?? 'Level'
-            }
-            selected={level !== 'all'}
-            onPress={() => setFilterOpen(true)}
-            trailingIcon={
-              <ChevronDown
-                size={14}
-                color={
-                  level !== 'all'
-                    ? colors.text.inverse
-                    : colors.text.primary
+                selected={sport !== 'all'}
+                onPress={() => setFilterOpen(true)}
+                trailingIcon={
+                  <ChevronDown
+                    size={14}
+                    color={
+                      sport !== 'all'
+                        ? colors.text.inverse
+                        : colors.text.primary
+                    }
+                    strokeWidth={2.25}
+                  />
                 }
-                strokeWidth={2.25}
               />
-            }
-          />
-        </View>
+              <Chip
+                label={
+                  position === 'all'
+                    ? sport === 'all'
+                      ? 'Any position'
+                      : 'Any position'
+                    : position
+                }
+                selected={position !== 'all'}
+                onPress={() => setFilterOpen(true)}
+                trailingIcon={
+                  <ChevronDown
+                    size={14}
+                    color={
+                      position !== 'all'
+                        ? colors.text.inverse
+                        : colors.text.primary
+                    }
+                    strokeWidth={2.25}
+                  />
+                }
+              />
+              <Chip
+                label={
+                  COST_CHIPS.find((c) => c.key === cost)?.label ?? 'Cost'
+                }
+                selected={cost !== 'all'}
+                onPress={() => setFilterOpen(true)}
+              />
+            </View>
+          </>
+        ) : null}
 
         <View style={styles.section}>
           <SectionHeader
-            title={`${filteredSquads.length} squad${filteredSquads.length === 1 ? '' : 's'}`}
-            actionLabel="Browse leagues"
-            onActionPress={() => setCreateOpen(true)}
+            title={sectionTitle}
+            actionLabel={tab === 'mine' ? 'Find a team' : 'Browse leagues'}
+            onActionPress={() => {
+              if (tab === 'mine') setTab('discover');
+              else setCreateOpen(true);
+            }}
           />
-          {filteredSquads.length === 0 ? (
-            <EmptyState
-              icon={
-                <Users size={28} color={colors.brand.primary} strokeWidth={2.25} />
-              }
-              title="No squads match"
-              description="Try widening sport or level — or start your own team."
-              primaryAction={{
-                label: 'Create a team',
-                onPress: () => setCreateOpen(true),
-              }}
-              secondaryAction={{
-                label: 'Reset',
-                onPress: () => {
-                  setSearch('');
-                  setSport('all');
-                  setLevel('all');
-                },
-              }}
-            />
+          {visibleList.length === 0 ? (
+            tab === 'mine' ? (
+              <EmptyState
+                icon={
+                  <Users size={28} color={colors.brand.primary} strokeWidth={2.25} />
+                }
+                title="You're not on any teams yet"
+                description="Browse teams looking for your position — or start your own squad."
+                primaryAction={{
+                  label: 'Find a team',
+                  onPress: () => setTab('discover'),
+                }}
+                secondaryAction={{
+                  label: 'Start a squad',
+                  onPress: () => setCreateOpen(true),
+                }}
+              />
+            ) : (
+              <EmptyState
+                icon={
+                  <Users size={28} color={colors.brand.primary} strokeWidth={2.25} />
+                }
+                title="No teams match"
+                description="Try widening your filters — or get notified when a roster opens."
+                primaryAction={{
+                  label: 'Reset filters',
+                  onPress: resetFilters,
+                }}
+                secondaryAction={{
+                  label: 'Notify me',
+                  onPress: () =>
+                    toast.show({
+                      variant: 'success',
+                      title: "We'll ping you",
+                      description: 'You\'ll get a push when a matching roster opens.',
+                    }),
+                }}
+              />
+            )
           ) : (
             <View style={styles.cardsColumn}>
-              {filteredSquads.map((squad) => (
+              {visibleList.map((squad) => (
                 <SquadCard
                   key={squad.id}
                   squad={squad}
+                  variant={tab === 'mine' ? 'mine' : 'discover'}
+                  chatLocked={deriveChatLocked(squad.id)}
                   onPress={() =>
                     navigation.navigate('TeamDetails', { id: squad.id })
                   }
@@ -185,7 +300,10 @@ export function SquadsScreen() {
                     toast.show({
                       variant: 'success',
                       title: `Applied to ${squad.name}`,
-                      description: 'The captain will respond within 48 hours.',
+                      description:
+                        squad.costMode === 'paid'
+                          ? `Captain reviews within 48h. You\'ll pay ${'$'}${(squad.perPlayerCents / 100).toFixed(0)} once accepted.`
+                          : 'The captain will respond within 48 hours.',
                     });
                   }}
                 />
@@ -210,10 +328,13 @@ export function SquadsScreen() {
       <BottomSheet
         visible={filterOpen}
         onRequestClose={() => setFilterOpen(false)}
-        title="Filter squads"
-        snapPoints={['60%']}
+        title="Filter teams"
+        snapPoints={['72%']}
       >
-        <ScrollView contentContainerStyle={styles.sheetContent}>
+        <ScrollView
+          contentContainerStyle={styles.sheetContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.sheetGroup}>
             <Text variant="eyebrow" color={colors.text.secondary}>
               Sport
@@ -223,9 +344,31 @@ export function SquadsScreen() {
               scrollable
               items={SPORT_CHIPS.map((s) => ({ key: s.key, label: s.label }))}
               value={sport}
-              onChange={setSport}
+              onChange={(k) => {
+                setSport(k as SportFilter);
+                setPosition('all');
+              }}
             />
           </View>
+
+          {sport !== 'all' ? (
+            <View style={styles.sheetGroup}>
+              <Text variant="eyebrow" color={colors.text.secondary}>
+                Position
+              </Text>
+              <Tabs
+                variant="pill"
+                scrollable
+                items={[
+                  { key: 'all', label: 'Any' },
+                  ...positionOptions.map((p) => ({ key: p, label: p })),
+                ]}
+                value={position}
+                onChange={setPosition}
+              />
+            </View>
+          ) : null}
+
           <View style={styles.sheetGroup}>
             <Text variant="eyebrow" color={colors.text.secondary}>
               Level
@@ -234,18 +377,28 @@ export function SquadsScreen() {
               variant="segmented"
               items={LEVEL_CHIPS.map((l) => ({ key: l.key, label: l.label }))}
               value={level}
-              onChange={(k) => setLevel(k as typeof level)}
+              onChange={(k) => setLevel(k as LevelFilter)}
             />
           </View>
+
+          <View style={styles.sheetGroup}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Cost
+            </Text>
+            <Tabs
+              variant="segmented"
+              items={COST_CHIPS.map((c) => ({ key: c.key, label: c.label }))}
+              value={cost}
+              onChange={(k) => setCost(k as CostFilter)}
+            />
+          </View>
+
           <View style={styles.sheetActions}>
             <Button
               label="Reset"
               variant="ghost"
               fullWidth
-              onPress={() => {
-                setSport('all');
-                setLevel('all');
-              }}
+              onPress={resetFilters}
             />
             <Button
               label="Apply"
@@ -287,7 +440,7 @@ export function SquadsScreen() {
                 Browse open leagues
               </Text>
               <Text variant="bodySm" color={colors.text.secondary}>
-                Register your team for a league with a season schedule.
+                Captains can register a team and unlock per-player payment.
               </Text>
             </View>
           </Pressable>
@@ -296,11 +449,7 @@ export function SquadsScreen() {
             accessibilityRole="button"
             onPress={() => {
               setCreateOpen(false);
-              toast.show({
-                variant: 'info',
-                title: 'Team creator coming soon',
-                description: 'For now, captain a team via league registration.',
-              });
+              navigation.navigate('TeamCreate');
             }}
             style={({ pressed }) => [
               styles.bigOption,
@@ -315,7 +464,7 @@ export function SquadsScreen() {
                 Start a casual squad
               </Text>
               <Text variant="bodySm" color={colors.text.secondary}>
-                For pickup or recreational play. No league commitment.
+                Free or paid — invite players and you become the captain.
               </Text>
             </View>
           </Pressable>
@@ -346,7 +495,8 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: 'row',
-    gap: spacing.md,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   section: {
     gap: spacing.lg,

@@ -1,11 +1,60 @@
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react-native';
-import { Mountain, Snowflake, Trees, Trophy, Waves } from 'lucide-react-native';
+import {
+  Flame,
+  Mountain,
+  Snowflake,
+  Sparkles,
+  Sun,
+  Trees,
+  Trophy,
+  Waves,
+  Wind,
+  Zap,
+} from 'lucide-react-native';
 import { PLAYER_AVATARS, SARAH_AVATAR } from './avatars';
 
 export type TeamLevel = 'INTERMEDIATE' | 'ADVANCED' | 'RECREATIONAL';
+export type SportKey =
+  | 'soccer'
+  | 'basketball'
+  | 'volleyball'
+  | 'tennis'
+  | 'baseball'
+  | 'hockey';
+export type CostMode = 'free' | 'paid';
+export type Membership = 'captain' | 'member' | 'pending' | 'none';
+
+// Sport → canonical roster positions used for the position filter on Discover
+// and as the captain's roster gap selector.
+export const POSITIONS_BY_SPORT: Record<SportKey, string[]> = {
+  soccer: [
+    'Goalkeeper',
+    'Center Back',
+    'Right Back',
+    'Left Back',
+    'Center Mid',
+    'Right Mid',
+    'Left Mid',
+    'Right Wing',
+    'Left Wing',
+    'Striker',
+  ],
+  basketball: [
+    'Point Guard',
+    'Shooting Guard',
+    'Small Forward',
+    'Power Forward',
+    'Center',
+  ],
+  volleyball: ['Setter', 'Outside Hitter', 'Opposite', 'Middle Blocker', 'Libero'],
+  tennis: ['Singles', 'Doubles'],
+  baseball: ['Pitcher', 'Catcher', 'Infield', 'Outfield', 'Utility'],
+  hockey: ['Goalie', 'Defenseman', 'Center', 'Left Wing', 'Right Wing'],
+};
 
 export interface SquadNeed {
+  // Position label — matches the canonical list above when applicable.
   label: string;
   urgent?: boolean;
 }
@@ -19,59 +68,23 @@ export interface Squad {
   Icon: ComponentType<LucideProps>;
   needs: SquadNeed[];
   helper?: string;
-  sportKey: 'soccer' | 'basketball' | 'volleyball' | 'tennis' | 'baseball' | 'hockey';
+  sportKey: SportKey;
+  costMode: CostMode;
+  /** Per-player share of the season fee in cents (0 when free). */
+  perPlayerCents: number;
+  rosterCount: number;
+  rosterMax: number;
+  /** Current user's relationship to the team. */
+  membership: Membership;
 }
 
-export const SQUADS: Squad[] = [
-  {
-    id: 'avalanche-fc',
-    name: 'Avalanche FC',
-    level: 'INTERMEDIATE',
-    location: 'Denver, CO',
-    sport: "Men's Soccer",
-    sportKey: 'soccer',
-    Icon: Mountain,
-    needs: [
-      { label: 'Goalie', urgent: true },
-      { label: 'Center Back' },
-    ],
-  },
-  {
-    id: 'glacier-knights',
-    name: 'Glacier Knights',
-    level: 'ADVANCED',
-    location: 'Anchorage, AK',
-    sport: 'Ice Hockey - D2',
-    sportKey: 'hockey',
-    Icon: Snowflake,
-    needs: [{ label: 'Defensemen' }, { label: 'Right Wing' }],
-  },
-  {
-    id: 'summit-hoops',
-    name: 'Summit Hoops',
-    level: 'RECREATIONAL',
-    location: 'Boulder, CO',
-    sport: 'Co-ed Basketball',
-    sportKey: 'basketball',
-    Icon: Trees,
-    needs: [{ label: 'Point Guard' }],
-    helper: 'Looking for subs weekly.',
-  },
-  {
-    id: 'coastal-cruisers',
-    name: 'Coastal Cruisers',
-    level: 'RECREATIONAL',
-    location: 'San Diego, CA',
-    sport: 'Beach Volleyball',
-    sportKey: 'volleyball',
-    Icon: Waves,
-    needs: [{ label: 'Setter' }, { label: 'Hitter' }],
-    helper: 'Sunday morning sessions.',
-  },
-];
+// ----------------------------------------------------------------------------
+// Recruiting roster used by Find a Team. Hydrated from TEAM_DETAILS so the
+// "needs", roster fill, and membership states stay in sync everywhere.
+// ----------------------------------------------------------------------------
 
 export type TeamMemberRole = 'captain' | 'coach' | 'member';
-export type PaymentStatus = 'paid' | 'pending' | 'overdue';
+export type PaymentStatus = 'paid' | 'pending' | 'overdue' | 'not_required';
 
 export interface RosterMember {
   id: string;
@@ -86,6 +99,18 @@ export interface RosterMember {
   isYou?: boolean;
 }
 
+export interface PendingApplication {
+  id: string;
+  playerId: string;
+  name: string;
+  handle: string;
+  avatar: string;
+  position: string;
+  experience: RosterMember['experience'];
+  appliedAt: string;
+  message?: string;
+}
+
 export interface TeamStats {
   wins: number;
   losses: number;
@@ -97,7 +122,7 @@ export interface TeamStats {
 
 export interface TeamSchedule {
   id: string;
-  date: string; // friendly
+  date: string;
   opponent: string;
   opponentAbbreviation: string;
   location: string;
@@ -105,12 +130,39 @@ export interface TeamSchedule {
   upcoming?: boolean;
 }
 
+export type LeagueRegistrationStatus =
+  | 'draft'
+  | 'pending_admin'
+  | 'approved'
+  | 'rejected';
+
+export interface LeagueRegistration {
+  leagueId: string;
+  leagueName: string;
+  status: LeagueRegistrationStatus;
+  submittedAt: string;
+  notesFromAdmin?: string;
+}
+
+export type CommitVote = 'in' | 'out' | 'maybe';
+
+export interface CommitPoll {
+  id: string;
+  leagueId: string;
+  leagueName: string;
+  question: string;
+  createdBy: string;
+  createdAt: string;
+  responses: Record<string, CommitVote>;
+  closesAt?: string;
+}
+
 export interface TeamDetail {
   id: string;
   name: string;
   abbreviation: string;
   sport: string;
-  sportKey: Squad['sportKey'];
+  sportKey: SportKey;
   location: string;
   level: TeamLevel;
   league?: { id: string; name: string };
@@ -118,16 +170,123 @@ export interface TeamDetail {
   stats: TeamStats;
   roster: RosterMember[];
   rosterMax: number;
+  pendingApplications: PendingApplication[];
   schedule: TeamSchedule[];
   Icon: ComponentType<LucideProps>;
+  /** True when current user (Sarah) is the captain. */
   isCaptain: boolean;
+  /** Current user's membership state. */
+  membership: Membership;
+  /** True if the user must pay before they can use chat. */
   hasUnpaidShare: boolean;
+  costMode: CostMode;
   feeTotalCents: number;
   perPlayerCents: number;
   currency: 'USD';
+  /** Captain-side: what the team is currently registered for. */
+  leagueRegistration?: LeagueRegistration;
+  /** Discoverable open positions used as needs on the squad card. */
+  needs: SquadNeed[];
 }
 
+// ----------------------------------------------------------------------------
+// Open leagues — used by both player browse and captain registration flow.
+// ----------------------------------------------------------------------------
+
+export interface OpenLeague {
+  id: string;
+  name: string;
+  sportKey: SportKey;
+  sport: string;
+  city: string;
+  startDate: string;
+  registrationCloses: string;
+  registeredTeams: number;
+  maxTeams: number;
+  feeCents: number;
+  Icon: ComponentType<LucideProps>;
+  description: string;
+  spotsTone: 'brand' | 'warning';
+  level: TeamLevel;
+}
+
+export const OPEN_LEAGUES: OpenLeague[] = [
+  {
+    id: 'mile-high-summer',
+    name: 'Mile High Summer League',
+    sportKey: 'soccer',
+    sport: 'Co-ed 7v7 Soccer',
+    city: 'Denver, CO',
+    startDate: 'Starts May 15',
+    registrationCloses: 'Closes Apr 30',
+    registeredTeams: 8,
+    maxTeams: 12,
+    feeCents: 192000,
+    Icon: Trophy,
+    description:
+      'Eight-week summer season with playoffs. Sunday mornings at Yeti Center fields.',
+    spotsTone: 'brand',
+    level: 'INTERMEDIATE',
+  },
+  {
+    id: 'aurora-fall',
+    name: 'Aurora Fall Hockey D2',
+    sportKey: 'hockey',
+    sport: 'Ice Hockey 5v5',
+    city: 'Anchorage, AK',
+    startDate: 'Starts Sep 4',
+    registrationCloses: 'Closes Aug 1',
+    registeredTeams: 11,
+    maxTeams: 12,
+    feeCents: 360000,
+    Icon: Snowflake,
+    description:
+      'Twelve-game regular season + best-of-3 playoffs. Officials and locker rooms included.',
+    spotsTone: 'warning',
+    level: 'ADVANCED',
+  },
+  {
+    id: 'coastal-volley',
+    name: 'Coastal Volley Open',
+    sportKey: 'volleyball',
+    sport: 'Beach Volleyball 4v4',
+    city: 'San Diego, CA',
+    startDate: 'Starts Jun 1',
+    registrationCloses: 'Closes May 15',
+    registeredTeams: 4,
+    maxTeams: 16,
+    feeCents: 96000,
+    Icon: Waves,
+    description:
+      'Six Sundays. Bring sunscreen. We provide nets, balls, and shade tents.',
+    spotsTone: 'brand',
+    level: 'RECREATIONAL',
+  },
+  {
+    id: 'rocky-rec-hoops',
+    name: 'Rocky Rec Hoops',
+    sportKey: 'basketball',
+    sport: 'Co-ed Basketball 5v5',
+    city: 'Boulder, CO',
+    startDate: 'Starts Jul 8',
+    registrationCloses: 'Closes Jun 20',
+    registeredTeams: 6,
+    maxTeams: 10,
+    feeCents: 84000,
+    Icon: Trees,
+    description:
+      'Ten-week rec season at Summit Rec Center. Tuesdays and Thursdays at 7pm.',
+    spotsTone: 'brand',
+    level: 'RECREATIONAL',
+  },
+];
+
+// ----------------------------------------------------------------------------
+// Team details — every state needed to demo the Teams overhaul lives here.
+// ----------------------------------------------------------------------------
+
 export const TEAM_DETAILS: Record<string, TeamDetail> = {
+  // Paid + member, Sarah hasn't paid yet → chat is locked, payment CTA visible.
   'avalanche-fc': {
     id: 'avalanche-fc',
     name: 'Avalanche FC',
@@ -154,7 +313,7 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Marcus L.',
         handle: '@marcus_strikes',
         avatar: PLAYER_AVATARS[0]!,
-        position: 'Captain · ST',
+        position: 'Striker',
         role: 'captain',
         experience: 'advanced',
         paymentStatus: 'paid',
@@ -165,7 +324,7 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Sarah Jenkins',
         handle: '@jenkins_yeti',
         avatar: SARAH_AVATAR,
-        position: 'CM',
+        position: 'Center Mid',
         role: 'member',
         experience: 'intermediate',
         paymentStatus: 'pending',
@@ -177,7 +336,7 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Rio T.',
         handle: '@rio_t',
         avatar: PLAYER_AVATARS[2]!,
-        position: 'CB',
+        position: 'Center Back',
         role: 'member',
         experience: 'intermediate',
         paymentStatus: 'paid',
@@ -188,7 +347,7 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Ash D.',
         handle: '@ash_d',
         avatar: PLAYER_AVATARS[3]!,
-        position: 'GK',
+        position: 'Goalkeeper',
         role: 'member',
         experience: 'pro',
         paymentStatus: 'overdue',
@@ -199,7 +358,7 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Leo P.',
         handle: '@leo_p',
         avatar: PLAYER_AVATARS[4]!,
-        position: 'LW',
+        position: 'Left Wing',
         role: 'member',
         experience: 'intermediate',
         paymentStatus: 'pending',
@@ -210,13 +369,14 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Kim H.',
         handle: '@kim_h',
         avatar: PLAYER_AVATARS[5]!,
-        position: 'RB',
+        position: 'Right Back',
         role: 'coach',
         experience: 'pro',
         paymentStatus: 'paid',
       },
     ],
     rosterMax: 16,
+    pendingApplications: [],
     schedule: [
       {
         id: 's-1',
@@ -245,11 +405,16 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
     ],
     Icon: Mountain,
     isCaptain: false,
+    membership: 'member',
     hasUnpaidShare: true,
+    costMode: 'paid',
     feeTotalCents: 192000,
     perPlayerCents: 12000,
     currency: 'USD',
+    needs: [{ label: 'Goalkeeper', urgent: true }, { label: 'Center Back' }],
   },
+
+  // Paid + member, fully paid → chat unlocked. Demo of "good standing" state.
   'glacier-knights': {
     id: 'glacier-knights',
     name: 'Glacier Knights',
@@ -276,7 +441,7 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Björn K.',
         handle: '@bjorn_k',
         avatar: PLAYER_AVATARS[1]!,
-        position: 'Captain · C',
+        position: 'Center',
         role: 'captain',
         experience: 'pro',
         paymentStatus: 'paid',
@@ -287,7 +452,7 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Eli M.',
         handle: '@eli_m',
         avatar: PLAYER_AVATARS[6]!,
-        position: 'D',
+        position: 'Defenseman',
         role: 'member',
         experience: 'advanced',
         paymentStatus: 'paid',
@@ -298,13 +463,14 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Tara V.',
         handle: '@tara_v',
         avatar: PLAYER_AVATARS[7]!,
-        position: 'RW',
+        position: 'Right Wing',
         role: 'member',
         experience: 'advanced',
         paymentStatus: 'pending',
       },
     ],
     rosterMax: 18,
+    pendingApplications: [],
     schedule: [
       {
         id: 'gs-1',
@@ -325,11 +491,16 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
     ],
     Icon: Snowflake,
     isCaptain: false,
+    membership: 'none',
     hasUnpaidShare: false,
+    costMode: 'paid',
     feeTotalCents: 360000,
     perPlayerCents: 20000,
     currency: 'USD',
+    needs: [{ label: 'Defenseman' }, { label: 'Right Wing' }],
   },
+
+  // Free + member → no payment gate, chat always open.
   'summit-hoops': {
     id: 'summit-hoops',
     name: 'Summit Hoops',
@@ -356,10 +527,10 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Jamie R.',
         handle: '@jamie_r',
         avatar: PLAYER_AVATARS[2]!,
-        position: 'Captain · PG',
+        position: 'Point Guard',
         role: 'captain',
         experience: 'intermediate',
-        paymentStatus: 'paid',
+        paymentStatus: 'not_required',
       },
       {
         id: 'sh-2',
@@ -367,14 +538,15 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
         name: 'Sarah Jenkins',
         handle: '@jenkins_yeti',
         avatar: SARAH_AVATAR,
-        position: 'SF',
+        position: 'Small Forward',
         role: 'member',
         experience: 'intermediate',
-        paymentStatus: 'paid',
+        paymentStatus: 'not_required',
         isYou: true,
       },
     ],
     rosterMax: 10,
+    pendingApplications: [],
     schedule: [
       {
         id: 'sh-s-1',
@@ -387,11 +559,16 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
     ],
     Icon: Trees,
     isCaptain: false,
+    membership: 'member',
     hasUnpaidShare: false,
+    costMode: 'free',
     feeTotalCents: 0,
     perPlayerCents: 0,
     currency: 'USD',
+    needs: [{ label: 'Point Guard' }],
   },
+
+  // Free + Sarah is captain → captain controls visible, no league registration yet.
   'coastal-cruisers': {
     id: 'coastal-cruisers',
     name: 'Coastal Cruisers',
@@ -406,17 +583,53 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
     roster: [
       {
         id: 'cc-1',
+        playerId: 'p-sarah',
+        name: 'Sarah Jenkins',
+        handle: '@jenkins_yeti',
+        avatar: SARAH_AVATAR,
+        position: 'Setter',
+        role: 'captain',
+        experience: 'advanced',
+        paymentStatus: 'not_required',
+        isYou: true,
+      },
+      {
+        id: 'cc-2',
         playerId: 'p-coast',
         name: 'Coast Squad',
         handle: '@coast_squad',
         avatar: PLAYER_AVATARS[3]!,
-        position: 'Captain · Setter',
-        role: 'captain',
+        position: 'Outside Hitter',
+        role: 'member',
         experience: 'advanced',
-        paymentStatus: 'paid',
+        paymentStatus: 'not_required',
+      },
+      {
+        id: 'cc-3',
+        playerId: 'p-priya',
+        name: 'Priya S.',
+        handle: '@priya_serves',
+        avatar: PLAYER_AVATARS[5]!,
+        position: 'Opposite',
+        role: 'member',
+        experience: 'pro',
+        paymentStatus: 'not_required',
       },
     ],
     rosterMax: 12,
+    pendingApplications: [
+      {
+        id: 'cc-app-1',
+        playerId: 'p-zane',
+        name: 'Zane O.',
+        handle: '@zane_o',
+        avatar: PLAYER_AVATARS[4]!,
+        position: 'Middle Blocker',
+        experience: 'intermediate',
+        appliedAt: '2d ago',
+        message: 'Played D1 a few summers ago — would love to sub on Sundays.',
+      },
+    ],
     schedule: [
       {
         id: 'cc-s-1',
@@ -428,15 +641,434 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
       },
     ],
     Icon: Waves,
-    isCaptain: false,
+    isCaptain: true,
+    membership: 'captain',
     hasUnpaidShare: false,
+    costMode: 'free',
     feeTotalCents: 0,
     perPlayerCents: 0,
     currency: 'USD',
+    needs: [{ label: 'Middle Blocker' }, { label: 'Libero' }],
+  },
+
+  // Paid + Sarah is captain, registered for a league pending admin approval.
+  // Demonstrates the captain → league registration → per-player payment flow.
+  'mile-high-warriors': {
+    id: 'mile-high-warriors',
+    name: 'Mile High Warriors',
+    abbreviation: 'MHW',
+    sport: "Co-ed Soccer 7v7",
+    sportKey: 'soccer',
+    location: 'Denver, CO',
+    level: 'INTERMEDIATE',
+    league: undefined,
+    description:
+      "Founded last fall by a few Bronco alums. We're chasing the Mile High Summer title this year.",
+    stats: {
+      wins: 5,
+      losses: 1,
+      ties: 1,
+      pointsFor: 19,
+      pointsAgainst: 8,
+      streak: 'W2',
+    },
+    roster: [
+      {
+        id: 'mhw-1',
+        playerId: 'p-sarah',
+        name: 'Sarah Jenkins',
+        handle: '@jenkins_yeti',
+        avatar: SARAH_AVATAR,
+        position: 'Center Mid',
+        role: 'captain',
+        experience: 'intermediate',
+        paymentStatus: 'paid',
+        isYou: true,
+      },
+      {
+        id: 'mhw-2',
+        playerId: 'p-marcus',
+        name: 'Marcus L.',
+        handle: '@marcus_strikes',
+        avatar: PLAYER_AVATARS[0]!,
+        position: 'Striker',
+        role: 'member',
+        experience: 'advanced',
+        paymentStatus: 'paid',
+      },
+      {
+        id: 'mhw-3',
+        playerId: 'p-priya',
+        name: 'Priya S.',
+        handle: '@priya_serves',
+        avatar: PLAYER_AVATARS[5]!,
+        position: 'Right Mid',
+        role: 'member',
+        experience: 'pro',
+        paymentStatus: 'pending',
+      },
+      {
+        id: 'mhw-4',
+        playerId: 'p-leo',
+        name: 'Leo P.',
+        handle: '@leo_p',
+        avatar: PLAYER_AVATARS[4]!,
+        position: 'Left Wing',
+        role: 'member',
+        experience: 'intermediate',
+        paymentStatus: 'pending',
+      },
+      {
+        id: 'mhw-5',
+        playerId: 'p-tara',
+        name: 'Tara V.',
+        handle: '@tara_v',
+        avatar: PLAYER_AVATARS[7]!,
+        position: 'Center Back',
+        role: 'member',
+        experience: 'advanced',
+        paymentStatus: 'overdue',
+      },
+      {
+        id: 'mhw-6',
+        playerId: 'p-eli',
+        name: 'Eli M.',
+        handle: '@eli_m',
+        avatar: PLAYER_AVATARS[6]!,
+        position: 'Goalkeeper',
+        role: 'member',
+        experience: 'advanced',
+        paymentStatus: 'paid',
+      },
+    ],
+    rosterMax: 12,
+    pendingApplications: [
+      {
+        id: 'mhw-app-1',
+        playerId: 'p-rio',
+        name: 'Rio T.',
+        handle: '@rio_t',
+        avatar: PLAYER_AVATARS[2]!,
+        position: 'Right Back',
+        experience: 'intermediate',
+        appliedAt: '6h ago',
+        message: 'Saw your post in the Mile High group — happy to sub or start.',
+      },
+    ],
+    schedule: [
+      {
+        id: 'mhw-s-1',
+        date: 'Sun · May 18',
+        opponent: 'Avalanche FC',
+        opponentAbbreviation: 'AVA',
+        location: 'Yeti Center · Field 3',
+        upcoming: true,
+      },
+    ],
+    Icon: Flame,
+    isCaptain: true,
+    membership: 'captain',
+    hasUnpaidShare: false,
+    costMode: 'paid',
+    feeTotalCents: 192000,
+    perPlayerCents: 16000,
+    currency: 'USD',
+    leagueRegistration: {
+      leagueId: 'mile-high-summer',
+      leagueName: 'Mile High Summer League',
+      status: 'approved',
+      submittedAt: '3d ago',
+      notesFromAdmin: "Approved — collect each player's $160 share before May 1.",
+    },
+    needs: [],
+  },
+
+  // Pending application by Sarah → "Application pending" state.
+  'boulder-blitz': {
+    id: 'boulder-blitz',
+    name: 'Boulder Blitz',
+    abbreviation: 'BLZ',
+    sport: 'Co-ed Basketball 5v5',
+    sportKey: 'basketball',
+    location: 'Boulder, CO',
+    level: 'INTERMEDIATE',
+    description:
+      'Run-and-gun rec league team. Tuesday nights at Recreation Center. Looking for a smart shooter.',
+    stats: {
+      wins: 3,
+      losses: 2,
+      ties: 0,
+      pointsFor: 320,
+      pointsAgainst: 290,
+      streak: 'W1',
+    },
+    roster: [
+      {
+        id: 'blz-1',
+        playerId: 'p-jordan',
+        name: 'Jordan W.',
+        handle: '@jordan_w',
+        avatar: PLAYER_AVATARS[6]!,
+        position: 'Point Guard',
+        role: 'captain',
+        experience: 'advanced',
+        paymentStatus: 'paid',
+      },
+      {
+        id: 'blz-2',
+        playerId: 'p-emma',
+        name: 'Emma R.',
+        handle: '@emma_r',
+        avatar: PLAYER_AVATARS[7]!,
+        position: 'Shooting Guard',
+        role: 'member',
+        experience: 'intermediate',
+        paymentStatus: 'paid',
+      },
+      {
+        id: 'blz-3',
+        playerId: 'p-alex',
+        name: 'Alex K.',
+        handle: '@alex_k',
+        avatar: PLAYER_AVATARS[1]!,
+        position: 'Center',
+        role: 'member',
+        experience: 'pro',
+        paymentStatus: 'paid',
+      },
+      {
+        id: 'blz-4',
+        playerId: 'p-noah',
+        name: 'Noah F.',
+        handle: '@noah_f',
+        avatar: PLAYER_AVATARS[2]!,
+        position: 'Power Forward',
+        role: 'member',
+        experience: 'intermediate',
+        paymentStatus: 'paid',
+      },
+    ],
+    rosterMax: 8,
+    pendingApplications: [],
+    schedule: [
+      {
+        id: 'blz-s-1',
+        date: 'Tue · Apr 22',
+        opponent: 'CU Alumni',
+        opponentAbbreviation: 'CUA',
+        location: 'Boulder Rec Court 1',
+        upcoming: true,
+      },
+    ],
+    Icon: Zap,
+    isCaptain: false,
+    membership: 'pending',
+    hasUnpaidShare: false,
+    costMode: 'paid',
+    feeTotalCents: 64000,
+    perPlayerCents: 8000,
+    currency: 'USD',
+    needs: [{ label: 'Small Forward', urgent: true }],
+  },
+
+  // Roster full → must NOT appear in Find a Team. Used to verify the filter.
+  'sunset-strikers': {
+    id: 'sunset-strikers',
+    name: 'Sunset Strikers',
+    abbreviation: 'SUN',
+    sport: 'Co-ed Soccer 7v7',
+    sportKey: 'soccer',
+    location: 'San Diego, CA',
+    level: 'INTERMEDIATE',
+    description:
+      'Sundown soccer at La Jolla Shores. Roster is full this season — join the waitlist for fall.',
+    stats: { wins: 7, losses: 0, ties: 1, pointsFor: 30, pointsAgainst: 9, streak: 'W7' },
+    roster: Array.from({ length: 12 }, (_, i) => ({
+      id: `sun-${i + 1}`,
+      playerId: `p-sun-${i + 1}`,
+      name: `Striker ${i + 1}`,
+      handle: `@striker_${i + 1}`,
+      avatar: PLAYER_AVATARS[i % PLAYER_AVATARS.length]!,
+      position:
+        i === 0
+          ? 'Striker'
+          : POSITIONS_BY_SPORT.soccer[i % POSITIONS_BY_SPORT.soccer.length]!,
+      role: i === 0 ? ('captain' as const) : ('member' as const),
+      experience: 'intermediate' as const,
+      paymentStatus: 'paid' as const,
+    })),
+    rosterMax: 12,
+    pendingApplications: [],
+    schedule: [],
+    Icon: Sun,
+    isCaptain: false,
+    membership: 'none',
+    hasUnpaidShare: false,
+    costMode: 'paid',
+    feeTotalCents: 144000,
+    perPlayerCents: 12000,
+    currency: 'USD',
+    needs: [],
+  },
+
+  // Free pickup, recruiting many positions → great for the position-search demo.
+  'wind-river-warriors': {
+    id: 'wind-river-warriors',
+    name: 'Wind River Warriors',
+    abbreviation: 'WRW',
+    sport: 'Co-ed Volleyball 6v6',
+    sportKey: 'volleyball',
+    location: 'Salt Lake City, UT',
+    level: 'INTERMEDIATE',
+    description:
+      'Indoor volleyball every Wednesday. Free open gym while we look for committed players.',
+    stats: { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, streak: '—' },
+    roster: [
+      {
+        id: 'wrw-1',
+        playerId: 'p-naya',
+        name: 'Naya R.',
+        handle: '@naya_r',
+        avatar: PLAYER_AVATARS[5]!,
+        position: 'Setter',
+        role: 'captain',
+        experience: 'advanced',
+        paymentStatus: 'not_required',
+      },
+      {
+        id: 'wrw-2',
+        playerId: 'p-tomas',
+        name: 'Tomás G.',
+        handle: '@tomas_g',
+        avatar: PLAYER_AVATARS[1]!,
+        position: 'Outside Hitter',
+        role: 'member',
+        experience: 'intermediate',
+        paymentStatus: 'not_required',
+      },
+    ],
+    rosterMax: 12,
+    pendingApplications: [],
+    schedule: [],
+    Icon: Wind,
+    isCaptain: false,
+    membership: 'none',
+    hasUnpaidShare: false,
+    costMode: 'free',
+    feeTotalCents: 0,
+    perPlayerCents: 0,
+    currency: 'USD',
+    needs: [
+      { label: 'Libero', urgent: true },
+      { label: 'Middle Blocker' },
+      { label: 'Opposite' },
+    ],
+  },
+
+  // Premier paid travel team — used to demo "advanced" filter.
+  'tundra-wolves': {
+    id: 'tundra-wolves',
+    name: 'Tundra Wolves',
+    abbreviation: 'TUN',
+    sport: 'Ice Hockey 5v5',
+    sportKey: 'hockey',
+    location: 'Anchorage, AK',
+    level: 'ADVANCED',
+    description:
+      'Travel hockey squad. Two practices a week, away weekends each month. Strong commitment expected.',
+    stats: { wins: 11, losses: 3, ties: 1, pointsFor: 58, pointsAgainst: 31, streak: 'W4' },
+    roster: [
+      {
+        id: 'tun-1',
+        playerId: 'p-soren',
+        name: 'Søren H.',
+        handle: '@soren_h',
+        avatar: PLAYER_AVATARS[6]!,
+        position: 'Center',
+        role: 'captain',
+        experience: 'pro',
+        paymentStatus: 'paid',
+      },
+      {
+        id: 'tun-2',
+        playerId: 'p-kira',
+        name: 'Kira N.',
+        handle: '@kira_n',
+        avatar: PLAYER_AVATARS[7]!,
+        position: 'Defenseman',
+        role: 'member',
+        experience: 'pro',
+        paymentStatus: 'paid',
+      },
+    ],
+    rosterMax: 18,
+    pendingApplications: [],
+    schedule: [],
+    Icon: Sparkles,
+    isCaptain: false,
+    membership: 'none',
+    hasUnpaidShare: false,
+    costMode: 'paid',
+    feeTotalCents: 540000,
+    perPlayerCents: 30000,
+    currency: 'USD',
+    needs: [{ label: 'Goalie', urgent: true }, { label: 'Right Wing' }],
   },
 };
 
-// Player directory (used for invite flow)
+// SQUADS is now derived from TEAM_DETAILS so Find a Team and TeamDetail share
+// one source of truth (cost, roster fill, membership, needs).
+export const SQUADS: Squad[] = Object.values(TEAM_DETAILS).map((team) => ({
+  id: team.id,
+  name: team.name,
+  level: team.level,
+  location: team.location,
+  sport: team.sport,
+  Icon: team.Icon,
+  needs: team.needs,
+  helper: undefined,
+  sportKey: team.sportKey,
+  costMode: team.costMode,
+  perPlayerCents: team.perPlayerCents,
+  rosterCount: team.roster.length,
+  rosterMax: team.rosterMax,
+  membership: team.membership,
+}));
+
+export const CAPTAIN_OF_TEAMS = Object.values(TEAM_DETAILS).filter(
+  (t) => t.isCaptain,
+);
+
+// ----------------------------------------------------------------------------
+// Initial commit poll for the captain demo. Surfaced inside Mile High Warriors
+// chat as a poll card — Sarah created it for the Mile High Summer League.
+// ----------------------------------------------------------------------------
+
+export const INITIAL_COMMIT_POLLS: Record<string, CommitPoll> = {
+  'poll-mhw-mile-high': {
+    id: 'poll-mhw-mile-high',
+    leagueId: 'mile-high-summer',
+    leagueName: 'Mile High Summer League',
+    question: 'Can you commit to 8 Sunday matches starting May 15?',
+    createdBy: 'Sarah Jenkins',
+    createdAt: '2d ago',
+    closesAt: 'Closes Apr 28',
+    responses: {
+      'p-sarah': 'in',
+      'p-marcus': 'in',
+      'p-priya': 'maybe',
+      'p-leo': 'in',
+      'p-tara': 'out',
+      'p-eli': 'in',
+    },
+  },
+};
+
+// ----------------------------------------------------------------------------
+// Player directory — used by invite flow and now by captain "share" / position
+// scouting suggestions.
+// ----------------------------------------------------------------------------
+
 export interface DirectoryPlayer {
   id: string;
   name: string;
@@ -446,7 +1078,7 @@ export interface DirectoryPlayer {
   experience: 'beginner' | 'intermediate' | 'advanced' | 'pro';
   availability: 'available' | 'looking_for_team' | 'busy';
   city: string;
-  sportKey: Squad['sportKey'];
+  sportKey: SportKey;
   invited?: boolean;
 }
 
@@ -538,69 +1170,5 @@ export const DIRECTORY_PLAYERS: DirectoryPlayer[] = [
     availability: 'looking_for_team',
     city: 'Boulder, CO',
     sportKey: 'basketball',
-  },
-];
-
-export interface OpenLeague {
-  id: string;
-  name: string;
-  sportKey: Squad['sportKey'];
-  sport: string;
-  city: string;
-  startDate: string;
-  registrationCloses: string;
-  registeredTeams: number;
-  maxTeams: number;
-  feeCents: number;
-  Icon: ComponentType<LucideProps>;
-  description: string;
-  spotsTone: 'brand' | 'warning';
-}
-
-export const OPEN_LEAGUES: OpenLeague[] = [
-  {
-    id: 'mile-high-summer',
-    name: 'Mile High Summer League',
-    sportKey: 'soccer',
-    sport: 'Co-ed 7v7 Soccer',
-    city: 'Denver, CO',
-    startDate: 'Starts May 15',
-    registrationCloses: 'Closes Apr 30',
-    registeredTeams: 8,
-    maxTeams: 12,
-    feeCents: 192000,
-    Icon: Trophy,
-    description: 'Eight-week summer season with playoffs. Sunday mornings at Yeti Center fields.',
-    spotsTone: 'brand',
-  },
-  {
-    id: 'aurora-fall',
-    name: 'Aurora Fall Hockey D2',
-    sportKey: 'hockey',
-    sport: 'Ice Hockey 5v5',
-    city: 'Anchorage, AK',
-    startDate: 'Starts Sep 4',
-    registrationCloses: 'Closes Aug 1',
-    registeredTeams: 11,
-    maxTeams: 12,
-    feeCents: 360000,
-    Icon: Snowflake,
-    description: 'Twelve-game regular season + best-of-3 playoffs. Officials and locker rooms included.',
-    spotsTone: 'warning',
-  },
-  {
-    id: 'coastal-volley',
-    name: 'Coastal Volley Open',
-    sportKey: 'volleyball',
-    sport: 'Beach Volleyball 4v4',
-    city: 'San Diego, CA',
-    startDate: 'Starts Jun 1',
-    registrationCloses: 'Closes May 15',
-    registeredTeams: 4,
-    maxTeams: 16,
-    feeCents: 96000,
-    Icon: Waves,
-    description: 'Six Sundays. Bring sunscreen. We provide nets, balls, and shade tents.',
-    spotsTone: 'brand',
   },
 ];

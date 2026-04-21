@@ -1,9 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Trophy, Users } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Crown,
+  Search,
+  Trophy,
+} from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   BottomSheet,
@@ -12,16 +19,24 @@ import {
   EmptyState,
   IconBadge,
   Input,
+  SearchBar,
   Tabs,
   Tag,
   Text,
   useToast,
 } from '../../ui';
-import { OPEN_LEAGUES, type OpenLeague } from '../../mocks/teams';
+import {
+  CAPTAIN_OF_TEAMS,
+  OPEN_LEAGUES,
+  TEAM_DETAILS,
+  type OpenLeague,
+  type TeamDetail,
+} from '../../mocks/teams';
 import { formatCurrency } from '../../lib/format';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'LeagueBrowse'>;
 
 const SPORT_FILTERS = [
   { key: 'all', label: 'All sports' },
@@ -34,9 +49,11 @@ const SPORT_FILTERS = [
 function LeagueCard({
   league,
   onApply,
+  primaryLabel,
 }: {
   league: OpenLeague;
   onApply: () => void;
+  primaryLabel: string;
 }) {
   const Icon = league.Icon;
   const spotsLeft = league.maxTeams - league.registeredTeams;
@@ -95,7 +112,7 @@ function LeagueCard({
           label={`${spotsLeft} of ${league.maxTeams} team spots left`}
         />
         <Button
-          label="Register team"
+          label={primaryLabel}
           variant="gradient"
           size="sm"
           onPress={onApply}
@@ -105,63 +122,129 @@ function LeagueCard({
   );
 }
 
+function CaptainTeamPickerRow({
+  team,
+  selected,
+  onPress,
+}: {
+  team: TeamDetail;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const Icon = team.Icon;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Use ${team.name} for this registration`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.teamRow,
+        selected ? styles.teamRowSelected : null,
+        pressed ? styles.teamRowPressed : null,
+      ]}
+    >
+      <View style={styles.teamRowIcon}>
+        <Icon size={18} color={colors.brand.primary} strokeWidth={2.25} />
+      </View>
+      <View style={styles.teamRowBody}>
+        <Text variant="button" color={colors.text.primary}>
+          {team.name}
+        </Text>
+        <Text variant="caption" color={colors.text.secondary}>
+          {team.sport} · {team.roster.length}/{team.rosterMax} on roster
+        </Text>
+      </View>
+      {selected ? (
+        <View style={styles.selectedBadge}>
+          <Crown size={12} color={colors.text.inverse} strokeWidth={3} />
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 export function LeagueBrowseScreen() {
   const navigation = useNavigation<Navigation>();
+  const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+
+  const isCaptainMode = route.params?.mode === 'captain';
+  const initialTeam = route.params?.teamId
+    ? TEAM_DETAILS[route.params.teamId]
+    : CAPTAIN_OF_TEAMS[0];
+
   const [sport, setSport] = useState('all');
+  const [search, setSearch] = useState('');
   const [pendingLeague, setPendingLeague] = useState<OpenLeague | null>(null);
+  const [teamPickerOpen, setTeamPickerOpen] = useState(false);
+  const [chosenTeamId, setChosenTeamId] = useState<string | undefined>(
+    initialTeam?.id,
+  );
   const [teamName, setTeamName] = useState('');
-  const [rosterSize, setRosterSize] = useState('8');
   const [submitting, setSubmitting] = useState(false);
 
-  const filtered = useMemo(
-    () =>
-      sport === 'all'
-        ? OPEN_LEAGUES
-        : OPEN_LEAGUES.filter((l) => l.sportKey === sport),
-    [sport],
-  );
+  const chosenTeam = chosenTeamId ? TEAM_DETAILS[chosenTeamId] : undefined;
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return OPEN_LEAGUES.filter((l) => {
+      if (sport !== 'all' && l.sportKey !== sport) return false;
+      if (q) {
+        const hay = `${l.name} ${l.sport} ${l.city}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [sport, search]);
 
   const teamNameError =
-    teamName.length > 0 && teamName.trim().length < 3
+    !isCaptainMode && teamName.length > 0 && teamName.trim().length < 3
       ? 'Team name must be at least 3 characters.'
       : undefined;
-  const rosterError =
-    rosterSize.length > 0 && (Number(rosterSize) < 2 || Number(rosterSize) > 30)
-      ? 'Roster must be 2-30 players.'
-      : undefined;
-  const canSubmit =
-    !!pendingLeague &&
-    teamName.trim().length >= 3 &&
-    !rosterError &&
-    Number(rosterSize) >= 2;
 
-  const perPlayer =
-    pendingLeague && Number(rosterSize) > 0
-      ? Math.round(pendingLeague.feeCents / Number(rosterSize))
+  const canSubmit = isCaptainMode
+    ? !!pendingLeague && !!chosenTeam
+    : !!pendingLeague && teamName.trim().length >= 3;
+
+  const perPlayerEstimate =
+    pendingLeague && chosenTeam && chosenTeam.roster.length > 0
+      ? Math.round(pendingLeague.feeCents / chosenTeam.roster.length)
       : 0;
+
+  const openLeagueRegister = (league: OpenLeague) => {
+    setPendingLeague(league);
+    if (!isCaptainMode) setTeamName('');
+  };
 
   const handleSubmit = () => {
     if (!pendingLeague || !canSubmit) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSubmitting(true);
     setTimeout(() => {
       setSubmitting(false);
-      const name = teamName.trim();
+      const league = pendingLeague;
+      const teamLabel = isCaptainMode ? chosenTeam?.name ?? 'Your team' : teamName.trim();
       setPendingLeague(null);
       setTeamName('');
       toast.show({
         variant: 'success',
-        title: `Application submitted`,
-        description: `${name} is pending admin review (~24h).`,
-        action: {
-          label: 'View',
-          onPress: () =>
-            navigation.navigate('TeamDetails', { id: 'avalanche-fc' }),
-        },
+        title: isCaptainMode ? `Submitted ${teamLabel}` : 'Application submitted',
+        description: isCaptainMode
+          ? `${league.name} will review your team. Once approved, players can pay their share.`
+          : `${teamLabel} is pending admin review (~24h).`,
+        action: chosenTeam
+          ? {
+              label: 'View team',
+              onPress: () =>
+                navigation.navigate('TeamDetails', { id: chosenTeam.id }),
+            }
+          : undefined,
       });
     }, 700);
   };
+
+  const captainTeams = CAPTAIN_OF_TEAMS;
 
   return (
     <View style={styles.root}>
@@ -176,12 +259,43 @@ export function LeagueBrowseScreen() {
           <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
         </Pressable>
         <Text variant="h2" color={colors.text.primary}>
-          Open Leagues
+          {isCaptainMode ? 'Register for a League' : 'Open Leagues'}
         </Text>
         <View style={styles.backBtn} />
       </View>
 
+      {isCaptainMode && captainTeams.length > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Choose which team you're registering"
+          onPress={() => setTeamPickerOpen(true)}
+          style={({ pressed }) => [
+            styles.captainBanner,
+            pressed ? styles.captainBannerPressed : null,
+          ]}
+        >
+          <View style={styles.captainBannerIcon}>
+            <Crown size={18} color={colors.text.inverse} strokeWidth={2.5} />
+          </View>
+          <View style={styles.captainBannerBody}>
+            <Text variant="caption" color={colors.text.inverse}>
+              REGISTERING AS
+            </Text>
+            <Text variant="button" color={colors.text.inverse}>
+              {chosenTeam?.name ?? 'Pick a team'}
+            </Text>
+          </View>
+          <ChevronRight size={18} color={colors.text.inverse} strokeWidth={2.5} />
+        </Pressable>
+      ) : null}
+
       <View style={styles.filterBlock}>
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search by league, sport, or city…"
+          onFilterPress={() => undefined}
+        />
         <Tabs
           variant="pill"
           scrollable
@@ -214,11 +328,8 @@ export function LeagueBrowseScreen() {
             <LeagueCard
               key={l.id}
               league={l}
-              onApply={() => {
-                setPendingLeague(l);
-                setTeamName('');
-                setRosterSize('8');
-              }}
+              primaryLabel={isCaptainMode ? 'Enroll team' : 'Register team'}
+              onApply={() => openLeagueRegister(l)}
             />
           ))
         )}
@@ -227,30 +338,48 @@ export function LeagueBrowseScreen() {
       <BottomSheet
         visible={!!pendingLeague}
         onRequestClose={() => setPendingLeague(null)}
-        title={`Register for ${pendingLeague?.name ?? ''}`}
-        snapPoints={['72%']}
+        title={`${isCaptainMode ? 'Enroll in' : 'Register for'} ${pendingLeague?.name ?? ''}`}
+        snapPoints={['76%']}
       >
         <ScrollView
           contentContainerStyle={styles.sheetContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Input
-            label="Team name"
-            placeholder="Avalanche FC"
-            value={teamName}
-            onChangeText={setTeamName}
-            maxLength={40}
-            error={teamNameError}
-          />
-          <Input
-            label="Roster size"
-            placeholder="8"
-            variant="number"
-            value={rosterSize}
-            onChangeText={setRosterSize}
-            error={rosterError}
-            helpText="Players you plan to bring (2-30)."
-          />
+          {isCaptainMode ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Change which team is being registered"
+              onPress={() => setTeamPickerOpen(true)}
+              style={({ pressed }) => [
+                styles.chosenTeamCard,
+                pressed ? styles.chosenTeamCardPressed : null,
+              ]}
+            >
+              <View style={styles.chosenTeamLeft}>
+                <Text variant="caption" color={colors.text.secondary}>
+                  REGISTERING
+                </Text>
+                <Text variant="button" color={colors.text.primary}>
+                  {chosenTeam?.name ?? 'Pick a team'}
+                </Text>
+                {chosenTeam ? (
+                  <Text variant="caption" color={colors.text.muted}>
+                    {chosenTeam.sport} · {chosenTeam.roster.length} players
+                  </Text>
+                ) : null}
+              </View>
+              <Search size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            </Pressable>
+          ) : (
+            <Input
+              label="Team name"
+              placeholder="Avalanche FC"
+              value={teamName}
+              onChangeText={setTeamName}
+              maxLength={40}
+              error={teamNameError}
+            />
+          )}
 
           {pendingLeague ? (
             <Card style={styles.feeCard}>
@@ -264,15 +393,16 @@ export function LeagueBrowseScreen() {
               </View>
               <View style={styles.feeRow}>
                 <Text variant="body" color={colors.text.secondary}>
-                  Per player ({rosterSize || '0'})
+                  Per player ({chosenTeam?.roster.length ?? '—'})
                 </Text>
                 <Text variant="button" color={colors.brand.primary}>
-                  {formatCurrency(perPlayer)}
+                  {chosenTeam ? formatCurrency(perPlayerEstimate) : '—'}
                 </Text>
               </View>
               <Text variant="caption" color={colors.text.secondary}>
-                Estimate. Actual per-player share recalculates from your final
-                roster after admin approves.
+                {isCaptainMode
+                  ? "Once the league admin approves, each player will see a Pay button on the team page."
+                  : "Estimate. Actual per-player share recalculates from your final roster after admin approves."}
               </Text>
             </Card>
           ) : null}
@@ -293,6 +423,31 @@ export function LeagueBrowseScreen() {
               disabled={!canSubmit || submitting}
             />
           </View>
+        </ScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={teamPickerOpen}
+        onRequestClose={() => setTeamPickerOpen(false)}
+        title="Choose your team"
+        snapPoints={['55%']}
+      >
+        <ScrollView contentContainerStyle={styles.sheetContent}>
+          <Text variant="bodySm" color={colors.text.secondary}>
+            You captain {captainTeams.length} team{captainTeams.length === 1 ? '' : 's'}.
+            Pick the one you're registering.
+          </Text>
+          {captainTeams.map((team) => (
+            <CaptainTeamPickerRow
+              key={team.id}
+              team={team}
+              selected={team.id === chosenTeamId}
+              onPress={() => {
+                setChosenTeamId(team.id);
+                setTeamPickerOpen(false);
+              }}
+            />
+          ))}
         </ScrollView>
       </BottomSheet>
     </View>
@@ -321,6 +476,7 @@ const styles = StyleSheet.create({
   filterBlock: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
+    gap: spacing.md,
   },
   list: {
     paddingHorizontal: spacing.lg,
@@ -371,5 +527,86 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  captainBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.brand.primary,
+    ...shadows.soft,
+  },
+  captainBannerPressed: {
+    opacity: 0.85,
+  },
+  captainBannerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.brand.deep,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captainBannerBody: {
+    flex: 1,
+    gap: 2,
+  },
+  chosenTeamCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface.bg,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+  },
+  chosenTeamCardPressed: {
+    opacity: 0.7,
+  },
+  chosenTeamLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface.card,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+  },
+  teamRowSelected: {
+    borderColor: colors.brand.primary,
+    backgroundColor: colors.brand.soft,
+  },
+  teamRowPressed: {
+    opacity: 0.85,
+  },
+  teamRowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.brand.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  teamRowBody: {
+    flex: 1,
+    gap: 2,
+  },
+  selectedBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -12,21 +12,192 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { ChevronLeft, Plus, SendHorizonal } from 'lucide-react-native';
-import { colors, radii, shadows, spacing } from '../../theme';
-import { Avatar, EmptyState, Tag, Text } from '../../ui';
 import {
-  CHAT_MESSAGES,
+  CalendarClock,
+  ChevronLeft,
+  Lock,
+  Plus,
+  SendHorizonal,
+  Share2,
+  Trophy,
+  Vote,
+} from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
+import { Avatar, BottomSheet, Button, EmptyState, Tag, Text, useToast } from '../../ui';
+import {
   CHATS,
+  type ChatCard,
   type ChatMessage,
 } from '../../mocks/messages';
-import { SARAH_AVATAR } from '../../mocks/avatars';
+import {
+  OPEN_LEAGUES,
+  TEAM_DETAILS,
+  type CommitVote,
+  type OpenLeague,
+} from '../../mocks/teams';
+import { formatCurrency } from '../../lib/format';
+import { useTeamChat, SARAH_VOTER_ID } from '../../features/team-chat-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'Chat'>;
 type Route = RouteProp<RootStackParamList, 'Chat'>;
 
-function MessageBubble({ msg }: { msg: ChatMessage }) {
+const VOTE_LABEL: Record<CommitVote, string> = {
+  in: "I'm in",
+  maybe: 'Maybe',
+  out: "Can't",
+};
+
+function deriveTeamIdFromChatId(chatId: string): string | undefined {
+  if (!chatId.startsWith('chat-')) return undefined;
+  const candidate = chatId.replace('chat-', '');
+  return TEAM_DETAILS[candidate] ? candidate : undefined;
+}
+
+function LeagueShareInline({
+  card,
+  onOpen,
+}: {
+  card: Extract<ChatCard, { kind: 'league_share' }>;
+  onOpen: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${card.leagueName}`}
+      onPress={onOpen}
+      style={({ pressed }) => [
+        styles.cardShell,
+        pressed ? styles.cardPressed : null,
+      ]}
+    >
+      <View style={styles.cardHeader}>
+        <View style={styles.cardIcon}>
+          <Trophy size={18} color={colors.brand.primary} strokeWidth={2.25} />
+        </View>
+        <View style={styles.cardHeaderBody}>
+          <Text variant="caption" color={colors.text.secondary}>
+            LEAGUE
+          </Text>
+          <Text variant="button" color={colors.text.primary}>
+            {card.leagueName}
+          </Text>
+          <Text variant="caption" color={colors.text.secondary}>
+            {card.sport} · {card.city}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.cardMetaRow}>
+        <View style={styles.cardMetaCell}>
+          <Text variant="caption" color={colors.text.secondary}>
+            STARTS
+          </Text>
+          <Text variant="bodySm" color={colors.text.primary}>
+            {card.startDate.replace('Starts ', '')}
+          </Text>
+        </View>
+        <View style={styles.cardMetaCell}>
+          <Text variant="caption" color={colors.text.secondary}>
+            FEE
+          </Text>
+          <Text variant="bodySm" color={colors.brand.primary}>
+            {card.feeCents === 0 ? 'Free' : formatCurrency(card.feeCents)}
+          </Text>
+        </View>
+        <View style={styles.cardMetaCell}>
+          <Text variant="caption" color={colors.text.secondary}>
+            SPOTS
+          </Text>
+          <Text variant="bodySm" color={colors.text.primary}>
+            {card.maxTeams - card.registeredTeams} of {card.maxTeams}
+          </Text>
+        </View>
+      </View>
+      <Tag tone="info" size="sm" leadingDot label="Tap to view league" />
+    </Pressable>
+  );
+}
+
+function CommitPollInline({
+  card,
+}: {
+  card: Extract<ChatCard, { kind: 'commit_poll' }>;
+}) {
+  const poll = useTeamChat((s) => s.pollsById[card.pollId]);
+  const vote = useTeamChat((s) => s.votePoll);
+
+  const myVote = poll?.responses[SARAH_VOTER_ID];
+  const counts = useMemo(() => {
+    const base: Record<CommitVote, number> = { in: 0, maybe: 0, out: 0 };
+    if (!poll) return base;
+    for (const v of Object.values(poll.responses)) base[v] += 1;
+    return base;
+  }, [poll]);
+  const totalVotes = counts.in + counts.maybe + counts.out;
+
+  return (
+    <View style={styles.cardShell}>
+      <View style={styles.cardHeader}>
+        <View style={[styles.cardIcon, { backgroundColor: colors.brand.soft }]}>
+          <Vote size={18} color={colors.brand.primary} strokeWidth={2.25} />
+        </View>
+        <View style={styles.cardHeaderBody}>
+          <Text variant="caption" color={colors.text.secondary}>
+            COMMIT POLL · {card.leagueName}
+          </Text>
+          <Text variant="button" color={colors.text.primary}>
+            {card.question}
+          </Text>
+          {card.closesAt ? (
+            <Text variant="caption" color={colors.text.secondary}>
+              {card.closesAt} · {totalVotes} vote{totalVotes === 1 ? '' : 's'}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+
+      <View style={styles.voteRow}>
+        {(['in', 'maybe', 'out'] as const).map((opt) => {
+          const selected = myVote === opt;
+          return (
+            <Pressable
+              key={opt}
+              accessibilityRole="button"
+              accessibilityLabel={`Vote ${VOTE_LABEL[opt]}`}
+              accessibilityState={{ selected }}
+              onPress={() => vote(card.pollId, opt)}
+              style={[
+                styles.voteOption,
+                selected ? styles.voteOptionSelected : null,
+              ]}
+            >
+              <Text
+                variant="button"
+                color={selected ? colors.text.inverse : colors.text.primary}
+              >
+                {VOTE_LABEL[opt]}
+              </Text>
+              <Text
+                variant="caption"
+                color={selected ? colors.text.inverse : colors.text.secondary}
+              >
+                {counts[opt]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function MessageBubble({
+  msg,
+  onOpenLeague,
+}: {
+  msg: ChatMessage;
+  onOpenLeague: (leagueId: string) => void;
+}) {
   const isYou = !!msg.isYou;
   return (
     <View style={[styles.bubbleRow, isYou ? styles.bubbleRowYou : null]}>
@@ -52,6 +223,15 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
             {msg.body}
           </Text>
         </View>
+        {msg.card?.kind === 'league_share' ? (
+          <LeagueShareInline
+            card={msg.card}
+            onOpen={() => onOpenLeague(msg.card!.kind === 'league_share' ? msg.card.leagueId : '')}
+          />
+        ) : null}
+        {msg.card?.kind === 'commit_poll' ? (
+          <CommitPollInline card={msg.card} />
+        ) : null}
         <Text variant="caption" color={colors.text.muted}>
           {msg.timestamp}
         </Text>
@@ -75,34 +255,137 @@ export function ChatScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
+  const toast = useToast();
   const chat = CHATS.find((c) => c.id === route.params.chatId);
-  const [draft, setDraft] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>(
-    () => CHAT_MESSAGES[route.params.chatId] ?? [],
+  const messages = useTeamChat(
+    (s) => s.messagesByChat[route.params.chatId] ?? [],
   );
+  const postCard = useTeamChat((s) => s.postCard);
+  const appendUserMessage = useTeamChat((s) => s.appendUserMessage);
+  const [draft, setDraft] = useState('');
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const title = chat?.title ?? route.params.title ?? 'Chat';
   const subtitle = chat?.subtitle;
   const isOnline = chat?.online;
 
+  const teamId = deriveTeamIdFromChatId(route.params.chatId);
+  const team = teamId ? TEAM_DETAILS[teamId] : undefined;
+  const isCaptain = !!team?.isCaptain;
+  const isMember = team?.membership === 'member' || team?.membership === 'captain';
+  const youArePaid =
+    !team
+      ? true
+      : team.costMode === 'free'
+      ? true
+      : !team.hasUnpaidShare;
+  const chatLocked = !!team && team.costMode === 'paid' && isMember && !youArePaid;
+
   const send = () => {
     const body = draft.trim();
     if (!body) return;
     Haptics.selectionAsync();
-    const newMsg: ChatMessage = {
-      id: `m-${Date.now()}`,
-      authorName: 'You',
-      authorHandle: '@jenkins_yeti',
-      authorAvatar: SARAH_AVATAR,
-      body,
-      timestamp: 'Just now',
-      isYou: true,
-    };
-    setMessages((prev) => [...prev, newMsg]);
+    appendUserMessage(route.params.chatId, body);
     setDraft('');
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
   };
+
+  const handleShareLeague = (league: OpenLeague) => {
+    setShareOpen(false);
+    setActionsOpen(false);
+    postCard(
+      route.params.chatId,
+      `Take a look at ${league.name} — could be our next league.`,
+      {
+        kind: 'league_share',
+        leagueId: league.id,
+        leagueName: league.name,
+        sport: league.sport,
+        city: league.city,
+        startDate: league.startDate,
+        registrationCloses: league.registrationCloses,
+        feeCents: league.feeCents,
+        maxTeams: league.maxTeams,
+        registeredTeams: league.registeredTeams,
+      },
+    );
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+  };
+
+  const handleStartPoll = (league: OpenLeague) => {
+    setPollOpen(false);
+    setActionsOpen(false);
+    postCard(
+      route.params.chatId,
+      `Vote so I can lock in our ${league.name} registration:`,
+      {
+        kind: 'commit_poll',
+        pollId: `poll-chat-${league.id}-${Date.now()}`,
+        leagueId: league.id,
+        leagueName: league.name,
+        question: `Can you commit to the full ${league.name} season?`,
+        closesAt: league.registrationCloses,
+      },
+    );
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+  };
+
+  const openLeague = () => {
+    if (isCaptain) {
+      navigation.navigate('LeagueBrowse', { mode: 'captain', teamId });
+    } else {
+      navigation.navigate('LeagueBrowse');
+    }
+  };
+
+  if (chatLocked && team) {
+    return (
+      <View style={styles.root}>
+        <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back to messages"
+            hitSlop={8}
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
+          >
+            <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
+          <View style={styles.titleBlock}>
+            <Text variant="h3" color={colors.text.primary}>
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text variant="caption" color={colors.text.secondary}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.backBtn} />
+        </View>
+        <View style={styles.lockedBlock}>
+          <EmptyState
+            icon={<Lock size={28} color={colors.brand.primary} strokeWidth={2.25} />}
+            title="Chat is locked"
+            description={`Pay your ${formatCurrency(team.perPlayerCents)} season share to read and post in ${team.name} chat.`}
+            primaryAction={{
+              label: `Pay ${formatCurrency(team.perPlayerCents)}`,
+              onPress: () =>
+                navigation.navigate('TeamPayment', { teamId: team.id }),
+            }}
+            secondaryAction={{
+              label: 'View team',
+              onPress: () =>
+                navigation.navigate('TeamDetails', { id: team.id }),
+            }}
+          />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -116,7 +399,12 @@ export function ChatScreen() {
         >
           <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
         </Pressable>
-        <View style={styles.titleBlock}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={team ? `Open ${team.name} details` : 'Chat details'}
+          onPress={() => team && navigation.navigate('TeamDetails', { id: team.id })}
+          style={styles.titleBlock}
+        >
           <Text variant="h3" color={colors.text.primary}>
             {title}
           </Text>
@@ -128,7 +416,7 @@ export function ChatScreen() {
               </Text>
             ) : null}
           </View>
-        </View>
+        </Pressable>
         <View style={styles.backBtn} />
       </View>
 
@@ -149,15 +437,31 @@ export function ChatScreen() {
               description="No messages yet. Start the conversation."
             />
           ) : (
-            messages.map((m) => <MessageBubble key={m.id} msg={m} />)
+            messages.map((m) => (
+              <MessageBubble
+                key={m.id}
+                msg={m}
+                onOpenLeague={() => {
+                  toast.show({
+                    variant: 'info',
+                    title: 'Opening league',
+                    description: 'Take a look and tap "Enroll team" if it fits.',
+                  });
+                  openLeague();
+                }}
+              />
+            ))
           )}
         </ScrollView>
 
         <View style={[styles.inputBar, { paddingBottom: insets.bottom + spacing.sm }]}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Attach"
+            accessibilityLabel={
+              isCaptain ? 'Captain actions' : 'Attach'
+            }
             hitSlop={6}
+            onPress={() => setActionsOpen(true)}
             style={styles.attachBtn}
           >
             <Plus size={20} color={colors.brand.primary} strokeWidth={2.5} />
@@ -189,7 +493,178 @@ export function ChatScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <BottomSheet
+        visible={actionsOpen}
+        onRequestClose={() => setActionsOpen(false)}
+        title={isCaptain ? 'Captain actions' : 'Quick actions'}
+        snapPoints={['45%']}
+      >
+        <View style={styles.actionsSheet}>
+          {isCaptain ? (
+            <>
+              <ActionRow
+                Icon={Trophy}
+                title="Browse leagues"
+                description="Search and enroll your team"
+                onPress={() => {
+                  setActionsOpen(false);
+                  openLeague();
+                }}
+              />
+              <ActionRow
+                Icon={Share2}
+                title="Share a league"
+                description="Drop a card in this chat"
+                onPress={() => {
+                  setActionsOpen(false);
+                  setShareOpen(true);
+                }}
+              />
+              <ActionRow
+                Icon={Vote}
+                title="Start commit poll"
+                description="Ask the squad if they're in"
+                onPress={() => {
+                  setActionsOpen(false);
+                  setPollOpen(true);
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <ActionRow
+                Icon={CalendarClock}
+                title="Add to calendar"
+                description="Sync upcoming fixtures"
+                onPress={() => {
+                  setActionsOpen(false);
+                  toast.show({ variant: 'info', title: 'Calendar coming soon' });
+                }}
+              />
+              <ActionRow
+                Icon={Trophy}
+                title="Find a league"
+                description="Browse open leagues"
+                onPress={() => {
+                  setActionsOpen(false);
+                  openLeague();
+                }}
+              />
+            </>
+          )}
+          <Button
+            label="Cancel"
+            variant="ghost"
+            fullWidth
+            onPress={() => setActionsOpen(false)}
+          />
+        </View>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={shareOpen}
+        onRequestClose={() => setShareOpen(false)}
+        title="Share a league"
+        snapPoints={['72%']}
+      >
+        <ScrollView contentContainerStyle={styles.actionsSheet}>
+          {OPEN_LEAGUES.map((league) => (
+            <LeaguePickerRow
+              key={league.id}
+              league={league}
+              onPress={() => handleShareLeague(league)}
+            />
+          ))}
+        </ScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={pollOpen}
+        onRequestClose={() => setPollOpen(false)}
+        title="Pick a league for the poll"
+        snapPoints={['72%']}
+      >
+        <ScrollView contentContainerStyle={styles.actionsSheet}>
+          {OPEN_LEAGUES.map((league) => (
+            <LeaguePickerRow
+              key={league.id}
+              league={league}
+              onPress={() => handleStartPoll(league)}
+            />
+          ))}
+        </ScrollView>
+      </BottomSheet>
     </View>
+  );
+}
+
+function ActionRow({
+  Icon,
+  title,
+  description,
+  onPress,
+}: {
+  Icon: typeof Trophy;
+  title: string;
+  description: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionRow,
+        pressed ? styles.actionRowPressed : null,
+      ]}
+    >
+      <View style={styles.cardIcon}>
+        <Icon size={18} color={colors.brand.primary} strokeWidth={2.25} />
+      </View>
+      <View style={styles.actionRowBody}>
+        <Text variant="button" color={colors.text.primary}>
+          {title}
+        </Text>
+        <Text variant="caption" color={colors.text.secondary}>
+          {description}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function LeaguePickerRow({
+  league,
+  onPress,
+}: {
+  league: OpenLeague;
+  onPress: () => void;
+}) {
+  const Icon = league.Icon;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Pick ${league.name}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionRow,
+        pressed ? styles.actionRowPressed : null,
+      ]}
+    >
+      <View style={styles.cardIcon}>
+        <Icon size={18} color={colors.brand.primary} strokeWidth={2.25} />
+      </View>
+      <View style={styles.actionRowBody}>
+        <Text variant="button" color={colors.text.primary}>
+          {league.name}
+        </Text>
+        <Text variant="caption" color={colors.text.secondary}>
+          {league.sport} · {formatCurrency(league.feeCents)}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -240,7 +715,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   bubbleColumn: {
-    maxWidth: '80%',
+    maxWidth: '85%',
     gap: 4,
   },
   bubbleColumnYou: {
@@ -308,5 +783,84 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     opacity: 0.4,
+  },
+  cardShell: {
+    backgroundColor: colors.surface.card,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    width: 280,
+    ...shadows.soft,
+  },
+  cardPressed: {
+    opacity: 0.85,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  cardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.brand.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeaderBody: {
+    flex: 1,
+    gap: 2,
+  },
+  cardMetaRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    backgroundColor: colors.surface.bg,
+    padding: spacing.sm,
+    borderRadius: radii.md,
+  },
+  cardMetaCell: {
+    flex: 1,
+    gap: 2,
+  },
+  voteRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  voteOption: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface.bg,
+    alignItems: 'center',
+    gap: 2,
+  },
+  voteOptionSelected: {
+    backgroundColor: colors.brand.primary,
+  },
+  lockedBlock: {
+    flex: 1,
+    padding: spacing.lg,
+    justifyContent: 'center',
+  },
+  actionsSheet: {
+    gap: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface.card,
+    ...shadows.soft,
+  },
+  actionRowPressed: {
+    opacity: 0.75,
+  },
+  actionRowBody: {
+    flex: 1,
+    gap: 2,
   },
 });
