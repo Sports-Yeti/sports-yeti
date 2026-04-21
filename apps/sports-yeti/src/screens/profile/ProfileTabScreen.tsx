@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -10,8 +10,16 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, LogOut, Pencil, Settings, Sparkles } from 'lucide-react-native';
+import {
+  ChevronRight,
+  Eye,
+  LogOut,
+  Pencil,
+  Settings,
+  Sparkles,
+} from 'lucide-react-native';
 import { useAuthStore } from '../../stores';
+import { useSavedHighlights } from '../../features/saved-highlights-store';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   Avatar,
@@ -21,6 +29,8 @@ import {
   IconBadge,
   Modal,
   ScreenHeader,
+  Tabs,
+  Tag,
   Text,
   useToast,
 } from '../../ui';
@@ -29,12 +39,16 @@ import {
   PROFILE_FRIENDS,
   PROFILE_MORE_LINKS,
   PROFILE_MUTUAL_COUNT,
-  PROFILE_STATS,
   PROFILE_USER,
+  SPORT_META_BY_KEY,
+  getStatsForSport,
   type AppNotification,
   type ProfileMoreRoute,
   type ProfileStat,
+  type ProfileUser,
+  type SportPlayerProfile,
 } from '../../mocks/profile';
+import type { SportKey } from '../../mocks/teams';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -46,6 +60,7 @@ function ProfileHeader({
   avatarUri,
   proMember,
   onEdit,
+  onPreview,
 }: {
   name: string;
   handle: string;
@@ -53,17 +68,27 @@ function ProfileHeader({
   avatarUri: string;
   proMember: boolean;
   onEdit: () => void;
+  onPreview: () => void;
 }) {
   return (
     <Card style={styles.headerCard}>
       <View style={styles.headerEditRow}>
-        <View />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Preview public profile"
+          accessibilityHint="See how other players view your profile"
+          hitSlop={8}
+          onPress={onPreview}
+          style={styles.iconBtnSoft}
+        >
+          <Eye size={16} color={colors.brand.primary} strokeWidth={2.25} />
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Edit profile"
           hitSlop={8}
           onPress={onEdit}
-          style={styles.editBtn}
+          style={styles.iconBtnSoft}
         >
           <Pencil size={16} color={colors.brand.primary} strokeWidth={2.25} />
         </Pressable>
@@ -86,6 +111,92 @@ function ProfileHeader({
             </Text>
           </View>
         ) : null}
+      </View>
+    </Card>
+  );
+}
+
+function SportSummaryCard({
+  sportProfile,
+  user,
+}: {
+  sportProfile: SportPlayerProfile;
+  user: ProfileUser;
+}) {
+  const meta = SPORT_META_BY_KEY[sportProfile.sportKey];
+  const Icon = meta.Icon;
+  const stats = getStatsForSport(user, sportProfile.sportKey);
+  const primary = stats.find((s) => s.highlight);
+  const others = stats.filter((s) => !s.highlight);
+  const PrimaryIcon = primary?.Icon ?? Icon;
+  const secondary = sportProfile.secondaryPositions ?? [];
+
+  return (
+    <Card style={styles.sportSummaryCard}>
+      <View style={styles.sportSummaryHeader}>
+        <IconBadge size={48} tone="brand">
+          <Icon size={22} color={colors.brand.deep} strokeWidth={2.25} />
+        </IconBadge>
+        <View style={styles.sportSummaryTitle}>
+          <Text variant="h3" color={colors.text.primary}>
+            {meta.label}
+          </Text>
+          <View style={styles.sportSummaryTags}>
+            <Tag tone="brand" size="sm" label={sportProfile.position} />
+            {secondary.slice(0, 2).map((p) => (
+              <Tag key={p} tone="neutral" size="sm" label={p} />
+            ))}
+            {sportProfile.jerseyNumber ? (
+              <Tag
+                tone="info"
+                size="sm"
+                label={`#${sportProfile.jerseyNumber}`}
+              />
+            ) : null}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.sportSummaryStats}>
+        {primary ? (
+          <View style={styles.sportSummaryPrimary}>
+            <IconBadge size={40} tone="brand">
+              <PrimaryIcon
+                size={18}
+                color={colors.brand.deep}
+                strokeWidth={2.25}
+              />
+            </IconBadge>
+            <View style={styles.sportSummaryPrimaryText}>
+              <Text variant="display" color={colors.text.primary}>
+                {primary.value}
+              </Text>
+              <Text variant="eyebrow" color={colors.text.secondary}>
+                {primary.label}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+        <View style={styles.sportSummarySecondary}>
+          {others.map((stat) => {
+            const StatIcon = stat.Icon;
+            return (
+              <View key={stat.id} style={styles.sportSecondaryStat}>
+                <StatIcon
+                  size={14}
+                  color={colors.brand.primary}
+                  strokeWidth={2.25}
+                />
+                <Text variant="button" color={colors.text.primary}>
+                  {stat.value}
+                </Text>
+                <Text variant="caption" color={colors.text.secondary}>
+                  {stat.label}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
       </View>
     </Card>
   );
@@ -215,9 +326,11 @@ function ActivityPreview({
 function MoreLinksCard({
   onLink,
   onLogout,
+  bookmarkCount,
 }: {
   onLink: (route: ProfileMoreRoute) => void;
   onLogout: () => void;
+  bookmarkCount: number;
 }) {
   return (
     <Card style={styles.moreCard}>
@@ -228,6 +341,7 @@ function MoreLinksCard({
         {PROFILE_MORE_LINKS.map((link, index) => {
           const Icon = link.Icon;
           const isLast = index === PROFILE_MORE_LINKS.length - 1;
+          const isBookmarks = link.route === 'BookmarkedHighlights';
           return (
             <Pressable
               key={link.id}
@@ -253,6 +367,14 @@ function MoreLinksCard({
                   {link.description}
                 </Text>
               </View>
+              {isBookmarks && bookmarkCount > 0 ? (
+                <Tag
+                  tone="brand"
+                  size="sm"
+                  label={String(bookmarkCount)}
+                  style={styles.linkBadge}
+                />
+              ) : null}
               <ChevronRight
                 size={18}
                 color={colors.text.secondary}
@@ -280,15 +402,32 @@ export function ProfileTabScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
   const toast = useToast();
+  const bookmarkCount = useSavedHighlights((s) => s.bookmarkedIds.size);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
-  const profile = {
-    name: user?.name ?? PROFILE_USER.name,
-    handle: PROFILE_USER.handle,
-    avatar: PROFILE_USER.avatar,
-    bio: PROFILE_USER.bio,
-    proMember: PROFILE_USER.proMember,
-  };
+  // PROFILE_USER is the canonical mock; the auth user only contributes its
+  // display name once the user has signed in.
+  const profile: ProfileUser = useMemo(
+    () =>
+      user
+        ? { ...PROFILE_USER, name: user.name ?? PROFILE_USER.name }
+        : PROFILE_USER,
+    [user],
+  );
+
+  const sportProfiles = profile.sportProfiles;
+  const [activeSport, setActiveSport] = useState<SportKey>(
+    sportProfiles[0]?.sportKey ?? 'soccer',
+  );
+  const activeSportProfile =
+    sportProfiles.find((sp) => sp.sportKey === activeSport) ??
+    sportProfiles[0]!;
+
+  const sportTabItems = sportProfiles.map((sp) => ({
+    key: sp.sportKey,
+    label: SPORT_META_BY_KEY[sp.sportKey].short,
+  }));
+
   const previewActivity = NOTIFICATIONS.slice(0, 3);
   const unreadCount = NOTIFICATIONS.filter((n) => n.unread).length;
 
@@ -345,6 +484,9 @@ export function ProfileTabScreen() {
           avatarUri={profile.avatar}
           proMember={profile.proMember}
           onEdit={() => navigation.navigate('ProfileEdit')}
+          onPreview={() =>
+            navigation.navigate('PlayerProfile', { playerId: profile.playerId })
+          }
         />
 
         {!profile.proMember ? (
@@ -375,11 +517,53 @@ export function ProfileTabScreen() {
           </Card>
         ) : null}
 
-        <View style={styles.statsRow}>
-          <StatCard stat={PROFILE_STATS[0]!} style={styles.statHalf} />
-          <StatCard stat={PROFILE_STATS[1]!} style={styles.statHalf} />
+        <View style={styles.sportSection}>
+          <View style={styles.sportSectionHead}>
+            <Text variant="h2" color={colors.text.primary}>
+              My Sports
+            </Text>
+            <Button
+              label="Edit"
+              variant="ghost"
+              size="sm"
+              onPress={() => navigation.navigate('ProfileEdit')}
+            />
+          </View>
+          {sportTabItems.length > 1 ? (
+            <Tabs
+              variant="pill"
+              scrollable
+              items={sportTabItems}
+              value={activeSport}
+              onChange={(k) => setActiveSport(k as SportKey)}
+            />
+          ) : null}
+          <SportSummaryCard
+            sportProfile={activeSportProfile}
+            user={profile}
+          />
+          {profile.showStats ? (
+            <View style={styles.statsRow}>
+              {getStatsForSport(profile, activeSport).slice(0, 4).map((stat, idx) => (
+                <StatCard
+                  key={stat.id}
+                  stat={stat}
+                  style={[
+                    styles.statHalf,
+                    idx > 1 ? styles.statSpacedTop : null,
+                  ]}
+                />
+              ))}
+            </View>
+          ) : (
+            <Card style={styles.statsHidden}>
+              <Text variant="bodySm" color={colors.text.secondary} align="center">
+                Stats are hidden. Toggle "Show stats" in Edit Profile to share
+                them with others.
+              </Text>
+            </Card>
+          )}
         </View>
-        <StatCard stat={PROFILE_STATS[2]!} style={styles.statFull} />
 
         <FriendsCard
           onPress={() => navigation.navigate('PlayerDirectory')}
@@ -420,6 +604,7 @@ export function ProfileTabScreen() {
         <MoreLinksCard
           onLink={handleLink}
           onLogout={() => setConfirmSignOut(true)}
+          bookmarkCount={bookmarkCount}
         />
       </ScrollView>
 
@@ -478,7 +663,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  editBtn: {
+  iconBtnSoft: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -515,8 +700,62 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  sportSection: {
+    gap: spacing.md,
+  },
+  sportSectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sportSummaryCard: {
+    gap: spacing.md,
+  },
+  sportSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  sportSummaryTitle: {
+    flex: 1,
+    gap: 6,
+  },
+  sportSummaryTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  sportSummaryStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
+  },
+  sportSummaryPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sportSummaryPrimaryText: {
+    gap: 2,
+  },
+  sportSummarySecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    justifyContent: 'flex-end',
+  },
+  sportSecondaryStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   statsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.lg,
   },
   statCard: {
@@ -524,10 +763,15 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   statHalf: {
-    flex: 1,
+    flexBasis: '47%',
+    flexGrow: 1,
   },
-  statFull: {
-    width: '100%',
+  statSpacedTop: {
+    // gap on the parent already handles vertical rhythm; this style is a
+    // placeholder for future per-row tweaks if a tablet breakpoint lands.
+  },
+  statsHidden: {
+    paddingVertical: spacing.lg,
   },
   friendsCard: {
     gap: spacing.lg,
@@ -620,6 +864,9 @@ const styles = StyleSheet.create({
   linkText: {
     flex: 1,
     gap: 2,
+  },
+  linkBadge: {
+    marginRight: spacing.xs,
   },
   logoutBtn: {
     alignSelf: 'center',

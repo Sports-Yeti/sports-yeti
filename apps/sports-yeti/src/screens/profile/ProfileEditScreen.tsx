@@ -3,18 +3,28 @@ import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Camera, ChevronLeft } from 'lucide-react-native';
+import { Camera, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   Avatar,
   Button,
   Card,
+  IconBadge,
   Input,
+  PositionPickerSheet,
+  SportPickerSheet,
   Tabs,
+  Tag,
   Text,
   useToast,
 } from '../../ui';
-import { PROFILE_USER, type ProfileUser } from '../../mocks/profile';
+import {
+  PROFILE_USER,
+  SPORT_META_BY_KEY,
+  type ProfileUser,
+  type SportPlayerProfile,
+} from '../../mocks/profile';
+import { POSITIONS_BY_SPORT, type SportKey } from '../../mocks/teams';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'ProfileEdit'>;
@@ -32,12 +42,87 @@ const AVAILABILITY_TABS = [
   { key: 'busy', label: 'Busy' },
 ];
 
+interface SportRowProps {
+  sportProfile: SportPlayerProfile;
+  isPrimary: boolean;
+  canRemove: boolean;
+  onEditPositions: () => void;
+  onRemove: () => void;
+}
+
+function SportRow({
+  sportProfile,
+  isPrimary,
+  canRemove,
+  onEditPositions,
+  onRemove,
+}: SportRowProps) {
+  const meta = SPORT_META_BY_KEY[sportProfile.sportKey];
+  const Icon = meta.Icon;
+  const secondary = sportProfile.secondaryPositions ?? [];
+
+  return (
+    <View style={styles.sportRow}>
+      <View style={styles.sportRowHeader}>
+        <IconBadge size={44} tone="brand">
+          <Icon size={20} color={colors.brand.deep} strokeWidth={2.25} />
+        </IconBadge>
+        <View style={styles.sportRowTitle}>
+          <Text variant="button" color={colors.text.primary}>
+            {meta.label}
+          </Text>
+          <Text variant="caption" color={colors.text.secondary}>
+            {isPrimary ? 'Primary sport' : 'Additional sport'}
+          </Text>
+        </View>
+        {canRemove ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Remove ${meta.label}`}
+            hitSlop={8}
+            onPress={onRemove}
+            style={styles.iconBtnGhost}
+          >
+            <Trash2 size={18} color={colors.status.live} strokeWidth={2.25} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Edit positions for ${meta.label}`}
+        accessibilityHint="Opens the position picker for this sport"
+        onPress={onEditPositions}
+        style={({ pressed }) => [
+          styles.positionField,
+          pressed ? styles.positionFieldPressed : null,
+        ]}
+      >
+        <View style={styles.positionFieldBody}>
+          <Text variant="eyebrow" color={colors.text.secondary}>
+            POSITIONS
+          </Text>
+          <View style={styles.positionTags}>
+            <Tag tone="brand" size="sm" label={`${sportProfile.position} · Primary`} />
+            {secondary.map((pos) => (
+              <Tag key={pos} tone="neutral" size="sm" label={pos} />
+            ))}
+          </View>
+        </View>
+        <ChevronRight size={18} color={colors.text.secondary} strokeWidth={2.25} />
+      </Pressable>
+    </View>
+  );
+}
+
 export function ProfileEditScreen() {
   const navigation = useNavigation<Navigation>();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const [form, setForm] = useState<ProfileUser>(PROFILE_USER);
   const [saving, setSaving] = useState(false);
+  const [sportPickerOpen, setSportPickerOpen] = useState(false);
+  const [editingSport, setEditingSport] = useState<SportKey | null>(null);
 
   const update = <K extends keyof ProfileUser>(key: K, value: ProfileUser[K]) =>
     setForm((p) => ({ ...p, [key]: value }));
@@ -50,6 +135,51 @@ export function ProfileEditScreen() {
       navigation.goBack();
     }, 500);
   };
+
+  const handleSportsChange = (sports: SportKey[]) => {
+    setForm((prev) => {
+      // Preserve existing position data for sports the user kept; create a
+      // sensible default (first canonical position) for newly-added sports.
+      const next: SportPlayerProfile[] = sports.map((sportKey) => {
+        const existing = prev.sportProfiles.find((p) => p.sportKey === sportKey);
+        if (existing) return existing;
+        // Use the first canonical position for the sport as a default; the
+        // user is nudged to refine this via the picker on the row.
+        const defaultPosition = POSITIONS_BY_SPORT[sportKey][0]!;
+        return { sportKey, position: defaultPosition };
+      });
+      return { ...prev, sportProfiles: next };
+    });
+  };
+
+  const handlePositionsChange = (sportKey: SportKey, positions: string[]) => {
+    if (positions.length === 0) return;
+    setForm((prev) => ({
+      ...prev,
+      sportProfiles: prev.sportProfiles.map((p) =>
+        p.sportKey === sportKey
+          ? {
+              ...p,
+              position: positions[0]!,
+              secondaryPositions:
+                positions.length > 1 ? positions.slice(1) : undefined,
+            }
+          : p,
+      ),
+    }));
+  };
+
+  const removeSport = (sportKey: SportKey) => {
+    if (form.sportProfiles.length <= 1) return;
+    setForm((prev) => ({
+      ...prev,
+      sportProfiles: prev.sportProfiles.filter((p) => p.sportKey !== sportKey),
+    }));
+  };
+
+  const editingSportProfile = editingSport
+    ? form.sportProfiles.find((p) => p.sportKey === editingSport)
+    : undefined;
 
   return (
     <View style={styles.root}>
@@ -115,14 +245,45 @@ export function ProfileEditScreen() {
         />
 
         <Card style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderTitle}>
+              <Text variant="h3" color={colors.text.primary}>
+                Sports & positions
+              </Text>
+              <Text variant="caption" color={colors.text.secondary}>
+                Pick the sports you play and your position in each. Stats and
+                team suggestions follow these picks.
+              </Text>
+            </View>
+            <Button
+              label="Edit sports"
+              variant="soft"
+              size="sm"
+              leadingIcon={
+                <Plus size={14} color={colors.brand.primary} strokeWidth={2.5} />
+              }
+              onPress={() => setSportPickerOpen(true)}
+            />
+          </View>
+
+          <View style={styles.sportRows}>
+            {form.sportProfiles.map((sp, idx) => (
+              <SportRow
+                key={sp.sportKey}
+                sportProfile={sp}
+                isPrimary={idx === 0}
+                canRemove={form.sportProfiles.length > 1}
+                onEditPositions={() => setEditingSport(sp.sportKey)}
+                onRemove={() => removeSport(sp.sportKey)}
+              />
+            ))}
+          </View>
+        </Card>
+
+        <Card style={styles.sectionCard}>
           <Text variant="h3" color={colors.text.primary}>
             Player profile
           </Text>
-          <Input
-            label="Primary position"
-            value={form.position}
-            onChangeText={(v) => update('position', v)}
-          />
           <View>
             <Text variant="eyebrow" color={colors.text.secondary} style={styles.label}>
               Experience
@@ -195,7 +356,7 @@ export function ProfileEditScreen() {
                 Show stats
               </Text>
               <Text variant="caption" color={colors.text.secondary}>
-                Other players see your games, MVPs, and goals.
+                Other players see your sport-specific stats on your profile.
               </Text>
             </View>
             <Switch
@@ -247,6 +408,26 @@ export function ProfileEditScreen() {
           onPress={handleSave}
         />
       </View>
+
+      <SportPickerSheet
+        visible={sportPickerOpen}
+        selected={form.sportProfiles.map((s) => s.sportKey)}
+        onChange={handleSportsChange}
+        onRequestClose={() => setSportPickerOpen(false)}
+      />
+
+      {editingSport && editingSportProfile ? (
+        <PositionPickerSheet
+          visible={!!editingSport}
+          sportKey={editingSport}
+          selected={[
+            editingSportProfile.position,
+            ...(editingSportProfile.secondaryPositions ?? []),
+          ]}
+          onChange={(positions) => handlePositionsChange(editingSport, positions)}
+          onRequestClose={() => setEditingSport(null)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -291,6 +472,63 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     gap: spacing.md,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  sectionHeaderTitle: {
+    flex: 1,
+    gap: 2,
+  },
+  sportRows: {
+    gap: spacing.md,
+  },
+  sportRow: {
+    gap: spacing.sm,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
+  },
+  sportRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  sportRowTitle: {
+    flex: 1,
+    gap: 2,
+  },
+  iconBtnGhost: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface.chipMuted,
+  },
+  positionField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface.chipMuted,
+    minHeight: 60,
+  },
+  positionFieldPressed: {
+    opacity: 0.85,
+  },
+  positionFieldBody: {
+    flex: 1,
+    gap: 6,
+  },
+  positionTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   label: {
     marginBottom: spacing.sm,

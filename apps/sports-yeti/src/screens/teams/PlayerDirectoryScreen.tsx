@@ -51,37 +51,48 @@ function PlayerCard({
   player,
   onInvite,
   onMessage,
+  onOpenProfile,
   invited,
 }: {
   player: DirectoryPlayer;
   onInvite: () => void;
   onMessage: () => void;
+  onOpenProfile: () => void;
   invited: boolean;
 }) {
   return (
     <View style={styles.card}>
-      <Avatar uri={player.avatar} initials={player.name.charAt(0)} size={48} />
-      <View style={styles.cardBody}>
-        <Text variant="button" color={colors.text.primary}>
-          {player.name}
-        </Text>
-        <Text variant="caption" color={colors.text.secondary}>
-          {player.position} · {player.city}
-        </Text>
-        <View style={styles.cardTags}>
-          <Tag
-            tone={AVAILABILITY_TONE[player.availability]}
-            size="sm"
-            leadingDot
-            label={AVAILABILITY_LABEL[player.availability]}
-          />
-          <Tag
-            tone="brand"
-            size="sm"
-            label={player.experience.charAt(0).toUpperCase() + player.experience.slice(1)}
-          />
+      <Pressable
+        onPress={onOpenProfile}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${player.name}'s profile`}
+        accessibilityHint="Opens their public profile with stats per sport"
+        hitSlop={6}
+        style={styles.cardLead}
+      >
+        <Avatar uri={player.avatar} initials={player.name.charAt(0)} size={48} />
+        <View style={styles.cardBody}>
+          <Text variant="button" color={colors.text.primary}>
+            {player.name}
+          </Text>
+          <Text variant="caption" color={colors.text.secondary}>
+            {player.position} · {player.city}
+          </Text>
+          <View style={styles.cardTags}>
+            <Tag
+              tone={AVAILABILITY_TONE[player.availability]}
+              size="sm"
+              leadingDot
+              label={AVAILABILITY_LABEL[player.availability]}
+            />
+            <Tag
+              tone="brand"
+              size="sm"
+              label={player.experience.charAt(0).toUpperCase() + player.experience.slice(1)}
+            />
+          </View>
         </View>
-      </View>
+      </Pressable>
       <View style={styles.cardActions}>
         <Pressable
           onPress={onMessage}
@@ -222,6 +233,13 @@ export function PlayerDirectoryScreen() {
                   title: p.name,
                 })
               }
+              onOpenProfile={() =>
+                navigation.navigate('PlayerProfile', {
+                  // Directory IDs are prefixed `d-`; public profile IDs use
+                  // the canonical roster `p-` prefix.
+                  playerId: p.id.replace(/^d-/, 'p-'),
+                })
+              }
             />
           ))
         )}
@@ -266,6 +284,13 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderRadius: radii.lg,
     ...shadows.soft,
+  },
+  cardLead: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: 44,
   },
   cardBody: {
     flex: 1,
