@@ -1,26 +1,38 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { ChevronLeft, Film, Plus, Sparkles } from 'lucide-react-native';
+import {
+  Bookmark,
+  BookmarkX,
+  ChevronLeft,
+  Film,
+  Play,
+  Plus,
+  Sparkles,
+} from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   Button,
   Card,
   EmptyState,
   IconBadge,
+  SectionHeader,
   Tag,
   Text,
   useToast,
 } from '../../ui';
 import {
   HIGHLIGHT_PROJECTS,
+  HIGHLIGHT_REELS,
   type HighlightProject,
   type HighlightProjectStatus,
+  type HighlightReel,
 } from '../../mocks/highlights';
 import { formatRelativeFromIso } from '../../lib/format';
+import { useSavedHighlights } from '../../features/saved-highlights-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -38,6 +50,59 @@ const STATUS_LABEL: Record<HighlightProjectStatus, string> = {
   pending_payment: 'Pending payment',
   failed: 'Failed',
 };
+
+function SavedHighlightCard({
+  reel,
+  onOpen,
+  onRemove,
+}: {
+  reel: HighlightReel;
+  onOpen: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={`Open saved highlight by ${reel.username}`}
+      style={styles.savedCard}
+    >
+      <Image
+        source={{ uri: reel.poster }}
+        style={styles.savedThumb}
+        contentFit="cover"
+        accessibilityLabel="Highlight thumbnail"
+      />
+      <View style={styles.savedPlayOverlay} pointerEvents="none">
+        <View style={styles.savedPlayBubble}>
+          <Play
+            size={16}
+            color={colors.text.inverse}
+            strokeWidth={2.5}
+            fill={colors.text.inverse}
+          />
+        </View>
+      </View>
+      <View style={styles.savedBody}>
+        <Text variant="button" color={colors.text.primary} numberOfLines={1}>
+          {reel.username}
+        </Text>
+        <Text variant="caption" color={colors.text.secondary} numberOfLines={1}>
+          {reel.team}
+        </Text>
+      </View>
+      <Pressable
+        onPress={onRemove}
+        accessibilityRole="button"
+        accessibilityLabel="Remove from saved"
+        hitSlop={8}
+        style={styles.savedRemove}
+      >
+        <BookmarkX size={16} color={colors.text.muted} strokeWidth={2.25} />
+      </Pressable>
+    </Pressable>
+  );
+}
 
 function ProjectCard({
   project,
@@ -86,6 +151,25 @@ export function MyHighlightsScreen() {
   const navigation = useNavigation<Navigation>();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const bookmarkedIds = useSavedHighlights((s) => s.bookmarkedIds);
+  const toggleBookmark = useSavedHighlights((s) => s.toggleBookmark);
+  const savedReels = useMemo(
+    () => HIGHLIGHT_REELS.filter((r) => bookmarkedIds.has(r.id)),
+    [bookmarkedIds],
+  );
+
+  const handleOpenSaved = () => {
+    navigation.navigate('MainTabs', { screen: 'Highlights' });
+  };
+
+  const handleRemoveSaved = (reel: HighlightReel) => {
+    toggleBookmark(reel.id);
+    toast.show({
+      variant: 'info',
+      title: 'Removed from saved',
+      description: `${reel.username} won't appear here anymore.`,
+    });
+  };
 
   const handleProjectPress = (project: HighlightProject) => {
     if (project.status === 'completed') {
@@ -175,7 +259,52 @@ export function MyHighlightsScreen() {
               />
             </Card>
 
+            <View>
+              <SectionHeader
+                title="Saved highlights"
+                actionLabel={savedReels.length > 0 ? 'Watch all' : undefined}
+                onActionPress={
+                  savedReels.length > 0 ? handleOpenSaved : undefined
+                }
+              />
+              {savedReels.length === 0 ? (
+                <Card style={styles.savedEmpty}>
+                  <View style={styles.savedEmptyIcon}>
+                    <Bookmark
+                      size={20}
+                      color={colors.brand.deep}
+                      strokeWidth={2.25}
+                    />
+                  </View>
+                  <View style={styles.savedEmptyBody}>
+                    <Text variant="button" color={colors.text.primary}>
+                      No saved highlights yet
+                    </Text>
+                    <Text variant="caption" color={colors.text.secondary}>
+                      Tap the bookmark icon on any reel to save it here.
+                    </Text>
+                  </View>
+                </Card>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.savedRow}
+                >
+                  {savedReels.map((reel) => (
+                    <SavedHighlightCard
+                      key={reel.id}
+                      reel={reel}
+                      onOpen={handleOpenSaved}
+                      onRemove={() => handleRemoveSaved(reel)}
+                    />
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
             <View style={styles.list}>
+              <SectionHeader title="Your highlight reels" />
               {HIGHLIGHT_PROJECTS.map((p) => (
                 <ProjectCard
                   key={p.id}
@@ -251,5 +380,72 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  savedEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  savedEmptyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.brand.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savedEmptyBody: {
+    flex: 1,
+    gap: 2,
+  },
+  savedRow: {
+    gap: spacing.md,
+    paddingRight: spacing.lg,
+  },
+  savedCard: {
+    width: 160,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface.card,
+    overflow: 'hidden',
+    ...shadows.soft,
+  },
+  savedThumb: {
+    width: '100%',
+    height: 96,
+    backgroundColor: colors.surface.chip,
+  },
+  savedPlayOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savedPlayBubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savedBody: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: 2,
+  },
+  savedRemove: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
