@@ -13,6 +13,7 @@ export { UIGalleryScreen } from './dev/UIGalleryScreen';
 // Tab screens (5 main navigation pages)
 export { DiscoverScreen } from './discover/DiscoverScreen';
 export { ScheduleScreen } from './schedule/ScheduleScreen';
+export { ScheduledEventDetailScreen } from './schedule/ScheduledEventDetailScreen';
 export { SquadsScreen } from './teams/SquadsScreen';
 export { HighlightsFeedScreen } from './highlights/HighlightsFeedScreen';
 export { ProfileTabScreen } from './profile/ProfileTabScreen';
@@ -34,6 +35,8 @@ export { HighlightDetailScreen } from './highlights/HighlightDetailScreen';
 
 // Profile stack
 export { ProfileEditScreen } from './profile/ProfileEditScreen';
+export { PlayerProfileScreen } from './profile/PlayerProfileScreen';
+export { BookmarkedHighlightsScreen } from './profile/BookmarkedHighlightsScreen';
 export { SettingsScreen } from './profile/SettingsScreen';
 export { NotificationsScreen } from './profile/NotificationsScreen';
 export { WaiversScreen } from './profile/WaiversScreen';

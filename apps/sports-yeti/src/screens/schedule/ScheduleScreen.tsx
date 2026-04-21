@@ -3,18 +3,17 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   CalendarPlus,
   Clock,
   MapPin,
   Plus,
+  Users,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   AvatarStack,
-  Button,
   Card,
   EmptyState,
   IconBadge,
@@ -23,13 +22,15 @@ import {
   Text,
 } from '../../ui';
 import {
+  KIND_LABEL,
   WEEK_DAYS,
+  daysWithEvents,
   eventsForDay,
   type DayCell,
-  type DropInSession,
-  type PracticeSession,
-  type ScheduleEvent,
-  type ScheduleMatch,
+  type ScheduledCamp,
+  type ScheduledEvent,
+  type ScheduledGame,
+  type ScheduledScrimmage,
 } from '../../mocks/schedule';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
@@ -38,10 +39,12 @@ type Navigation = NativeStackNavigationProp<RootStackParamList>;
 function DayPill({
   day,
   selected,
+  hasEvent,
   onPress,
 }: {
   day: DayCell;
   selected: boolean;
+  hasEvent: boolean;
   onPress: () => void;
 }) {
   const eyebrowColor = selected
@@ -58,7 +61,7 @@ function DayPill({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${day.weekday} ${day.day}${day.isToday ? ', today' : ''}`}
+      accessibilityLabel={`${day.weekday} ${day.day}${day.isToday ? ', today' : ''}${hasEvent ? ', has events' : ''}`}
       accessibilityState={{ selected }}
       style={[
         dayStyles.pill,
@@ -73,51 +76,87 @@ function DayPill({
       <Text variant="h2" color={dayColor} align="center">
         {day.day}
       </Text>
+      <View
+        style={[
+          dayStyles.dot,
+          {
+            backgroundColor: hasEvent
+              ? selected
+                ? colors.text.inverse
+                : colors.brand.primary
+              : 'transparent',
+          },
+        ]}
+      />
     </Pressable>
   );
 }
 
-function TeamCrest({ abbreviation }: { abbreviation: string }) {
+function CommitmentTag({
+  status,
+}: {
+  status: ScheduledEvent['commitment'];
+}) {
+  return status === 'paid' ? (
+    <Tag tone="success" size="sm" leadingDot label="Paid" />
+  ) : (
+    <Tag tone="brand" size="sm" leadingDot label="Committed" />
+  );
+}
+
+function EventMetaRow({ event }: { event: ScheduledEvent }) {
   return (
-    <View style={styles.crest}>
-      <Text variant="h3" color={colors.brand.primary} align="center">
-        {abbreviation}
-      </Text>
+    <View style={styles.metaRow}>
+      <View style={styles.metaItem}>
+        <Clock size={14} color={colors.text.secondary} strokeWidth={2.25} />
+        <Text variant="bodySm" color={colors.text.primary}>
+          {event.time}
+        </Text>
+      </View>
+      <View style={styles.metaItem}>
+        <MapPin size={14} color={colors.text.secondary} strokeWidth={2.25} />
+        <Text
+          variant="bodySm"
+          color={colors.text.primary}
+          numberOfLines={1}
+          style={styles.metaText}
+        >
+          {event.location}
+        </Text>
+      </View>
     </View>
   );
 }
 
-function MatchEventCard({
+function GameCard({
   event,
   onPress,
 }: {
-  event: ScheduleMatch;
+  event: ScheduledGame;
   onPress: () => void;
 }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button">
-      <Card glow={event.isLive} style={styles.matchCard}>
-        <View style={styles.matchHeaderRow}>
-          {event.isLive ? (
-            <Tag tone="live" leadingDot label="Live now" size="sm" />
-          ) : (
-            <Text variant="eyebrow" color={colors.brand.primary}>
-              {event.league}
-            </Text>
-          )}
-          <Text variant="bodySm" color={colors.text.secondary}>
-            {event.time}
-          </Text>
+      <Card glow={event.isLive} style={styles.eventCard}>
+        <View style={styles.kindHeader}>
+          <View style={styles.kindLeft}>
+            <Tag tone="brand" size="sm" label={KIND_LABEL.game} />
+            {event.isLive ? (
+              <Tag tone="live" size="sm" leadingDot label="Live now" />
+            ) : null}
+          </View>
+          <CommitmentTag status={event.commitment} />
         </View>
-        <View style={styles.metaRow}>
-          <MapPin size={14} color={colors.text.secondary} strokeWidth={2.25} />
-          <Text variant="bodySm" color={colors.text.secondary}>
-            {event.location}
-          </Text>
-        </View>
+        <Text variant="eyebrow" color={colors.brand.primary}>
+          {event.league}
+        </Text>
         <View style={styles.matchupRow}>
           <View style={styles.teamColumn}>
-            <TeamCrest abbreviation={event.homeTeam.abbreviation} />
+            <View style={styles.crest}>
+              <Text variant="h3" color={colors.brand.primary} align="center">
+                {event.homeTeam.abbreviation}
+              </Text>
+            </View>
             <Text
               variant="button"
               color={colors.text.primary}
@@ -131,7 +170,11 @@ function MatchEventCard({
             VS
           </Text>
           <View style={styles.teamColumn}>
-            <TeamCrest abbreviation={event.awayTeam.abbreviation} />
+            <View style={styles.crest}>
+              <Text variant="h3" color={colors.brand.primary} align="center">
+                {event.awayTeam.abbreviation}
+              </Text>
+            </View>
             <Text
               variant="button"
               color={colors.text.primary}
@@ -142,126 +185,128 @@ function MatchEventCard({
             </Text>
           </View>
         </View>
+        <EventMetaRow event={event} />
       </Card>
     </Pressable>
   );
 }
 
-function DropInEventCard({
+function CampCard({
   event,
   onPress,
 }: {
-  event: DropInSession;
+  event: ScheduledCamp;
   onPress: () => void;
 }) {
   const Icon = event.Icon;
   return (
     <Pressable onPress={onPress} accessibilityRole="button">
-      <Card style={styles.dropInCard}>
-        <View style={styles.matchHeaderRow}>
-          <View style={styles.metaRow}>
-            <Clock size={14} color={colors.text.secondary} strokeWidth={2.25} />
-            <Text variant="button" color={colors.text.primary}>
-              {event.time}
+      <Card style={styles.eventCard}>
+        <View style={styles.kindHeader}>
+          <View style={styles.kindLeft}>
+            <Tag tone="info" size="sm" label={KIND_LABEL.camp} />
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              {event.sportLabel.toUpperCase()}
             </Text>
           </View>
-          <Text variant="bodySm" color={colors.text.secondary}>
-            {event.location}
-          </Text>
+          <CommitmentTag status={event.commitment} />
         </View>
-        <Text variant="eyebrow" color={colors.brand.primary}>
-          DROP-IN
-        </Text>
-        <View style={styles.dropInRow}>
-          <View style={styles.dropInLeft}>
-            <IconBadge size={48}>
-              <Icon size={22} color={colors.brand.primary} strokeWidth={2.25} />
-            </IconBadge>
+        <View style={styles.titleBlock}>
+          <IconBadge size={48}>
+            <Icon size={22} color={colors.brand.primary} strokeWidth={2.25} />
+          </IconBadge>
+          <View style={styles.titleColumn}>
             <Text variant="h3" color={colors.text.primary}>
-              {event.label}
+              {event.campTitle}
+            </Text>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {event.sessionLabel}
             </Text>
           </View>
+        </View>
+        <EventMetaRow event={event} />
+        <View style={styles.attendeeRow}>
           <AvatarStack
             uris={event.attendees}
             totalCount={event.attendeeTotal}
-            size={32}
+            size={28}
           />
+          <View style={styles.attendeeMeta}>
+            <Users size={14} color={colors.text.secondary} strokeWidth={2.25} />
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {event.attendeeTotal} athletes
+            </Text>
+          </View>
         </View>
       </Card>
     </Pressable>
   );
 }
 
-function PracticeEventCard({ event }: { event: PracticeSession }) {
+function ScrimmageCard({
+  event,
+  onPress,
+}: {
+  event: ScheduledScrimmage;
+  onPress: () => void;
+}) {
   const Icon = event.Icon;
   return (
-    <Card style={styles.dropInCard}>
-      <View style={styles.matchHeaderRow}>
-        <View style={styles.metaRow}>
-          <Clock size={14} color={colors.text.secondary} strokeWidth={2.25} />
-          <Text variant="button" color={colors.text.primary}>
-            {event.time}
-          </Text>
+    <Pressable onPress={onPress} accessibilityRole="button">
+      <Card style={styles.eventCard}>
+        <View style={styles.kindHeader}>
+          <View style={styles.kindLeft}>
+            <Tag tone="warning" size="sm" label={KIND_LABEL.scrimmage} />
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              {event.sportLabel.toUpperCase()}
+            </Text>
+          </View>
+          <CommitmentTag status={event.commitment} />
         </View>
-        <Text variant="bodySm" color={colors.text.secondary}>
-          {event.location}
-        </Text>
-      </View>
-      <Text variant="eyebrow" color={colors.brand.primary}>
-        PRACTICE · {event.team.toUpperCase()}
-      </Text>
-      <View style={styles.dropInRow}>
-        <View style={styles.dropInLeft}>
+        <View style={styles.titleBlock}>
           <IconBadge size={48}>
             <Icon size={22} color={colors.brand.primary} strokeWidth={2.25} />
           </IconBadge>
-          <Text variant="h3" color={colors.text.primary}>
-            {event.label}
+          <View style={styles.titleColumn}>
+            <Text variant="h3" color={colors.text.primary}>
+              {event.title}
+            </Text>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              Hosted by {event.hostName}
+            </Text>
+          </View>
+        </View>
+        <EventMetaRow event={event} />
+        <View style={styles.attendeeRow}>
+          <AvatarStack
+            uris={event.attendees}
+            totalCount={event.attendeeTotal}
+            size={28}
+          />
+          <Text variant="bodySm" color={colors.text.secondary}>
+            {event.attendeeTotal}/{event.spotsTotal} going
           </Text>
         </View>
-        <AvatarStack
-          uris={event.attendees}
-          totalCount={event.attendeeTotal}
-          size={32}
-        />
-      </View>
-    </Card>
+      </Card>
+    </Pressable>
   );
 }
 
-function NeedMatchCta({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button">
-      <LinearGradient
-        colors={[...colors.gradient.cta]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.cta, shadows.card]}
-      >
-        <Text variant="h2" color={colors.text.inverse}>
-          Need a Match?
-        </Text>
-        <Text
-          variant="bodySm"
-          color={colors.text.inverse}
-          style={styles.ctaCopy}
-        >
-          Book a facility, invite players, and request a ref. Let's get the
-          game going.
-        </Text>
-        <Button
-          label="Create Scrimmage"
-          variant="soft"
-          size="md"
-          onPress={onPress}
-          leadingIcon={
-            <Plus size={16} color={colors.brand.deep} strokeWidth={2.5} />
-          }
-          style={styles.ctaButton}
-        />
-      </LinearGradient>
-    </Pressable>
-  );
+function EventCardSwitch({
+  event,
+  onPress,
+}: {
+  event: ScheduledEvent;
+  onPress: () => void;
+}) {
+  switch (event.kind) {
+    case 'game':
+      return <GameCard event={event} onPress={onPress} />;
+    case 'camp':
+      return <CampCard event={event} onPress={onPress} />;
+    case 'scrimmage':
+      return <ScrimmageCard event={event} onPress={onPress} />;
+  }
 }
 
 export function ScheduleScreen() {
@@ -269,7 +314,17 @@ export function ScheduleScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const todayId = WEEK_DAYS.find((d) => d.isToday)?.id ?? WEEK_DAYS[0]!.id;
-  const [selectedDayId, setSelectedDayId] = useState<string>(todayId);
+  const eventDays = useMemo(() => daysWithEvents(), []);
+  // Default to today, but if today has no events fall back to the first
+  // upcoming day that does — gives the user immediate signal on launch.
+  const initialDayId = useMemo(() => {
+    if (eventDays.has(todayId)) return todayId;
+    const upcoming = WEEK_DAYS.find(
+      (d) => !d.isPast && eventDays.has(d.id),
+    );
+    return upcoming?.id ?? todayId;
+  }, [eventDays, todayId]);
+  const [selectedDayId, setSelectedDayId] = useState<string>(initialDayId);
 
   const initials = (user?.name?.charAt(0) ?? 'S').toUpperCase();
   const events = useMemo(() => eventsForDay(selectedDayId), [selectedDayId]);
@@ -279,11 +334,8 @@ export function ScheduleScreen() {
       ? "Today's Lineup"
       : `${selectedDay?.weekday ?? ''} ${selectedDay?.day ?? ''} Lineup`;
 
-  const handleEventPress = (event: ScheduleEvent) => {
-    if (event.kind === 'practice') return;
-    if (event.gameId) {
-      navigation.navigate('GameDetails', { id: event.gameId });
-    }
+  const handleEventPress = (event: ScheduledEvent) => {
+    navigation.navigate('ScheduledEventDetail', { id: event.id });
   };
 
   return (
@@ -311,7 +363,7 @@ export function ScheduleScreen() {
             color={colors.text.secondary}
             style={styles.heroSubtitle}
           >
-            Your upcoming matches, practices, and drop-ins.
+            Games, camp sessions, and scrimmages you’re committed to.
           </Text>
         </View>
 
@@ -325,6 +377,7 @@ export function ScheduleScreen() {
               key={day.id}
               day={day}
               selected={day.id === selectedDayId}
+              hasEvent={eventDays.has(day.id)}
               onPress={() => setSelectedDayId(day.id)}
             />
           ))}
@@ -345,7 +398,7 @@ export function ScheduleScreen() {
                   />
                 }
                 title="Nothing on this day"
-                description="Find a pickup game, host one of your own, or book a facility."
+                description="You haven’t committed to any games, camps, or scrimmages on this day."
                 primaryAction={{
                   label: 'Find a game',
                   onPress: () => navigation.navigate('Discover' as never),
@@ -356,34 +409,29 @@ export function ScheduleScreen() {
                 }}
               />
             ) : (
-              <>
-                {events.map((event) => {
-                  if (event.kind === 'match') {
-                    return (
-                      <MatchEventCard
-                        key={event.id}
-                        event={event}
-                        onPress={() => handleEventPress(event)}
-                      />
-                    );
-                  }
-                  if (event.kind === 'dropIn') {
-                    return (
-                      <DropInEventCard
-                        key={event.id}
-                        event={event}
-                        onPress={() => handleEventPress(event)}
-                      />
-                    );
-                  }
-                  return <PracticeEventCard key={event.id} event={event} />;
-                })}
-                <NeedMatchCta onPress={() => navigation.navigate('CreateGame')} />
-              </>
+              events.map((event) => (
+                <EventCardSwitch
+                  key={event.id}
+                  event={event}
+                  onPress={() => handleEventPress(event)}
+                />
+              ))
             )}
           </View>
         </View>
       </ScrollView>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Host a new game"
+        onPress={() => navigation.navigate('CreateGame')}
+        style={[styles.fab, shadows.card, { bottom: insets.bottom + 110 }]}
+      >
+        <Plus size={20} color={colors.text.inverse} strokeWidth={2.5} />
+        <Text variant="button" color={colors.text.inverse}>
+          Host a game
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -417,24 +465,49 @@ const styles = StyleSheet.create({
   cardsColumn: {
     gap: spacing.lg,
   },
-  matchCard: {
+  eventCard: {
     gap: spacing.md,
   },
-  matchHeaderRow: {
+  kindHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  kindLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexShrink: 1,
+  },
+  titleBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  titleColumn: {
+    flex: 1,
+    gap: 2,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.lg,
+  },
+  metaItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+  },
+  metaText: {
+    flex: 1,
   },
   matchupRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
   },
   teamColumn: {
     alignItems: 'center',
@@ -449,32 +522,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dropInCard: {
-    gap: spacing.md,
-  },
-  dropInRow: {
+  attendeeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  dropInLeft: {
+  attendeeMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    flex: 1,
+    gap: 6,
   },
-  cta: {
-    borderRadius: radii.cardLg,
-    padding: spacing.xxl,
-    gap: spacing.md,
-    overflow: 'hidden',
-  },
-  ctaCopy: {
-    opacity: 0.9,
-  },
-  ctaButton: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.md,
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.brand.primary,
   },
 });
 
@@ -497,5 +565,11 @@ const dayStyles = StyleSheet.create({
   },
   pillSelected: {
     backgroundColor: colors.brand.primary,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 2,
   },
 });
