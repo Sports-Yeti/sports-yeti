@@ -51,11 +51,26 @@ export type GameSkillLevel = 'all' | 'beginner' | 'intermediate' | 'advanced';
  */
 export type GameOpenStatus = 'open' | 'closed';
 
-/** Per-roster-spot commitment + payment lifecycle. */
+/**
+ * Per-roster-spot commitment + payment lifecycle.
+ *
+ * Semantics by event type:
+ * - Free events (`priceCents === 0`): rosters only contain `committed`
+ *   (player has confirmed they'll show) or `pending` (captain invited
+ *   them and is waiting for commitment). `paid` never appears.
+ * - Paid events (`priceCents > 0`): rosters only contain `paid` (player
+ *   has paid the per-player fee) or `pending` (captain invited them and
+ *   is waiting for payment). `committed` never appears.
+ *
+ * `pending` is exclusively the "captain invited, awaiting response"
+ * state — it does not apply to discover-flow joiners.
+ */
 export type GamePaymentStatus = 'paid' | 'committed' | 'pending';
 
 export interface GameAttendee {
   id: string;
+  /** Stable cross-screen player id (matches `PUBLIC_PLAYER_PROFILES`). */
+  playerId: string;
   name: string;
   avatar: string;
   status: GamePaymentStatus;
@@ -112,6 +127,11 @@ export interface DiscoverGame {
   durationMinutes: number;
   location: string;
   venueId: string;
+  /**
+   * Specific bookable court / space within the facility. Falls back to the
+   * facility's first space when omitted.
+   */
+  spaceId?: string;
   spotsLeft: number;
   spotsTotal: number;
   spotsLeftTone?: 'brand' | 'warning';
@@ -127,42 +147,56 @@ export interface DiscoverGame {
   openStatus: GameOpenStatus;
   /** Live "watching this game" count for social proof. */
   watcherCount: number;
+  /**
+   * Non-zero when the host has already had drop-outs after the game was
+   * full. Surfaces the captain re-fill controls (invite / repost-as-free).
+   */
+  droppedOutCount?: number;
 }
 
 /**
- * Build a small mock roster of `total` players. The first `paid` are paid,
- * the next `committed` have RSVP'd but not paid, and the rest are pending
- * invites. Names are deterministic so screenshots stay stable.
+ * Build a small mock roster.
+ *
+ * - `confirmed` slots are `paid` for paid events and `committed` for free
+ *   events — that's the steady-state of a discover joiner.
+ * - `pending` slots are exclusively captain-invited spots waiting on
+ *   commitment (free) or payment (paid).
+ *
+ * Names + playerIds are drawn from a fixed table so deep-links to
+ * PlayerProfile work for the demo roster.
  */
 function buildRoster(
   prefix: string,
-  total: number,
-  paid: number,
-  committed: number,
+  confirmed: number,
+  pending: number,
+  priceCents: number,
 ): GameAttendee[] {
-  const NAMES = [
-    'Marcus L.',
-    'Rio T.',
-    'Jamie R.',
-    'Coast Squad',
-    'Leo P.',
-    'Priya S.',
-    'Ada M.',
-    'Theo K.',
-    'Ines B.',
-    'Sam V.',
-    'Kai N.',
-    'June O.',
+  const ROSTER_POOL: Array<{ playerId: string; name: string }> = [
+    { playerId: 'p-marcus', name: 'Marcus L.' },
+    { playerId: 'p-rio', name: 'Rio T.' },
+    { playerId: 'p-jamie', name: 'Jamie R.' },
+    { playerId: 'p-coast', name: 'Coast Squad' },
+    { playerId: 'p-leo', name: 'Leo P.' },
+    { playerId: 'p-priya', name: 'Priya S.' },
+    { playerId: 'p-ash', name: 'Ash D.' },
+    { playerId: 'p-kim', name: 'Kim H.' },
+    { playerId: 'p-tara', name: 'Tara V.' },
+    { playerId: 'p-bjorn', name: 'Björn K.' },
+    { playerId: 'p-eli', name: 'Eli M.' },
+    { playerId: 'p-sarah', name: 'You' },
   ];
+  const confirmedStatus: GamePaymentStatus =
+    priceCents > 0 ? 'paid' : 'committed';
+  const total = confirmed + pending;
   const list: GameAttendee[] = [];
   for (let i = 0; i < total; i += 1) {
-    const status: GamePaymentStatus =
-      i < paid ? 'paid' : i < paid + committed ? 'committed' : 'pending';
+    const pool = ROSTER_POOL[i % ROSTER_POOL.length]!;
     list.push({
       id: `${prefix}-p${i}`,
-      name: NAMES[i % NAMES.length]!,
+      playerId: pool.playerId,
+      name: pool.name,
       avatar: PLAYER_AVATARS[i % PLAYER_AVATARS.length]!,
-      status,
+      status: i < confirmed ? confirmedStatus : 'pending',
     });
   }
   return list;
@@ -186,12 +220,14 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     durationMinutes: 120,
     location: 'Alpine Community Turf',
     venueId: 'alpine-turf',
+    spaceId: 'alpine-full',
     spotsLeft: 4,
     spotsTotal: 16,
     spotsLeftTone: 'brand',
     attendees: PLAYER_AVATARS.slice(0, 3),
     attendeeTotal: 12,
-    roster: buildRoster('friday-night-scrimmage', 12, 8, 3),
+    // Free event → committed + a couple of captain-invited pending spots.
+    roster: buildRoster('friday-night-scrimmage', 10, 2, 0),
     skillLevel: 'intermediate',
     timeBucket: 'live',
     dayId: 'fri',
@@ -218,12 +254,14 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     durationMinutes: 180,
     location: 'Downtown Rec Center',
     venueId: 'downtown-rec',
+    spaceId: 'rec-court-1',
     spotsLeft: 10,
     spotsTotal: 20,
     spotsLeftTone: 'brand',
     attendees: PLAYER_AVATARS.slice(2, 5),
     attendeeTotal: 10,
-    roster: buildRoster('open-gym-5v5', 10, 6, 2),
+    // Paid event → paid + pending only.
+    roster: buildRoster('open-gym-5v5', 8, 2, 500),
     skillLevel: 'all',
     timeBucket: 'tomorrow',
     dayId: 'sat',
@@ -250,12 +288,14 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     durationMinutes: 120,
     location: 'Sunny Sands Park',
     venueId: 'sunny-sands',
+    spaceId: 'sands-court-1',
     spotsLeft: 2,
     spotsTotal: 12,
     spotsLeftTone: 'warning',
     attendees: PLAYER_AVATARS.slice(5, 6),
     attendeeTotal: 10,
-    roster: buildRoster('beach-volley-coed', 10, 4, 4),
+    // Free event → committed only.
+    roster: buildRoster('beach-volley-coed', 10, 0, 0),
     skillLevel: 'beginner',
     timeBucket: 'weekend',
     dayId: 'sat',
@@ -282,16 +322,22 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     durationMinutes: 90,
     location: 'Highland Tennis Club',
     venueId: 'highland-tennis',
-    spotsLeft: 4,
+    spaceId: 'highland-h1',
+    // Sarah is the captain on this one — game was originally full at 8/8
+    // but two players dropped after the facility booking was paid, so we
+    // demo the captain re-fill controls (invite + repost-as-free).
+    spotsLeft: 2,
     spotsTotal: 8,
-    spotsLeftTone: 'brand',
+    spotsLeftTone: 'warning',
     attendees: PLAYER_AVATARS.slice(1, 4),
-    attendeeTotal: 4,
-    roster: buildRoster('tuesday-tennis-doubles', 4, 3, 1),
+    attendeeTotal: 6,
+    // Paid event → paid + pending; 6 confirmed paid, 0 pending invites.
+    roster: buildRoster('tuesday-tennis-doubles', 6, 0, 800),
+    droppedOutCount: 2,
     skillLevel: 'intermediate',
     timeBucket: 'later',
     dayId: 'tue',
-    hostId: 'host-priya',
+    hostId: 'host-sarah',
     description:
       'Doubles round-robin. We swap partners after every set so you play with everyone. Bring your own racquet.',
     openStatus: 'open',
@@ -314,12 +360,14 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     durationMinutes: 150,
     location: 'Riverside Diamonds',
     venueId: 'riverside',
+    spaceId: 'riverside-d1',
     spotsLeft: 6,
     spotsTotal: 18,
     spotsLeftTone: 'brand',
     attendees: PLAYER_AVATARS.slice(0, 4),
     attendeeTotal: 12,
-    roster: buildRoster('sunday-softball-league', 12, 7, 3),
+    // Free event → committed + a few captain-invited pending.
+    roster: buildRoster('sunday-softball-league', 9, 3, 0),
     skillLevel: 'all',
     timeBucket: 'weekend',
     dayId: 'sun',
@@ -346,12 +394,14 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     durationMinutes: 90,
     location: 'Downtown Rec Center',
     venueId: 'downtown-rec',
+    spaceId: 'rec-court-2',
     spotsLeft: 0,
     spotsTotal: 10,
     spotsLeftTone: 'warning',
     attendees: PLAYER_AVATARS.slice(0, 4),
     attendeeTotal: 10,
-    roster: buildRoster('mile-high-hoops-final', 10, 10, 0),
+    // Paid event, full — all 10 paid.
+    roster: buildRoster('mile-high-hoops-final', 10, 0, 1000),
     skillLevel: 'advanced',
     timeBucket: 'today',
     dayId: 'fri',
@@ -371,15 +421,27 @@ export interface GameRule {
 
 export interface GameHost {
   id: string;
+  /** Public player profile to deep-link to from the GameDetail host row. */
+  playerId: string;
   name: string;
   avatar: string;
   hosted: number;
   rating: number;
 }
 
+export const SARAH_HOST: GameHost = {
+  id: 'host-sarah',
+  playerId: 'p-sarah',
+  name: 'You',
+  avatar: SARAH_AVATAR,
+  hosted: 4,
+  rating: 5.0,
+};
+
 export const GAME_HOSTS: Record<string, GameHost> = {
   'host-marcus': {
     id: 'host-marcus',
+    playerId: 'p-marcus',
     name: 'Marcus L.',
     avatar: PLAYER_AVATARS[0]!,
     hosted: 28,
@@ -387,6 +449,7 @@ export const GAME_HOSTS: Record<string, GameHost> = {
   },
   'host-jamie': {
     id: 'host-jamie',
+    playerId: 'p-jamie',
     name: 'Jamie R.',
     avatar: PLAYER_AVATARS[2]!,
     hosted: 14,
@@ -394,6 +457,7 @@ export const GAME_HOSTS: Record<string, GameHost> = {
   },
   'host-coast': {
     id: 'host-coast',
+    playerId: 'p-coast',
     name: 'Coast Squad',
     avatar: PLAYER_AVATARS[3]!,
     hosted: 9,
@@ -401,19 +465,13 @@ export const GAME_HOSTS: Record<string, GameHost> = {
   },
   'host-priya': {
     id: 'host-priya',
+    playerId: 'p-priya',
     name: 'Priya S.',
     avatar: PLAYER_AVATARS[5]!,
     hosted: 22,
     rating: 4.9,
   },
-};
-
-export const SARAH_HOST: GameHost = {
-  id: 'host-sarah',
-  name: 'You',
-  avatar: SARAH_AVATAR,
-  hosted: 4,
-  rating: 5.0,
+  'host-sarah': SARAH_HOST,
 };
 
 export const COMMON_GAME_RULES: GameRule[] = [

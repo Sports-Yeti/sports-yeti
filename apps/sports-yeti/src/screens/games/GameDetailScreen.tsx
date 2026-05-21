@@ -8,14 +8,18 @@ import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
+  CircleDollarSign,
   Clock,
+  CreditCard,
   Eye,
   EyeOff,
+  LayoutGrid,
   Lock,
   MapPin,
   MessageSquare,
   Share2,
   Shield,
+  UserPlus,
   Users,
   XCircle,
 } from 'lucide-react-native';
@@ -46,8 +50,9 @@ import {
 import { FACILITIES } from '../../mocks/facilities';
 import { CHATS } from '../../mocks/messages';
 import { MY_SCHEDULE } from '../../mocks/schedule';
+import { PROFILE_USER } from '../../mocks/profile';
 import { formatCurrency } from '../../lib/format';
-import { useWatchStore } from '../../stores';
+import { usePaymentMethodStore, useWatchStore } from '../../stores';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'GameDetails'>;
@@ -66,10 +71,14 @@ export function GameDetailScreen() {
   const [joined, setJoined] = useState(!!scheduleEntry);
   const [confirmJoin, setConfirmJoin] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmAddCard, setConfirmAddCard] = useState(false);
+  const [confirmRepostFree, setConfirmRepostFree] = useState(false);
   const watching = useWatchStore((s) =>
     s.watchedIds.has(route.params.id),
   );
   const toggleWatch = useWatchStore((s) => s.toggle);
+  const hasCard = usePaymentMethodStore((s) => s.hasCard);
+  const cardLabel = usePaymentMethodStore((s) => s.cardLabel);
 
   if (!game) {
     return (
@@ -88,8 +97,23 @@ export function GameDetailScreen() {
 
   const host = GAME_HOSTS[game.hostId] ?? SARAH_HOST;
   const venue = FACILITIES.find((f) => f.id === game.venueId);
+  // Resolve the booked court within the venue — explicit spaceId wins,
+  // otherwise fall back to the venue's first listed space.
+  const court =
+    venue?.spaces.find((s) => s.id === game.spaceId) ?? venue?.spaces[0];
   const Icon = game.Icon;
   const spotsTone = game.spotsLeft <= 2 ? 'warning' : 'brand';
+  const isPaid = game.priceCents > 0;
+  // Roster fills to capacity → event is closed regardless of the mock's
+  // `openStatus`. Either signal closes the join CTA.
+  const isFull = game.attendeeTotal >= game.spotsTotal || game.spotsLeft <= 0;
+  const isClosed = game.openStatus === 'closed' || isFull;
+  // Captain (host) experience: re-fill controls show only when the current
+  // user owns this game, the roster is not yet full, and the captain has
+  // taken at least one drop-out (so there's a re-fill story to tell).
+  const isHost = host.playerId === PROFILE_USER.playerId;
+  const showCaptainRefill =
+    isHost && !isClosed && (game.droppedOutCount ?? 0) > 0;
 
   const lockerRoom = scheduleEntry
     ? CHATS.find((c) => c.id === scheduleEntry.lockerRoomChatId)
@@ -125,7 +149,7 @@ export function GameDetailScreen() {
       title: 'Cancelled your spot',
       description:
         scheduleEntry?.commitment === 'paid'
-          ? 'Refund issued to your original payment method.'
+          ? 'Paid games aren’t refunded — the court is already booked.'
           : 'You’ve been removed from the roster.',
     });
   };
@@ -144,20 +168,70 @@ export function GameDetailScreen() {
     });
   };
 
+  // Single tap on the footer Join CTA. Routes to:
+  //  - free game        → confirmJoin modal (commit)
+  //  - paid + no card   → confirmAddCard modal (route to Settings)
+  //  - paid + card      → confirmJoin modal (pay)
+  const handleJoinPress = () => {
+    Haptics.selectionAsync();
+    if (isPaid && !hasCard) {
+      setConfirmAddCard(true);
+      return;
+    }
+    setConfirmJoin(true);
+  };
+
   const handleJoin = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setJoined(true);
     setConfirmJoin(false);
     toast.show({
       variant: 'success',
-      title: `You're in for ${game.title}`,
-      description: `${game.time} · ${game.location}`,
+      title: isPaid
+        ? `Paid · ${formatCurrency(game.priceCents)}`
+        : `Committed to ${game.title}`,
+      description: isPaid
+        ? `${game.time} · ${game.location}. Charged to ${cardLabel ?? 'your card on file'}.`
+        : `${game.time} · ${game.location}. See you there.`,
       action: {
         label: 'Add to schedule',
         onPress: () =>
           navigation.navigate('MainTabs', { screen: 'Schedule' }),
       },
     });
+  };
+
+  const handleAddCard = () => {
+    setConfirmAddCard(false);
+    Haptics.selectionAsync();
+    navigation.navigate('Settings');
+  };
+
+  const handleInvitePlayers = () => {
+    Haptics.selectionAsync();
+    navigation.navigate('PlayerDirectory');
+  };
+
+  const handleRepostFree = () => {
+    setConfirmRepostFree(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    toast.show({
+      variant: 'success',
+      title: 'Remaining spot reposted as free',
+      description:
+        'Paid players keep their spots. The open seat is now $0 and visible in Discover.',
+    });
+  };
+
+  const openPlayerProfile = (playerId: string | undefined, label?: string) => {
+    if (!playerId) {
+      if (label) {
+        toast.show({ variant: 'info', title: `${label}'s profile` });
+      }
+      return;
+    }
+    Haptics.selectionAsync();
+    navigation.navigate('PlayerProfile', { playerId });
   };
 
   return (
@@ -310,6 +384,26 @@ export function GameDetailScreen() {
               </Pressable>
             ) : null}
           </View>
+          {court ? (
+            <>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailRow}>
+                <LayoutGrid
+                  size={18}
+                  color={colors.brand.primary}
+                  strokeWidth={2.25}
+                />
+                <View style={styles.detailBody}>
+                  <Text variant="button" color={colors.text.primary}>
+                    {court.name}
+                  </Text>
+                  <Text variant="bodySm" color={colors.text.secondary}>
+                    {court.surface} · holds {court.capacity}
+                  </Text>
+                </View>
+              </View>
+            </>
+          ) : null}
           <View style={styles.detailDivider} />
           <View style={styles.detailRow}>
             <Users size={18} color={colors.brand.primary} strokeWidth={2.25} />
@@ -333,7 +427,7 @@ export function GameDetailScreen() {
             accessibilityRole="button"
             accessibilityLabel={`View ${host.name}'s profile`}
             style={styles.hostRow}
-            onPress={() => toast.show({ variant: 'info', title: `${host.name}'s profile` })}
+            onPress={() => openPlayerProfile(host.playerId, host.name)}
           >
             <Avatar uri={host.avatar} initials={host.name.charAt(0)} size={56} />
             <View style={styles.hostBody}>
@@ -344,6 +438,11 @@ export function GameDetailScreen() {
                 {host.hosted} games hosted · ★ {host.rating.toFixed(1)}
               </Text>
             </View>
+            <ChevronRight
+              size={18}
+              color={colors.text.secondary}
+              strokeWidth={2.25}
+            />
           </Pressable>
         </View>
 
@@ -353,10 +452,17 @@ export function GameDetailScreen() {
               Roster
             </Text>
             <Text variant="bodySm" color={colors.text.secondary}>
-              {game.roster.filter((a) => a.status === 'paid').length} paid ·{' '}
-              {game.roster.filter((a) => a.status === 'committed').length}{' '}
-              committed ·{' '}
-              {game.roster.filter((a) => a.status === 'pending').length} pending
+              {isPaid
+                ? `${
+                    game.roster.filter((a) => a.status === 'paid').length
+                  } paid · ${
+                    game.roster.filter((a) => a.status === 'pending').length
+                  } pending`
+                : `${
+                    game.roster.filter((a) => a.status === 'committed').length
+                  } committed · ${
+                    game.roster.filter((a) => a.status === 'pending').length
+                  } pending`}
             </Text>
           </View>
           <Card style={styles.rosterCard}>
@@ -365,10 +471,69 @@ export function GameDetailScreen() {
                 key={attendee.id}
                 attendee={attendee}
                 showDivider={idx < game.roster.length - 1}
+                onPress={() =>
+                  openPlayerProfile(attendee.playerId, attendee.name)
+                }
               />
             ))}
           </Card>
         </View>
+
+        {showCaptainRefill ? (
+          <View style={styles.section}>
+            <View style={styles.rosterHead}>
+              <Text variant="h2" color={colors.text.primary}>
+                Captain controls
+              </Text>
+              <Tag
+                size="sm"
+                tone="warning"
+                label={`${game.droppedOutCount} drop-out${
+                  (game.droppedOutCount ?? 0) === 1 ? '' : 's'
+                }`}
+              />
+            </View>
+            <Card style={styles.captainCard}>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {isPaid
+                  ? 'The court is booked — drop-outs are not refunded. Re-fill the open spot to keep the per-player cost steady.'
+                  : 'Re-fill the open spot before kickoff so the game stays full.'}
+              </Text>
+              <Button
+                label="Invite players"
+                variant="soft"
+                size="md"
+                fullWidth
+                leadingIcon={
+                  <UserPlus
+                    size={16}
+                    color={colors.brand.primary}
+                    strokeWidth={2.5}
+                  />
+                }
+                onPress={handleInvitePlayers}
+              />
+              {isPaid ? (
+                <Button
+                  label={`Repost ${game.spotsLeft} spot${
+                    game.spotsLeft === 1 ? '' : 's'
+                  } as free`}
+                  variant="ghost"
+                  size="md"
+                  fullWidth
+                  leadingIcon={
+                    <CircleDollarSign
+                      size={16}
+                      color={colors.brand.primary}
+                      strokeWidth={2.5}
+                    />
+                  }
+                  onPress={() => setConfirmRepostFree(true)}
+                />
+              ) : null}
+            </Card>
+          </View>
+        ) : null}
 
         {joined && scheduleEntry ? (
           <View style={styles.section}>
@@ -498,16 +663,29 @@ export function GameDetailScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        {joined ? (
+        {isHost ? (
+          <View style={styles.joinedRow}>
+            <Tag tone="brand" leadingDot label="You're hosting" />
+            <Button
+              label="Invite players"
+              variant="gradient"
+              size="md"
+              leadingIcon={
+                <UserPlus
+                  size={16}
+                  color={colors.text.inverse}
+                  strokeWidth={2.5}
+                />
+              }
+              onPress={handleInvitePlayers}
+            />
+          </View>
+        ) : joined ? (
           <View style={styles.joinedRow}>
             <Tag
-              tone={scheduleEntry?.commitment === 'committed' ? 'brand' : 'success'}
+              tone={isPaid ? 'success' : 'brand'}
               leadingDot
-              label={
-                scheduleEntry?.commitment === 'committed'
-                  ? 'Committed'
-                  : "You're in"
-              }
+              label={isPaid ? 'Paid' : 'Committed'}
             />
             <Button
               label="View in Schedule"
@@ -525,17 +703,43 @@ export function GameDetailScreen() {
               }
             />
           </View>
+        ) : isClosed ? (
+          <View style={styles.joinedRow}>
+            <Tag tone="neutral" leadingDot label="Roster full · Closed" />
+            <Button
+              label="Watch for openings"
+              variant="ghost"
+              size="md"
+              leadingIcon={
+                <Eye
+                  size={16}
+                  color={colors.brand.primary}
+                  strokeWidth={2.5}
+                />
+              }
+              onPress={handleWatchToggle}
+            />
+          </View>
         ) : (
           <Button
             label={
-              game.priceCents === 0
-                ? `Join ${game.title}`
-                : `Join · ${formatCurrency(game.priceCents)}`
+              isPaid
+                ? `Pay · ${formatCurrency(game.priceCents)}`
+                : `Commit to ${game.title}`
             }
             variant="gradient"
             size="lg"
             fullWidth
-            onPress={() => setConfirmJoin(true)}
+            leadingIcon={
+              isPaid ? (
+                <CreditCard
+                  size={16}
+                  color={colors.text.inverse}
+                  strokeWidth={2.5}
+                />
+              ) : undefined
+            }
+            onPress={handleJoinPress}
           />
         )}
       </View>
@@ -544,16 +748,62 @@ export function GameDetailScreen() {
         visible={confirmJoin}
         onRequestClose={() => setConfirmJoin(false)}
         variant="info"
-        title={`Confirm spot at ${game.title}`}
-        description={
-          game.priceCents === 0
-            ? `${game.time} at ${game.location}. You can cancel up to 2 hours before kickoff.`
-            : `${formatCurrency(game.priceCents)} will be charged when you confirm. Refundable up to 24 hours before.`
+        title={
+          isPaid
+            ? `Pay ${formatCurrency(game.priceCents)} to join`
+            : `Commit to ${game.title}`
         }
-        primaryAction={{ label: 'Confirm', onPress: handleJoin }}
+        description={
+          isPaid
+            ? `${formatCurrency(game.priceCents)} will be charged to ${
+                cardLabel ?? 'your card on file'
+              } now. The court is booked — drop-outs aren't refunded.`
+            : `${game.time} at ${game.location}. You can cancel up to 2 hours before kickoff.`
+        }
+        primaryAction={{
+          label: isPaid
+            ? `Pay ${formatCurrency(game.priceCents)}`
+            : 'Commit',
+          onPress: handleJoin,
+        }}
         secondaryAction={{
           label: 'Not now',
           onPress: () => setConfirmJoin(false),
+        }}
+      />
+
+      <Modal
+        visible={confirmAddCard}
+        onRequestClose={() => setConfirmAddCard(false)}
+        variant="info"
+        title="Add a card to join"
+        description={`This is a paid game (${formatCurrency(
+          game.priceCents,
+        )}). Add a payment method in Settings, then come back to confirm your spot.`}
+        primaryAction={{ label: 'Add card', onPress: handleAddCard }}
+        secondaryAction={{
+          label: 'Not now',
+          onPress: () => setConfirmAddCard(false),
+        }}
+      />
+
+      <Modal
+        visible={confirmRepostFree}
+        onRequestClose={() => setConfirmRepostFree(false)}
+        variant="info"
+        title={`Repost ${game.spotsLeft} spot${
+          game.spotsLeft === 1 ? '' : 's'
+        } as free?`}
+        description={
+          `Existing paid players keep their spots and are not refunded — ` +
+          `the court is already booked. The remaining seat${
+            game.spotsLeft === 1 ? ' is' : 's are'
+          } posted at $0 to fill the roster.`
+        }
+        primaryAction={{ label: 'Repost as free', onPress: handleRepostFree }}
+        secondaryAction={{
+          label: 'Not now',
+          onPress: () => setConfirmRepostFree(false),
         }}
       />
 
@@ -564,7 +814,7 @@ export function GameDetailScreen() {
         title="Cancel your spot?"
         description={
           scheduleEntry?.commitment === 'paid'
-            ? `${scheduleEntry.cancelPolicyLabel}. Refund processes to the original payment method within 3–5 business days.`
+            ? `The court is already booked, so paid games aren't refunded. The captain will be notified so they can re-fill your spot.`
             : `${scheduleEntry?.cancelPolicyLabel ?? 'Free cancellation'}. The host will be notified so they can fill your spot.`
         }
         primaryAction={{ label: 'Cancel my spot', onPress: handleCancel }}
@@ -586,12 +836,22 @@ const STATUS_TONE: Record<GamePaymentStatus, 'success' | 'brand' | 'warning'> = 
 interface RosterRowProps {
   attendee: GameAttendee;
   showDivider: boolean;
+  onPress: () => void;
 }
 
-function RosterRow({ attendee, showDivider }: RosterRowProps) {
+function RosterRow({ attendee, showDivider, onPress }: RosterRowProps) {
   return (
     <View>
-      <View style={styles.rosterRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`View ${attendee.name}'s profile`}
+        onPress={onPress}
+        hitSlop={4}
+        style={({ pressed }) => [
+          styles.rosterRow,
+          pressed ? styles.rosterRowPressed : null,
+        ]}
+      >
         <Avatar
           uri={attendee.avatar}
           initials={attendee.name.charAt(0)}
@@ -610,7 +870,12 @@ function RosterRow({ attendee, showDivider }: RosterRowProps) {
           tone={STATUS_TONE[attendee.status]}
           label={PAYMENT_STATUS_LABEL[attendee.status]}
         />
-      </View>
+        <ChevronRight
+          size={16}
+          color={colors.text.muted}
+          strokeWidth={2.25}
+        />
+      </Pressable>
       {showDivider ? <View style={styles.rosterDivider} /> : null}
     </View>
   );
@@ -734,12 +999,19 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.sm,
   },
+  rosterRowPressed: {
+    opacity: 0.7,
+  },
   rosterName: {
     flex: 1,
   },
   rosterDivider: {
     height: 1,
     backgroundColor: colors.border.soft,
+  },
+  captainCard: {
+    padding: spacing.lg,
+    gap: spacing.md,
   },
   rulesList: {
     gap: spacing.md,
