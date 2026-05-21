@@ -6,13 +6,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
   Building2,
+  CalendarClock,
   Check,
   ChevronLeft,
   CircleDollarSign,
+  HandCoins,
+  Lock,
   MapPin,
   Sparkles,
   Tag as TagIcon,
   Users,
+  Wallet,
 } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
@@ -21,8 +25,11 @@ import {
   DateTimeField,
   Input,
   ProgressBar,
+  type RadiusCenter,
+  RadiusMapPicker,
   ScreenHeader,
   SearchBar,
+  SportCombobox,
   Tabs,
   Tag,
   Text,
@@ -31,13 +38,17 @@ import {
 import {
   PAYMENT_STATUS_LABEL,
   SKILL_LABELS,
-  SPORT_FILTERS,
-  sportLabel,
+  sportCatalogEntry,
   type GamePaymentStatus,
   type GameSkillLevel,
-  type SportKey,
 } from '../../mocks/games';
-import { FACILITIES, type Facility } from '../../mocks/facilities';
+import {
+  DEFAULT_MAP_CENTER,
+  distanceMilesBetween,
+  FACILITIES,
+  type Facility,
+  type GeoPoint,
+} from '../../mocks/facilities';
 import { formatCurrency } from '../../lib/format';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
@@ -48,15 +59,20 @@ type Step = 1 | 2 | 3;
 
 type FacilityKind = 'registered' | 'custom';
 type FeeSplitMode = 'auto' | 'manual';
+type BookingMode = 'split' | 'host-prepay';
+type CustomCostType = 'free' | 'paid';
 
 interface CustomFacility {
   name: string;
   address: string;
+  /** Whether the venue charges a fee. `free` zeroes out `entranceFeeCents`. */
+  costType: CustomCostType;
   entranceFeeCents: number;
 }
 
 interface FormState {
-  sport: SportKey | null;
+  /** Catalog key (e.g. `soccer`, `futsal`, `pickleball`). */
+  sport: string | null;
   title: string;
   description: string;
   skill: GameSkillLevel;
@@ -65,11 +81,17 @@ interface FormState {
   facilityKind: FacilityKind;
   spaceId: string | null;
   facilitySearch: string;
+  searchCenter: RadiusCenter | null;
+  searchRadiusMiles: number;
   customFacility: CustomFacility;
   spots: number;
   feeSplitMode: FeeSplitMode;
   manualFeePerPlayerCents: number;
+  /** How the venue gets paid for. */
+  bookingMode: BookingMode;
 }
+
+const DEFAULT_RADIUS_MILES = 25;
 
 const INITIAL: FormState = {
   sport: null,
@@ -81,10 +103,18 @@ const INITIAL: FormState = {
   facilityKind: 'registered',
   spaceId: null,
   facilitySearch: '',
-  customFacility: { name: '', address: '', entranceFeeCents: 0 },
+  searchCenter: null,
+  searchRadiusMiles: DEFAULT_RADIUS_MILES,
+  customFacility: {
+    name: '',
+    address: '',
+    costType: 'free',
+    entranceFeeCents: 0,
+  },
   spots: 12,
   feeSplitMode: 'auto',
   manualFeePerPlayerCents: 0,
+  bookingMode: 'split',
 };
 
 interface SpaceWithFacility {
@@ -111,7 +141,9 @@ function findSpaceWithFacility(
 
 function totalCostCents(form: FormState): number {
   if (form.facilityKind === 'custom') {
-    return form.customFacility.entranceFeeCents;
+    return form.customFacility.costType === 'free'
+      ? 0
+      : form.customFacility.entranceFeeCents;
   }
   const match = findSpaceWithFacility(form.spaceId);
   if (!match) return 0;
@@ -119,9 +151,29 @@ function totalCostCents(form: FormState): number {
 }
 
 function perPlayerCents(form: FormState): number {
+  const total = totalCostCents(form);
+  // Custom (non-registered) venues: SportsYeti doesn't process the
+  // payment. The host sets a per-player fee they collect in person.
+  if (form.facilityKind === 'custom') {
+    return form.manualFeePerPlayerCents;
+  }
+  // Registered + host-prepay: the host pays the venue upfront via the
+  // platform, then collects from each player in person at whatever rate
+  // they set. No platform charge to players.
+  if (form.bookingMode === 'host-prepay') {
+    return form.manualFeePerPlayerCents;
+  }
+  // Registered + split: platform-processed per-player payment.
   if (form.feeSplitMode === 'manual') return form.manualFeePerPlayerCents;
   if (form.spots <= 0) return 0;
-  return Math.ceil(totalCostCents(form) / form.spots);
+  return Math.ceil(total / form.spots);
+}
+
+/** A reasonable default per-player suggestion for in-person collection. */
+function suggestedPerPlayerCents(form: FormState): number {
+  const total = totalCostCents(form);
+  if (form.spots <= 0 || total <= 0) return 0;
+  return Math.ceil(total / form.spots);
 }
 
 export function CreateGameScreen() {
@@ -153,10 +205,19 @@ export function CreateGameScreen() {
     setSubmitting(true);
     setTimeout(() => {
       setSubmitting(false);
+      const total = totalCostCents(form);
+      const perHead = perPlayerCents(form);
+      const isCustom = form.facilityKind === 'custom';
+      let description = 'Players can now find and join your game.';
+      if (!isCustom && form.bookingMode === 'host-prepay' && total > 0) {
+        description = `Charged ${formatCurrency(total)} — venue locked. Collect ${formatCurrency(perHead)}/player in person.`;
+      } else if (isCustom && total > 0) {
+        description = `Heads up: collect ${formatCurrency(perHead)}/player in person.`;
+      }
       toast.show({
         variant: 'success',
         title: `${form.title} created`,
-        description: 'Players can now find and join your game.',
+        description,
       });
       navigation.goBack();
     }, 600);
@@ -219,8 +280,8 @@ export function CreateGameScreen() {
           {step === 1
             ? 'Pick a sport and give it a title.'
             : step === 2
-            ? 'Pick a date — we\u2019ll surface available spaces near you.'
-            : 'Set roster size. We\u2019ll auto-split the venue cost between players.'}
+            ? 'Pin a search area and pick an available space inside it.'
+            : 'Set roster size and decide how the venue gets paid for.'}
         </Text>
 
         {step === 1 ? <Step1 form={form} setForm={setForm} /> : null}
@@ -230,7 +291,17 @@ export function CreateGameScreen() {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <Button
-          label={step === STEP_COUNT ? (submitting ? 'Creating…' : 'Create game') : 'Continue'}
+          label={
+            step === STEP_COUNT
+              ? submitting
+                ? 'Creating…'
+                : totalCostCents(form) > 0 &&
+                  form.facilityKind === 'registered' &&
+                  form.bookingMode === 'host-prepay'
+                ? `Pay ${formatCurrency(totalCostCents(form))} & create`
+                : 'Create game'
+              : 'Continue'
+          }
           variant="gradient"
           size="lg"
           fullWidth
@@ -250,43 +321,29 @@ interface StepProps {
 }
 
 function Step1({ form, setForm }: StepProps) {
+  // SportCombobox stores selections as a Set<string>. We bridge to the
+  // single-select `form.sport` here.
+  const sportSet = useMemo(
+    () => new Set(form.sport ? [form.sport] : []),
+    [form.sport],
+  );
+
   return (
     <View style={styles.stepBlock}>
       <Text variant="eyebrow" color={colors.text.secondary}>
         Sport
       </Text>
-      <View style={styles.sportGrid}>
-        {SPORT_FILTERS.filter((s) => s.key !== 'allSports').map((sport) => {
-          const Icon = sport.Icon;
-          const selected = form.sport === sport.key;
-          return (
-            <Pressable
-              key={sport.key}
-              accessibilityRole="button"
-              accessibilityLabel={sport.label}
-              accessibilityState={{ selected }}
-              onPress={() => setForm((f) => ({ ...f, sport: sport.key }))}
-              style={({ pressed }) => [
-                styles.sportChip,
-                selected ? styles.sportChipSelected : null,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Icon
-                size={22}
-                color={selected ? colors.text.inverse : colors.brand.primary}
-                strokeWidth={2.25}
-              />
-              <Text
-                variant="button"
-                color={selected ? colors.text.inverse : colors.text.primary}
-              >
-                {sport.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <SportCombobox
+        mode="single"
+        value={sportSet}
+        onChange={(next) => {
+          const [first] = next;
+          setForm((f) => ({ ...f, sport: first ?? null }));
+        }}
+        placeholder="Search sports (e.g. soccer, pickleball)…"
+        scrollResults={false}
+        maxVisibleResults={6}
+      />
 
       <Input
         label="Title"
@@ -333,14 +390,23 @@ function Step1({ form, setForm }: StepProps) {
 // ---------- Step 2: when + venue ----------
 
 function Step2({ form, setForm }: StepProps) {
+  const sportEntry = form.sport ? sportCatalogEntry(form.sport) : null;
+  const sportBucket = sportEntry?.bucket ?? null;
+
+  const center: GeoPoint = form.searchCenter ?? DEFAULT_MAP_CENTER;
+
   const recommended = useMemo<SpaceWithFacility[]>(() => {
     const allSpaces = flattenSpaces(FACILITIES);
     const filtered = allSpaces.filter(({ facility }) => {
-      // Sport match if a sport is chosen and facility supports it; otherwise show all.
-      if (form.sport && form.sport !== 'allSports') {
-        const sportKey = form.sport as string;
-        if (!facility.sports.some((s) => s === sportKey)) return false;
+      // Sport match if a sport-bucket is chosen and facility supports it.
+      if (sportBucket) {
+        if (!facility.sports.some((s) => (s as string) === sportBucket))
+          return false;
       }
+      // Distance from chosen search centre.
+      const d = distanceMilesBetween(center, facility.coords);
+      if (d > form.searchRadiusMiles) return false;
+
       const q = form.facilitySearch.trim().toLowerCase();
       if (!q) return true;
       return (
@@ -348,10 +414,20 @@ function Step2({ form, setForm }: StepProps) {
         facility.city.toLowerCase().includes(q)
       );
     });
-    return filtered.sort(
-      (a, b) => a.facility.distanceMiles - b.facility.distanceMiles,
-    );
-  }, [form.sport, form.facilitySearch]);
+    // Sort by actual haversine distance from the chosen centre.
+    return filtered
+      .map((entry) => ({
+        ...entry,
+        d: distanceMilesBetween(center, entry.facility.coords),
+      }))
+      .sort((a, b) => a.d - b.d)
+      .map(({ facility, space }) => ({ facility, space }));
+  }, [
+    sportBucket,
+    form.facilitySearch,
+    center,
+    form.searchRadiusMiles,
+  ]);
 
   const setCustom = (patch: Partial<CustomFacility>) =>
     setForm((f) => ({
@@ -473,18 +549,44 @@ function RegisteredVenuePicker({
         day: 'numeric',
       })
     : null;
+  const center: GeoPoint = form.searchCenter ?? DEFAULT_MAP_CENTER;
 
   return (
     <View style={styles.venueBlock}>
+      <Text variant="eyebrow" color={colors.text.secondary}>
+        Search area
+      </Text>
+      <RadiusMapPicker
+        center={form.searchCenter}
+        onChangeCenter={(c) => setForm((f) => ({ ...f, searchCenter: c }))}
+        radiusMiles={form.searchRadiusMiles}
+        onChangeRadius={(r) => setForm((f) => ({ ...f, searchRadiusMiles: r }))}
+        // A facility with N spaces would otherwise produce N marker rows
+        // with the same `facility.id` — drop a single pin per facility.
+        markers={Array.from(
+          new Map(
+            spaces.map(({ facility }) => [
+              facility.id,
+              {
+                id: facility.id,
+                coords: facility.coords,
+                label: facility.name,
+              },
+            ]),
+          ).values(),
+        )}
+        mapHeight={200}
+      />
+
       <SearchBar
         value={form.facilitySearch}
         onChangeText={(v) => setForm((f) => ({ ...f, facilitySearch: v }))}
-        placeholder="Search facilities by name or city…"
+        placeholder="Filter facilities by name or city…"
       />
 
       <View style={styles.recHeader}>
         <Text variant="eyebrow" color={colors.text.secondary}>
-          Available near you
+          Available within {form.searchRadiusMiles} mi
           {dateLabel ? ` · ${dateLabel}` : ''}
         </Text>
         <Text variant="caption" color={colors.text.muted}>
@@ -495,8 +597,8 @@ function RegisteredVenuePicker({
       {spaces.length === 0 ? (
         <Card style={styles.emptyCard}>
           <Text variant="body" color={colors.text.secondary} align="center">
-            No matching spaces. Try clearing your search or switch to a custom
-            location.
+            No matching spaces inside this radius. Widen the radius, drop a
+            new pin, or switch to a custom location.
           </Text>
         </Card>
       ) : (
@@ -507,6 +609,7 @@ function RegisteredVenuePicker({
             const blockCost = Math.round(
               hourly * (form.durationMinutes / 60),
             );
+            const distance = distanceMilesBetween(center, facility.coords);
             return (
               <Pressable
                 key={space.id}
@@ -534,7 +637,7 @@ function RegisteredVenuePicker({
                     {space.name}
                   </Text>
                   <Text variant="bodySm" color={colors.text.secondary}>
-                    {facility.name} · {facility.city} · {facility.distanceMiles}{' '}
+                    {facility.name} · {facility.city} · {distance.toFixed(1)}{' '}
                     mi
                   </Text>
                   <Text variant="caption" color={colors.text.muted}>
@@ -575,11 +678,6 @@ interface CustomVenueFormProps {
 }
 
 function CustomVenueForm({ form, setCustom }: CustomVenueFormProps) {
-  const dollars =
-    form.customFacility.entranceFeeCents === 0
-      ? ''
-      : (form.customFacility.entranceFeeCents / 100).toFixed(2);
-
   return (
     <View style={styles.venueBlock}>
       <Card style={styles.customHint}>
@@ -589,8 +687,8 @@ function CustomVenueForm({ form, setCustom }: CustomVenueFormProps) {
           strokeWidth={2.25}
         />
         <Text variant="bodySm" color={colors.text.secondary}>
-          Hosting somewhere not on SportsYeti? Add the venue and an entrance
-          fee — we’ll split it across players.
+          Hosting somewhere not on SportsYeti? Add the venue here — you’ll
+          set the cost (or mark it free) in the next step.
         </Text>
       </Card>
 
@@ -609,42 +707,105 @@ function CustomVenueForm({ form, setCustom }: CustomVenueFormProps) {
         variant="multiline"
         maxLength={200}
       />
-      <Input
-        label="Total entrance fee (USD)"
-        placeholder="0.00"
-        value={dollars}
-        variant="number"
-        leadingIcon={
-          <CircleDollarSign
-            size={18}
-            color={colors.brand.primary}
-            strokeWidth={2.25}
-          />
-        }
-        helpText="Split equally between players in the next step."
-        onChangeText={(v) => {
-          const cleaned = v.replace(/[^0-9.]/g, '');
-          const cents = Math.round((Number(cleaned) || 0) * 100);
-          setCustom({ entranceFeeCents: cents });
-        }}
-      />
     </View>
   );
 }
 
-// ---------- Step 3: roster size + fee split ----------
+// ---------- Money input ----------
+
+interface MoneyInputProps {
+  label: string;
+  helpText?: string;
+  placeholder?: string;
+  valueCents: number;
+  onChangeCents: (cents: number) => void;
+  containerStyle?: import('react-native').StyleProp<import('react-native').ViewStyle>;
+}
+
+/**
+ * Currency input that keeps the raw user text in local state so partial
+ * values (`5`, `5.`, `5.0`) round-trip through backspace correctly. The
+ * canonical cents value only updates when the text is parseable, and we
+ * reformat to two decimals on blur.
+ */
+function MoneyInput({
+  label,
+  helpText,
+  placeholder = '0.00',
+  valueCents,
+  onChangeCents,
+  containerStyle,
+}: MoneyInputProps) {
+  const [text, setText] = useState(() =>
+    valueCents === 0 ? '' : (valueCents / 100).toFixed(2),
+  );
+  // If the parent resets the cents value (e.g. user toggles Free → Paid),
+  // re-derive the text. Otherwise let the user-typed text stand.
+  React.useEffect(() => {
+    const parsed = Math.round((Number(text.replace(/[^0-9.]/g, '')) || 0) * 100);
+    if (parsed !== valueCents) {
+      setText(valueCents === 0 ? '' : (valueCents / 100).toFixed(2));
+    }
+    // Intentionally only key on the canonical value, not `text`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valueCents]);
+
+  return (
+    <Input
+      label={label}
+      placeholder={placeholder}
+      helpText={helpText}
+      value={text}
+      variant="number"
+      containerStyle={containerStyle}
+      leadingIcon={
+        <CircleDollarSign
+          size={18}
+          color={colors.brand.primary}
+          strokeWidth={2.25}
+        />
+      }
+      onChangeText={(v) => {
+        // Allow only digits and a single dot, max 2 decimal places.
+        const cleaned = v
+          .replace(/[^0-9.]/g, '')
+          .replace(/(\..*?)\./g, '$1')
+          .replace(/^(\d*\.\d{0,2}).*$/, '$1');
+        setText(cleaned);
+        const cents = Math.round((Number(cleaned) || 0) * 100);
+        onChangeCents(cents);
+      }}
+      onBlur={() => {
+        // Normalize on blur: empty stays empty; otherwise pin to 2 decimals.
+        if (text === '' || text === '.') return;
+        const n = Number(text);
+        if (Number.isFinite(n)) setText(n.toFixed(2));
+      }}
+    />
+  );
+}
+
+// ---------- Step 3: roster size + payment ----------
 
 function Step3({ form, setForm }: StepProps) {
   const total = totalCostCents(form);
   const perPlayer = perPlayerCents(form);
+  const isHostPrepay = form.bookingMode === 'host-prepay';
+  const isCustomVenue = form.facilityKind === 'custom';
+  const isCustomFree =
+    isCustomVenue && form.customFacility.costType === 'free';
+  // Booking-mode + per-player split only matter when there's a real cost.
+  // For free events (custom · free, or registered venues that don't charge)
+  // we suppress the toggles and just call out that nothing is owed.
+  const hasCost = total > 0;
   const venue =
-    form.facilityKind === 'custom'
+    isCustomVenue
       ? {
           name: form.customFacility.name || 'Custom location',
           subtitle: form.customFacility.address || '—',
-          breakdown: [
-            { label: 'Entrance fee', value: total },
-          ],
+          breakdown: hasCost
+            ? [{ label: 'Entrance fee', value: total }]
+            : ([] as { label: string; value: number }[]),
         }
       : (() => {
           const match = findSpaceWithFacility(form.spaceId);
@@ -667,10 +828,9 @@ function Step3({ form, setForm }: StepProps) {
           };
         })();
 
-  const dollarsManual =
-    form.manualFeePerPlayerCents === 0
-      ? ''
-      : (form.manualFeePerPlayerCents / 100).toFixed(2);
+  const splitContribution = isHostPrepay
+    ? total
+    : Math.max(0, total - perPlayer * form.spots);
 
   return (
     <View style={styles.stepBlock}>
@@ -695,46 +855,158 @@ function Step3({ form, setForm }: StepProps) {
         }}
       />
 
-      <View>
-        <Text
-          variant="eyebrow"
-          color={colors.text.secondary}
-          style={styles.label}
-        >
-          Fee split
-        </Text>
-        <Tabs
-          variant="segmented"
-          items={[
-            { key: 'auto', label: 'Auto-split' },
-            { key: 'manual', label: 'Set per-player' },
-          ]}
-          value={form.feeSplitMode}
-          onChange={(k) =>
-            setForm((f) => ({ ...f, feeSplitMode: k as FeeSplitMode }))
+      {isCustomVenue ? (
+        <View>
+          <Text
+            variant="eyebrow"
+            color={colors.text.secondary}
+            style={styles.label}
+          >
+            Cost for the space
+          </Text>
+          <Tabs
+            variant="segmented"
+            items={[
+              { key: 'free', label: 'Free event' },
+              { key: 'paid', label: 'Paid event' },
+            ]}
+            value={form.customFacility.costType}
+            onChange={(k) =>
+              setForm((f) => ({
+                ...f,
+                customFacility: {
+                  ...f.customFacility,
+                  costType: k as CustomCostType,
+                },
+              }))
+            }
+          />
+          {form.customFacility.costType === 'paid' ? (
+            <MoneyInput
+              containerStyle={styles.customCostInput}
+              label="Total cost for the space (USD)"
+              helpText="What the venue charges in total. We'll handle the split below."
+              valueCents={form.customFacility.entranceFeeCents}
+              onChangeCents={(cents) =>
+                setForm((f) => ({
+                  ...f,
+                  customFacility: {
+                    ...f.customFacility,
+                    entranceFeeCents: cents,
+                  },
+                }))
+              }
+            />
+          ) : (
+            <Text
+              variant="caption"
+              color={colors.text.muted}
+              style={styles.customCostHint}
+            >
+              Players join for free. We&rsquo;ll skip checkout entirely.
+            </Text>
+          )}
+        </View>
+      ) : null}
+
+      {/* Booking-mode toggle only applies to registered venues. */}
+      {hasCost && !isCustomVenue ? (
+        <View>
+          <Text
+            variant="eyebrow"
+            color={colors.text.secondary}
+            style={styles.label}
+          >
+            How does the venue get paid?
+          </Text>
+          <Tabs
+            variant="segmented"
+            items={[
+              { key: 'split', label: 'Split with players' },
+              { key: 'host-prepay', label: 'Pay now to lock in' },
+            ]}
+            value={form.bookingMode}
+            onChange={(k) =>
+              setForm((f) => ({ ...f, bookingMode: k as BookingMode }))
+            }
+          />
+          <BookingModeExplainer mode={form.bookingMode} totalCents={total} />
+        </View>
+      ) : null}
+
+      {/* Auto/manual per-player toggle only applies to platform-processed
+          splits. Host-prepay always collects in person, custom venues
+          always collect in person — both skip the toggle. */}
+      {hasCost && !isCustomVenue && !isHostPrepay ? (
+        <View>
+          <Text
+            variant="eyebrow"
+            color={colors.text.secondary}
+            style={styles.label}
+          >
+            Per-player fee
+          </Text>
+          <Tabs
+            variant="segmented"
+            items={[
+              { key: 'auto', label: 'Auto-split' },
+              { key: 'manual', label: 'Set amount' },
+            ]}
+            value={form.feeSplitMode}
+            onChange={(k) =>
+              setForm((f) => ({ ...f, feeSplitMode: k as FeeSplitMode }))
+            }
+          />
+        </View>
+      ) : null}
+
+      {/* Manual platform-processed per-player fee. */}
+      {hasCost && !isCustomVenue && !isHostPrepay && form.feeSplitMode === 'manual' ? (
+        <MoneyInput
+          label="Per-player fee (USD)"
+          valueCents={form.manualFeePerPlayerCents}
+          onChangeCents={(cents) =>
+            setForm((f) => ({ ...f, manualFeePerPlayerCents: cents }))
           }
         />
-      </View>
+      ) : null}
 
-      {form.feeSplitMode === 'manual' ? (
-        <Input
-          label="Per-player fee (USD)"
-          placeholder="0.00"
-          value={dollarsManual}
-          variant="number"
-          leadingIcon={
-            <CircleDollarSign
+      {/* Per-player fee for in-person collection — applies to both
+          host-prepay (registered) and custom-paid venues. */}
+      {hasCost && (isHostPrepay || isCustomVenue) ? (
+        <MoneyInput
+          label="Per-player fee · collected in person (USD)"
+          helpText={
+            suggestedPerPlayerCents(form) > 0
+              ? `Suggested even split: ${formatCurrency(suggestedPerPlayerCents(form))} × ${form.spots} players.`
+              : undefined
+          }
+          valueCents={form.manualFeePerPlayerCents}
+          onChangeCents={(cents) =>
+            setForm((f) => ({ ...f, manualFeePerPlayerCents: cents }))
+          }
+        />
+      ) : null}
+
+      {hasCost && (isHostPrepay || isCustomVenue) ? (
+        <Card style={styles.inPersonCard}>
+          <View style={styles.inPersonHead}>
+            <HandCoins
               size={18}
               color={colors.brand.primary}
               strokeWidth={2.25}
             />
-          }
-          onChangeText={(v) => {
-            const cleaned = v.replace(/[^0-9.]/g, '');
-            const cents = Math.round((Number(cleaned) || 0) * 100);
-            setForm((f) => ({ ...f, manualFeePerPlayerCents: cents }));
-          }}
-        />
+            <Text variant="button" color={colors.text.primary}>
+              Player payments collected in person
+            </Text>
+          </View>
+          <Text variant="bodySm" color={colors.text.secondary}>
+            {isCustomVenue
+              ? `SportsYeti doesn't process payment for custom locations. You'll collect ${formatCurrency(form.manualFeePerPlayerCents)} from each player on the day — cash, Venmo, etc.`
+              : `You're paying the venue upfront, so SportsYeti doesn't take additional money from players. You'll collect ${formatCurrency(form.manualFeePerPlayerCents)} from each on the day — cash, Venmo, etc.`}
+            {' '}The amount shows up in their game details so they know what to bring.
+          </Text>
+        </Card>
       ) : null}
 
       <Card style={styles.feeCard}>
@@ -753,7 +1025,11 @@ function Step3({ form, setForm }: StepProps) {
 
         {venue.breakdown.length === 0 ? (
           <Text variant="bodySm" color={colors.text.secondary}>
-            Pick a space in step 2 to see the auto-split.
+            {isCustomFree
+              ? 'Free event — no payment required from players.'
+              : isCustomVenue
+              ? 'Set a cost above to enable splits and host-prepay.'
+              : 'Pick a space in step 2 to see the auto-split.'}
           </Text>
         ) : (
           venue.breakdown.map((row) => (
@@ -786,6 +1062,42 @@ function Step3({ form, setForm }: StepProps) {
             {perPlayer === 0 ? 'Free' : formatCurrency(perPlayer)}
           </Text>
         </View>
+        {isHostPrepay && total > 0 ? (
+          <View style={styles.feeRow}>
+            <Text variant="button" color={colors.text.secondary}>
+              Charged to you now
+            </Text>
+            <Text variant="button" color={colors.brand.deep}>
+              {formatCurrency(total)}
+            </Text>
+          </View>
+        ) : null}
+        {(isCustomVenue || isHostPrepay) && hasCost ? (
+          <View style={styles.feeRow}>
+            <Text variant="button" color={colors.text.secondary}>
+              Collected in person
+            </Text>
+            <Text variant="button" color={colors.brand.deep}>
+              {formatCurrency(perPlayer)} / player
+            </Text>
+          </View>
+        ) : null}
+        {!isCustomVenue && !isHostPrepay && total > 0 ? (
+          <View style={styles.feeRow}>
+            <Text variant="button" color={colors.text.secondary}>
+              Booking confirmed when
+            </Text>
+            <Text variant="button" color={colors.brand.deep}>
+              total reaches {formatCurrency(total)}
+            </Text>
+          </View>
+        ) : null}
+        {!isCustomVenue && !isHostPrepay && splitContribution > 0 ? (
+          <Text variant="caption" color={colors.text.muted}>
+            You can prepay any time before the start time to lock the venue
+            in early.
+          </Text>
+        ) : null}
       </Card>
 
       <Card style={styles.legendCard}>
@@ -830,8 +1142,8 @@ function Step3({ form, setForm }: StepProps) {
           <TagIcon size={14} color={colors.text.secondary} strokeWidth={2.25} />
           <Text variant="bodySm" color={colors.text.secondary}>
             {form.title || 'Untitled'} ·{' '}
-            {form.sport ? sportLabel(form.sport) : '—'} ·{' '}
-            {SKILL_LABELS[form.skill]}
+            {form.sport ? sportCatalogEntry(form.sport)?.label ?? form.sport : '—'}{' '}
+            · {SKILL_LABELS[form.skill]}
           </Text>
         </View>
         <View style={styles.summaryRow}>
@@ -849,8 +1161,77 @@ function Step3({ form, setForm }: StepProps) {
               : `${formatCurrency(perPlayer)}/player`}
           </Text>
         </View>
+        <View style={styles.summaryRow}>
+          {!hasCost ? (
+            <CalendarClock
+              size={14}
+              color={colors.text.secondary}
+              strokeWidth={2.25}
+            />
+          ) : isCustomVenue || isHostPrepay ? (
+            <HandCoins
+              size={14}
+              color={colors.text.secondary}
+              strokeWidth={2.25}
+            />
+          ) : (
+            <CalendarClock
+              size={14}
+              color={colors.text.secondary}
+              strokeWidth={2.25}
+            />
+          )}
+          <Text variant="bodySm" color={colors.text.secondary}>
+            {!hasCost
+              ? 'Free event · no checkout required'
+              : isHostPrepay
+              ? `Venue locked · collect ${formatCurrency(perPlayer)}/player in person`
+              : isCustomVenue
+              ? `In-person collection · ${formatCurrency(perPlayer)}/player`
+              : `Split-pay · venue locked when total hits ${formatCurrency(total)}`}
+          </Text>
+        </View>
       </Card>
     </View>
+  );
+}
+
+interface BookingModeExplainerProps {
+  mode: BookingMode;
+  totalCents: number;
+}
+
+function BookingModeExplainer({ mode, totalCents }: BookingModeExplainerProps) {
+  if (mode === 'host-prepay') {
+    return (
+      <Card style={styles.explainerCard}>
+        <View style={styles.explainerRow}>
+          <Wallet
+            size={16}
+            color={colors.brand.primary}
+            strokeWidth={2.25}
+          />
+          <Text variant="bodySm" color={colors.text.primary}>
+            You pay the venue {totalCents === 0 ? 'nothing' : formatCurrency(totalCents)}{' '}
+            now and lock the booking in immediately. SportsYeti doesn’t take
+            money from players — you’ll set a per-player fee below and collect
+            it in person.
+          </Text>
+        </View>
+      </Card>
+    );
+  }
+  return (
+    <Card style={styles.explainerCard}>
+      <View style={styles.explainerRow}>
+        <Users size={16} color={colors.brand.primary} strokeWidth={2.25} />
+        <Text variant="bodySm" color={colors.text.primary}>
+          Each spot costs an even share, charged through SportsYeti. The
+          venue is booked once the final player pays — you can prepay the
+          remaining balance any time before the start to lock it in earlier.
+        </Text>
+      </View>
+    </Card>
   );
 }
 
@@ -888,27 +1269,6 @@ const styles = StyleSheet.create({
   },
   label: {
     marginBottom: spacing.sm,
-  },
-  sportGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  sportChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surface.card,
-    borderWidth: 1,
-    borderColor: colors.border.soft,
-    minHeight: 44,
-  },
-  sportChipSelected: {
-    backgroundColor: colors.brand.primary,
-    borderColor: colors.brand.primary,
   },
   pressed: {
     opacity: 0.75,
@@ -981,6 +1341,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.md,
   },
+  customCostInput: {
+    marginTop: spacing.md,
+  },
+  customCostHint: {
+    marginTop: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  inPersonCard: {
+    gap: spacing.sm,
+    padding: spacing.lg,
+  },
+  inPersonHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   feeCard: {
     gap: spacing.sm,
     padding: spacing.lg,
@@ -1040,6 +1416,15 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
+  },
+  explainerCard: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+  },
+  explainerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: spacing.sm,
   },
   footer: {

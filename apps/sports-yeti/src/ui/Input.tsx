@@ -65,7 +65,15 @@ function variantDefaults(variant: InputVariant): Partial<TextInputProps> {
   if (variant === 'number')
     return { keyboardType: 'numeric' };
   if (variant === 'multiline')
-    return { multiline: true, textAlignVertical: 'top' };
+    return {
+      multiline: true,
+      textAlignVertical: 'top',
+      // Tapping Return dismisses the keyboard instead of inserting a
+      // newline — the more common mobile UX. Pass `submitBehavior="newline"`
+      // explicitly to opt back into newline characters.
+      submitBehavior: 'blurAndSubmit',
+      returnKeyType: 'done',
+    };
   return {};
 }
 

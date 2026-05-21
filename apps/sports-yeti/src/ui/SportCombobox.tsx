@@ -20,6 +20,8 @@ import {
   type SportCatalogEntry,
 } from '../mocks/games';
 
+export type SportComboboxMode = 'single' | 'multi';
+
 export interface SportComboboxProps {
   /** Selected sport keys (matches `SportCatalogEntry.key`). */
   value: ReadonlySet<string>;
@@ -29,6 +31,13 @@ export interface SportComboboxProps {
   /** Disable internal scrolling (use when nested in a parent ScrollView). */
   scrollResults?: boolean;
   placeholder?: string;
+  /**
+   * `'multi'` (default): toggling adds/removes; the chip strip shows all
+   * picks. `'single'` collapses to a single selection — picking a new
+   * entry replaces the previous one and the result list hides once a
+   * sport is chosen (until the user clears it or types again).
+   */
+  mode?: SportComboboxMode;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -52,6 +61,7 @@ export function SportCombobox({
   maxVisibleResults = 8,
   scrollResults = false,
   placeholder = 'Search sports…',
+  mode = 'multi',
   style,
 }: SportComboboxProps) {
   const [query, setQuery] = useState('');
@@ -65,14 +75,30 @@ export function SportCombobox({
   );
   const hiddenCount = allResults.length - visibleResults.length;
 
+  // In single-select mode, hide the picker list once the user has a
+  // committed selection AND isn't actively typing — that way the field
+  // collapses cleanly to its chosen value.
+  const showResults =
+    mode === 'multi' || value.size === 0 || query.length > 0;
+
   const toggle = useCallback(
     (key: string) => {
+      if (mode === 'single') {
+        // Picking the currently-selected item clears it.
+        if (value.has(key)) {
+          onChange(new Set<string>());
+        } else {
+          onChange(new Set<string>([key]));
+        }
+        setQuery('');
+        return;
+      }
       const next = new Set(value);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       onChange(next);
     },
-    [onChange, value],
+    [mode, onChange, value],
   );
 
   const remove = useCallback(
@@ -173,22 +199,27 @@ export function SportCombobox({
         ) : null}
       </View>
 
-      <View style={styles.metaRow}>
-        <Text variant="caption" color={colors.text.muted}>
-          {value.size} selected · {allResults.length} matching
-        </Text>
-        {hiddenCount > 0 ? (
+      {showResults ? (
+        <View style={styles.metaRow}>
           <Text variant="caption" color={colors.text.muted}>
-            Refine to see {hiddenCount} more
+            {mode === 'single'
+              ? `${allResults.length} matching`
+              : `${value.size} selected · ${allResults.length} matching`}
           </Text>
-        ) : null}
-      </View>
+          {hiddenCount > 0 ? (
+            <Text variant="caption" color={colors.text.muted}>
+              Refine to see {hiddenCount} more
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
-      <ResultList
-        {...resultListProps}
-        style={scrollResults ? styles.scrollList : undefined}
-        contentContainerStyle={scrollResults ? styles.scrollContent : undefined}
-      >
+      {showResults ? (
+        <ResultList
+          {...resultListProps}
+          style={scrollResults ? styles.scrollList : undefined}
+          contentContainerStyle={scrollResults ? styles.scrollContent : undefined}
+        >
         {visibleResults.length === 0 ? (
           <Text
             variant="bodySm"
@@ -247,7 +278,8 @@ export function SportCombobox({
             );
           })
         )}
-      </ResultList>
+        </ResultList>
+      ) : null}
     </View>
   );
 }
