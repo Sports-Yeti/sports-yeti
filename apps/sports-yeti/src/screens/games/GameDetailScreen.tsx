@@ -9,6 +9,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Eye,
+  EyeOff,
   Lock,
   MapPin,
   MessageSquare,
@@ -45,6 +47,7 @@ import { FACILITIES } from '../../mocks/facilities';
 import { CHATS } from '../../mocks/messages';
 import { MY_SCHEDULE } from '../../mocks/schedule';
 import { formatCurrency } from '../../lib/format';
+import { useWatchStore } from '../../stores';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'GameDetails'>;
@@ -63,6 +66,10 @@ export function GameDetailScreen() {
   const [joined, setJoined] = useState(!!scheduleEntry);
   const [confirmJoin, setConfirmJoin] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const watching = useWatchStore((s) =>
+    s.watchedIds.has(route.params.id),
+  );
+  const toggleWatch = useWatchStore((s) => s.toggle);
 
   if (!game) {
     return (
@@ -123,6 +130,20 @@ export function GameDetailScreen() {
     });
   };
 
+  const handleWatchToggle = () => {
+    Haptics.selectionAsync();
+    const nowWatching = toggleWatch(route.params.id);
+    toast.show({
+      variant: nowWatching ? 'success' : 'info',
+      title: nowWatching
+        ? `Watching ${game.title}`
+        : `Stopped watching ${game.title}`,
+      description: nowWatching
+        ? 'You’ll get a notification when spots, roster, or schedule changes.'
+        : undefined,
+    });
+  };
+
   const handleJoin = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setJoined(true);
@@ -158,18 +179,44 @@ export function GameDetailScreen() {
           >
             <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
           </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Share game"
-            hitSlop={8}
-            onPress={() => {
-              Haptics.selectionAsync();
-              toast.show({ variant: 'info', title: 'Share link copied' });
-            }}
-            style={styles.shareBtn}
-          >
-            <Share2 size={20} color={colors.text.primary} strokeWidth={2.25} />
-          </Pressable>
+          <View style={styles.topActions}>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: watching }}
+              accessibilityLabel={
+                watching ? 'Stop watching this game' : 'Watch this game for updates'
+              }
+              hitSlop={8}
+              onPress={handleWatchToggle}
+              style={[styles.iconBtn, watching ? styles.iconBtnOn : null]}
+            >
+              {watching ? (
+                <Eye
+                  size={20}
+                  color={colors.brand.primary}
+                  strokeWidth={2.5}
+                />
+              ) : (
+                <EyeOff
+                  size={20}
+                  color={colors.text.primary}
+                  strokeWidth={2.25}
+                />
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Share game"
+              hitSlop={8}
+              onPress={() => {
+                Haptics.selectionAsync();
+                toast.show({ variant: 'info', title: 'Share link copied' });
+              }}
+              style={styles.iconBtn}
+            >
+              <Share2 size={20} color={colors.text.primary} strokeWidth={2.25} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.heroBlock}>
@@ -185,6 +232,17 @@ export function GameDetailScreen() {
                   tone="info"
                   leadingDot
                   label={sportLabel(game.sport)!}
+                />
+              ) : null}
+              {game.openStatus === 'closed' ? (
+                <Tag tone="neutral" label="Closed" />
+              ) : null}
+              {watching ? (
+                <Tag
+                  tone="brand"
+                  size="sm"
+                  leadingDot
+                  label={`Watching · ${game.watcherCount + 1}`}
                 />
               ) : null}
             </View>
@@ -581,14 +639,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadows.soft,
   },
-  shareBtn: {
+  topActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  iconBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
     backgroundColor: colors.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
     ...shadows.soft,
+  },
+  iconBtnOn: {
+    backgroundColor: colors.brand.soft,
+    borderColor: colors.brand.primary,
   },
   heroBlock: {
     gap: spacing.lg,

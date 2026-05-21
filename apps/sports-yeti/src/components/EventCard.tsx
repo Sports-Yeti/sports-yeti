@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Clock, MapPin } from 'lucide-react-native';
-import { colors, spacing } from '../theme';
+import * as Haptics from 'expo-haptics';
+import { Clock, Eye, EyeOff, MapPin } from 'lucide-react-native';
+import { colors, radii, spacing } from '../theme';
 import {
-  AvatarStack,
   Button,
   Card,
   IconBadge,
   Tag,
   Text,
+  useToast,
 } from '../ui';
 import { sportLabel, type DiscoverGame } from '../mocks/games';
+import { useWatchStore } from '../stores';
 
 interface EventCardProps {
   game: DiscoverGame;
@@ -20,10 +22,29 @@ interface EventCardProps {
 
 export function EventCard({ game, onPress, onJoinPress }: EventCardProps) {
   const Icon = game.Icon;
+  const toast = useToast();
+  const watching = useWatchStore((s) => s.watchedIds.has(game.id));
+  const toggleWatch = useWatchStore((s) => s.toggle);
   const eyebrowColor = game.isLive ? colors.status.live : colors.brand.primary;
   const spotsColor =
     game.spotsLeftTone === 'warning' ? colors.status.live : colors.brand.primary;
   const sport = sportLabel(game.sport);
+  const isClosed = game.openStatus === 'closed';
+  const watcherCount = game.watcherCount + (watching ? 1 : 0);
+
+  const handleWatch = useCallback(() => {
+    Haptics.selectionAsync();
+    const nowWatching = toggleWatch(game.id);
+    toast.show({
+      variant: nowWatching ? 'success' : 'info',
+      title: nowWatching
+        ? `Watching ${game.title}`
+        : `Stopped watching ${game.title}`,
+      description: nowWatching
+        ? 'We’ll ping you when spots open or details change.'
+        : undefined,
+    });
+  }, [game.id, game.title, toast, toggleWatch]);
 
   return (
     <Pressable onPress={onPress} accessibilityRole="button">
@@ -44,6 +65,9 @@ export function EventCard({ game, onPress, onJoinPress }: EventCardProps) {
                 </Text>
                 {sport ? (
                   <Tag tone="brand" size="sm" leadingDot label={sport} />
+                ) : null}
+                {isClosed ? (
+                  <Tag tone="neutral" size="sm" label="Closed" />
                 ) : null}
               </View>
               <Text variant="h2" color={colors.text.primary}>
@@ -79,16 +103,53 @@ export function EventCard({ game, onPress, onJoinPress }: EventCardProps) {
         <View style={styles.divider} />
 
         <View style={styles.bottomRow}>
-          <AvatarStack
-            uris={game.attendees}
-            totalCount={game.attendeeTotal}
-            size={32}
-          />
-          <View style={styles.bottomActions}>
-            <Text variant="button" color={spotsColor}>
-              {`${game.spotsLeft} spots left`}
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: watching }}
+            accessibilityLabel={
+              watching
+                ? `Stop watching ${game.title}, ${watcherCount} watching`
+                : `Watch ${game.title}, ${watcherCount} watching`
+            }
+            hitSlop={8}
+            onPress={handleWatch}
+            style={({ pressed }) => [
+              styles.watchPill,
+              watching ? styles.watchPillOn : null,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            {watching ? (
+              <Eye
+                size={16}
+                color={colors.brand.primary}
+                strokeWidth={2.5}
+              />
+            ) : (
+              <EyeOff
+                size={16}
+                color={colors.text.secondary}
+                strokeWidth={2.5}
+              />
+            )}
+            <Text
+              variant="button"
+              color={watching ? colors.brand.primary : colors.text.secondary}
+            >
+              {watcherCount}
             </Text>
-            <Button label="Join" onPress={onJoinPress} size="sm" />
+          </Pressable>
+          <View style={styles.bottomActions}>
+            <Text variant="button" color={isClosed ? colors.text.muted : spotsColor}>
+              {isClosed ? 'No spots' : `${game.spotsLeft} spots left`}
+            </Text>
+            <Button
+              label={isClosed ? 'Closed' : 'Join'}
+              onPress={onJoinPress}
+              size="sm"
+              disabled={isClosed}
+              variant={isClosed ? 'ghost' : 'gradient'}
+            />
           </View>
         </View>
       </Card>
@@ -151,6 +212,24 @@ const styles = StyleSheet.create({
   bottomActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  watchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    minHeight: 36,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface.chip,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  watchPillOn: {
+    backgroundColor: colors.brand.soft,
+    borderColor: colors.brand.primary,
+  },
+  pressed: {
+    opacity: 0.8,
   },
 });

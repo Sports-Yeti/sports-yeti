@@ -9,6 +9,7 @@ import {
   Tent,
 } from 'lucide-react-native';
 import { PLAYER_AVATARS, SARAH_AVATAR } from './avatars';
+import { FACILITIES, type GeoPoint } from './facilities';
 
 export type SportKey =
   | 'allSports'
@@ -43,6 +44,13 @@ export type GameStatusEyebrow =
 export type GameTimeBucket = 'live' | 'today' | 'tomorrow' | 'weekend' | 'later';
 export type GameSkillLevel = 'all' | 'beginner' | 'intermediate' | 'advanced';
 
+/**
+ * Lifecycle of a discoverable game. `open` games still have spots and are
+ * accepting joiners. `closed` games are either full, cancelled, or already
+ * finished — surfaced for context but not joinable.
+ */
+export type GameOpenStatus = 'open' | 'closed';
+
 /** Per-roster-spot commitment + payment lifecycle. */
 export type GamePaymentStatus = 'paid' | 'committed' | 'pending';
 
@@ -73,6 +81,20 @@ export const PAYMENT_STATUS_LABEL: Record<GamePaymentStatus, string> = {
   pending: 'Pending',
 };
 
+export const OPEN_STATUS_LABEL: Record<GameOpenStatus, string> = {
+  open: 'Open',
+  closed: 'Closed',
+};
+
+/** Status filter for the Discover screen. Default is `open`. */
+export type OpenStatusFilter = GameOpenStatus | 'all';
+
+export const OPEN_STATUS_FILTERS: { key: OpenStatusFilter; label: string }[] = [
+  { key: 'open', label: 'Open' },
+  { key: 'closed', label: 'Closed' },
+  { key: 'all', label: 'All' },
+];
+
 export interface DiscoverGame {
   id: string;
   title: string;
@@ -102,6 +124,9 @@ export interface DiscoverGame {
   dayId: string; // matches WEEK_DAYS id
   hostId: string;
   description: string;
+  openStatus: GameOpenStatus;
+  /** Live "watching this game" count for social proof. */
+  watcherCount: number;
 }
 
 /**
@@ -173,6 +198,8 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     hostId: 'host-marcus',
     description:
       'Casual co-ed 8v8 on the turf. We rotate every 12 minutes to keep things moving. Bring light + dark shirts.',
+    openStatus: 'open',
+    watcherCount: 24,
   },
   {
     id: 'open-gym-5v5',
@@ -203,6 +230,8 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     hostId: 'host-jamie',
     description:
       'Run-the-court pickup hoops. First team to 11, win-by-2. Refs provided. Fee covers gym rental and water.',
+    openStatus: 'open',
+    watcherCount: 11,
   },
   {
     id: 'beach-volley-coed',
@@ -233,6 +262,8 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     hostId: 'host-coast',
     description:
       "Sand, sun, and friendly comp. We'll split into 4-person teams and rotate every game. BYO water.",
+    openStatus: 'open',
+    watcherCount: 7,
   },
   {
     id: 'tuesday-tennis-doubles',
@@ -263,6 +294,8 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     hostId: 'host-priya',
     description:
       'Doubles round-robin. We swap partners after every set so you play with everyone. Bring your own racquet.',
+    openStatus: 'open',
+    watcherCount: 5,
   },
   {
     id: 'sunday-softball-league',
@@ -293,6 +326,40 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     hostId: 'host-jamie',
     description:
       'Slow-pitch softball, all skill levels welcome. Gloves and bats provided. Ends with grilling at the pavilion.',
+    openStatus: 'open',
+    watcherCount: 9,
+  },
+  {
+    id: 'mile-high-hoops-final',
+    title: 'Mile High Hoops Final',
+    status: 'TONIGHT',
+    isLive: false,
+    featured: false,
+    sport: 'basketball',
+    Icon: Dumbbell,
+    price: '$10',
+    priceCents: 1000,
+    distance: '2.1 mi',
+    distanceMiles: 2.1,
+    time: '8:30 PM',
+    startsAt: '2026-04-17T20:30:00-06:00',
+    durationMinutes: 90,
+    location: 'Downtown Rec Center',
+    venueId: 'downtown-rec',
+    spotsLeft: 0,
+    spotsTotal: 10,
+    spotsLeftTone: 'warning',
+    attendees: PLAYER_AVATARS.slice(0, 4),
+    attendeeTotal: 10,
+    roster: buildRoster('mile-high-hoops-final', 10, 10, 0),
+    skillLevel: 'advanced',
+    timeBucket: 'today',
+    dayId: 'fri',
+    hostId: 'host-jamie',
+    description:
+      'Championship night for the spring tournament — full roster, refs assigned, spectators welcome.',
+    openStatus: 'closed',
+    watcherCount: 38,
   },
 ];
 
@@ -389,3 +456,119 @@ export const DISTANCE_FILTERS: { key: number; label: string }[] = [
   { key: 25, label: '25 mi' },
   { key: 100, label: 'Any' },
 ];
+
+/** Selectable sport keys, excluding the synthetic `allSports` filter chip. */
+export type ConcreteSportKey = Exclude<SportKey, 'allSports'>;
+export const ALL_SPORT_KEYS: ConcreteSportKey[] = [
+  'soccer',
+  'basketball',
+  'volleyball',
+  'tennis',
+  'baseball',
+];
+
+/**
+ * Catalogue of sports the player can search & multi-select from. Each entry
+ * `bucket`s back to one of the canonical {@link ConcreteSportKey} values
+ * (or `null` when no playable fixtures exist yet) so that picking an entry
+ * still filters the live `DISCOVER_GAMES` list correctly. The catalogue is
+ * intentionally large to stand in for the eventual back-end registry of
+ * hundreds of sports.
+ */
+export interface SportCatalogEntry {
+  key: string;
+  label: string;
+  Icon: ComponentType<LucideProps>;
+  bucket: ConcreteSportKey | null;
+  /** Optional searchable keywords (e.g. "footy", "futbol"). */
+  aliases?: string[];
+}
+
+export const SPORT_CATALOG: SportCatalogEntry[] = [
+  // Team ball — soccer family
+  { key: 'soccer', label: 'Soccer', Icon: CircleDot, bucket: 'soccer', aliases: ['football', 'futbol', 'footy'] },
+  { key: 'futsal', label: 'Futsal', Icon: CircleDot, bucket: 'soccer', aliases: ['indoor soccer'] },
+  { key: 'beach-soccer', label: 'Beach Soccer', Icon: CircleDot, bucket: 'soccer' },
+  { key: 'flag-football', label: 'Flag Football', Icon: Trophy, bucket: null },
+  { key: 'touch-rugby', label: 'Touch Rugby', Icon: Trophy, bucket: null },
+  { key: 'rugby-7s', label: 'Rugby 7s', Icon: Trophy, bucket: null, aliases: ['sevens'] },
+  { key: 'rugby-union', label: 'Rugby Union', Icon: Trophy, bucket: null },
+  { key: 'aussie-rules', label: 'Aussie Rules', Icon: Trophy, bucket: null, aliases: ['afl'] },
+  { key: 'gaelic-football', label: 'Gaelic Football', Icon: Trophy, bucket: null },
+
+  // Court — basketball family
+  { key: 'basketball', label: 'Basketball', Icon: Dumbbell, bucket: 'basketball', aliases: ['hoops', '5v5'] },
+  { key: 'basketball-3x3', label: '3x3 Basketball', Icon: Dumbbell, bucket: 'basketball', aliases: ['3on3'] },
+  { key: 'wheelchair-basketball', label: 'Wheelchair Basketball', Icon: Dumbbell, bucket: 'basketball' },
+  { key: 'netball', label: 'Netball', Icon: Dumbbell, bucket: null },
+  { key: 'korfball', label: 'Korfball', Icon: Dumbbell, bucket: null },
+  { key: 'handball', label: 'Handball', Icon: Dumbbell, bucket: null },
+
+  // Court — racket family
+  { key: 'tennis', label: 'Tennis', Icon: Target, bucket: 'tennis', aliases: ['singles', 'doubles'] },
+  { key: 'doubles-tennis', label: 'Doubles Tennis', Icon: Target, bucket: 'tennis' },
+  { key: 'pickleball', label: 'Pickleball', Icon: Target, bucket: null, aliases: ['pickle'] },
+  { key: 'paddle-tennis', label: 'Paddle Tennis', Icon: Target, bucket: null, aliases: ['padel'] },
+  { key: 'badminton', label: 'Badminton', Icon: Target, bucket: null, aliases: ['birdie'] },
+  { key: 'squash', label: 'Squash', Icon: Target, bucket: null },
+  { key: 'racquetball', label: 'Racquetball', Icon: Target, bucket: null },
+  { key: 'table-tennis', label: 'Table Tennis', Icon: Target, bucket: null, aliases: ['ping pong'] },
+
+  // Net — volleyball family
+  { key: 'volleyball', label: 'Volleyball', Icon: Volleyball, bucket: 'volleyball', aliases: ['indoor vb'] },
+  { key: 'beach-volleyball', label: 'Beach Volleyball', Icon: Volleyball, bucket: 'volleyball', aliases: ['sand'] },
+  { key: 'sitting-volleyball', label: 'Sitting Volleyball', Icon: Volleyball, bucket: 'volleyball' },
+  { key: 'sepak-takraw', label: 'Sepak Takraw', Icon: Volleyball, bucket: null, aliases: ['kick volleyball'] },
+
+  // Bat & ball
+  { key: 'baseball', label: 'Baseball', Icon: Tent, bucket: 'baseball', aliases: ['hardball'] },
+  { key: 'softball', label: 'Softball', Icon: Tent, bucket: 'baseball', aliases: ['slow pitch', 'fast pitch'] },
+  { key: 'kickball', label: 'Kickball', Icon: Tent, bucket: null },
+  { key: 'wiffleball', label: 'Wiffleball', Icon: Tent, bucket: null },
+  { key: 'cricket', label: 'Cricket', Icon: Tent, bucket: null, aliases: ['t20', 'odi'] },
+
+  // Ice / hard
+  { key: 'ice-hockey', label: 'Ice Hockey', Icon: Trophy, bucket: null },
+  { key: 'roller-hockey', label: 'Roller Hockey', Icon: Trophy, bucket: null },
+  { key: 'field-hockey', label: 'Field Hockey', Icon: Trophy, bucket: null },
+  { key: 'lacrosse', label: 'Lacrosse', Icon: Trophy, bucket: null, aliases: ['lax'] },
+  { key: 'ultimate', label: 'Ultimate Frisbee', Icon: Trophy, bucket: null, aliases: ['ultimate', 'disc'] },
+  { key: 'disc-golf', label: 'Disc Golf', Icon: Target, bucket: null },
+
+  // Combat / mat
+  { key: 'bjj', label: 'Brazilian Jiu-Jitsu', Icon: Dumbbell, bucket: null, aliases: ['jiu jitsu', 'gi', 'no-gi'] },
+  { key: 'boxing', label: 'Boxing Sparring', Icon: Dumbbell, bucket: null },
+  { key: 'mma', label: 'MMA Sparring', Icon: Dumbbell, bucket: null },
+  { key: 'judo', label: 'Judo', Icon: Dumbbell, bucket: null },
+
+  // Endurance / outdoor
+  { key: 'running-club', label: 'Running Club', Icon: Trophy, bucket: null, aliases: ['run club', '5k'] },
+  { key: 'cycling', label: 'Cycling', Icon: Trophy, bucket: null, aliases: ['bike', 'gravel', 'road'] },
+  { key: 'climbing', label: 'Climbing Session', Icon: Trophy, bucket: null, aliases: ['bouldering', 'lead'] },
+  { key: 'yoga', label: 'Yoga Flow', Icon: Trophy, bucket: null },
+];
+
+/** Build a quick-search index from the catalog. */
+function buildSearchIndex(entry: SportCatalogEntry): string {
+  const parts = [entry.label, entry.key, ...(entry.aliases ?? [])];
+  return parts.join(' ').toLowerCase();
+}
+
+export function searchSportCatalog(query: string): SportCatalogEntry[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return SPORT_CATALOG;
+  return SPORT_CATALOG.filter((e) => buildSearchIndex(e).includes(q));
+}
+
+export function sportCatalogEntry(key: string): SportCatalogEntry | undefined {
+  return SPORT_CATALOG.find((e) => e.key === key);
+}
+
+/**
+ * Resolve a game's geo coordinates via its facility. Returns `null` if the
+ * facility (or coords) cannot be found.
+ */
+export function gameCoords(game: DiscoverGame): GeoPoint | null {
+  const facility = FACILITIES.find((f) => f.id === game.venueId);
+  return facility?.coords ?? null;
+}

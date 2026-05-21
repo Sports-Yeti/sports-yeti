@@ -18,6 +18,11 @@ export type FacilitySportKey =
   | 'baseball'
   | 'hockey';
 
+export interface GeoPoint {
+  latitude: number;
+  longitude: number;
+}
+
 export interface Facility {
   id: string;
   name: string;
@@ -33,6 +38,7 @@ export interface Facility {
   amenities: string[];
   description: string;
   spaces: { id: string; name: string; surface: string; capacity: number }[];
+  coords: GeoPoint;
 }
 
 export const FACILITIES: Facility[] = [
@@ -56,6 +62,7 @@ export const FACILITIES: Facility[] = [
       { id: 'alpine-half-a', name: 'Half A', surface: 'Turf', capacity: 14 },
       { id: 'alpine-half-b', name: 'Half B', surface: 'Turf', capacity: 14 },
     ],
+    coords: { latitude: 39.7392, longitude: -104.9903 },
   },
   {
     id: 'downtown-rec',
@@ -76,6 +83,7 @@ export const FACILITIES: Facility[] = [
       { id: 'rec-court-1', name: 'Court 1', surface: 'Hardwood', capacity: 10 },
       { id: 'rec-court-2', name: 'Court 2', surface: 'Hardwood', capacity: 10 },
     ],
+    coords: { latitude: 39.7525, longitude: -105.0007 },
   },
   {
     id: 'sunny-sands',
@@ -97,6 +105,7 @@ export const FACILITIES: Facility[] = [
       { id: 'sands-court-2', name: 'Court 2 (mid)', surface: 'Sand', capacity: 8 },
       { id: 'sands-court-3', name: 'Court 3 (south)', surface: 'Sand', capacity: 8 },
     ],
+    coords: { latitude: 32.7693, longitude: -117.2519 },
   },
   {
     id: 'highland-tennis',
@@ -118,6 +127,7 @@ export const FACILITIES: Facility[] = [
       { id: 'highland-h2', name: 'Hard Court 2', surface: 'Hard', capacity: 4 },
       { id: 'highland-c1', name: 'Clay Court 1', surface: 'Clay', capacity: 4 },
     ],
+    coords: { latitude: 40.018, longitude: -105.2766 },
   },
   {
     id: 'aurora-ice',
@@ -138,6 +148,7 @@ export const FACILITIES: Facility[] = [
       { id: 'aurora-rink-a', name: 'Rink A', surface: 'Ice', capacity: 20 },
       { id: 'aurora-rink-b', name: 'Rink B', surface: 'Ice', capacity: 20 },
     ],
+    coords: { latitude: 61.2181, longitude: -149.9003 },
   },
   {
     id: 'riverside',
@@ -158,8 +169,39 @@ export const FACILITIES: Facility[] = [
       { id: 'riverside-d1', name: 'Diamond 1', surface: 'Dirt', capacity: 18 },
       { id: 'riverside-d2', name: 'Diamond 2', surface: 'Dirt', capacity: 18 },
     ],
+    coords: { latitude: 39.7626, longitude: -105.014 },
   },
 ];
+
+/**
+ * Default map center for the Discover radius picker — Denver. The real app
+ * will use the device location once granted, but this is the fallback so
+ * the map has something to anchor to before permissions are resolved.
+ */
+export const DEFAULT_MAP_CENTER: GeoPoint = {
+  latitude: 39.7392,
+  longitude: -104.9903,
+};
+
+/**
+ * Approximate great-circle distance in miles between two coordinates using
+ * the Haversine formula. Sufficient for "show me games within N miles" UX.
+ */
+export function distanceMilesBetween(a: GeoPoint, b: GeoPoint): number {
+  const R = 3958.7613; // earth radius (mi)
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLon = Math.sin(dLon / 2);
+  const c =
+    sinLat * sinLat +
+    Math.cos(toRad(a.latitude)) *
+      Math.cos(toRad(b.latitude)) *
+      sinLon *
+      sinLon;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(c)));
+}
 
 export const FACILITY_SPORT_LABEL: Record<FacilitySportKey, string> = {
   soccer: 'Soccer',
