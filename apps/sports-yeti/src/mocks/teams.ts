@@ -25,6 +25,23 @@ export const CITY_COORDS: Record<string, GeoPoint> = {
   'Salt Lake City, UT': { latitude: 40.7608, longitude: -111.891 },
 };
 
+// Placeholder city list for the casual-squad create flow. The city field will
+// eventually hydrate from a places API; this limited set keeps the typeahead
+// functional in the meantime. Keyed list mirrors `CITY_COORDS` plus a few
+// nearby metros so search returns something for common queries.
+export const MOCK_CITY_OPTIONS: { value: string; label: string }[] = [
+  { value: 'Denver, CO', label: 'Denver, CO' },
+  { value: 'Boulder, CO', label: 'Boulder, CO' },
+  { value: 'Colorado Springs, CO', label: 'Colorado Springs, CO' },
+  { value: 'Fort Collins, CO', label: 'Fort Collins, CO' },
+  { value: 'San Diego, CA', label: 'San Diego, CA' },
+  { value: 'Los Angeles, CA', label: 'Los Angeles, CA' },
+  { value: 'Anchorage, AK', label: 'Anchorage, AK' },
+  { value: 'Salt Lake City, UT', label: 'Salt Lake City, UT' },
+  { value: 'Seattle, WA', label: 'Seattle, WA' },
+  { value: 'Portland, OR', label: 'Portland, OR' },
+];
+
 export type TeamLevel = 'INTERMEDIATE' | 'ADVANCED' | 'RECREATIONAL';
 export type SportKey =
   | 'soccer'

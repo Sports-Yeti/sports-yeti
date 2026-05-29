@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Plus, Trophy, Users } from 'lucide-react-native';
+import { MapPin, Plus, Users } from 'lucide-react-native';
 import { useAuthStore } from '../../stores';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
@@ -55,7 +55,7 @@ const LEVEL_CHIPS: { key: LevelFilter; label: string }[] = [
 ];
 
 const COST_CHIPS: { key: CostFilter; label: string }[] = [
-  { key: 'all', label: 'Any cost' },
+  { key: 'all', label: 'All' },
   { key: 'free', label: 'Free' },
   { key: 'paid', label: 'Paid' },
 ];
@@ -126,7 +126,6 @@ export function SquadsScreen() {
   const [radiusMiles, setRadiusMiles] = useState(DEFAULT_RADIUS);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
 
   const initials = (user?.name?.charAt(0) ?? 'S').toUpperCase();
 
@@ -392,7 +391,7 @@ export function SquadsScreen() {
             actionLabel={tab === 'mine' ? 'Find a team' : 'Browse leagues'}
             onActionPress={() => {
               if (tab === 'mine') setTab('discover');
-              else setCreateOpen(true);
+              else navigation.navigate('LeagueBrowse');
             }}
           />
           {visibleList.length === 0 ? (
@@ -409,7 +408,7 @@ export function SquadsScreen() {
                 }}
                 secondaryAction={{
                   label: 'Start a squad',
-                  onPress: () => setCreateOpen(true),
+                  onPress: () => navigation.navigate('TeamCreate'),
                 }}
               />
             ) : (
@@ -464,8 +463,8 @@ export function SquadsScreen() {
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Create or join a team"
-        onPress={() => setCreateOpen(true)}
+        accessibilityLabel="Start a casual squad"
+        onPress={() => navigation.navigate('TeamCreate')}
         style={[styles.fab, shadows.card, { bottom: insets.bottom + 110 }]}
       >
         <Plus size={20} color={colors.text.inverse} strokeWidth={2.5} />
@@ -610,67 +609,6 @@ export function SquadsScreen() {
         value={sports}
         onApply={setSportsAndSyncPositions}
       />
-
-      <BottomSheet
-        visible={createOpen}
-        onRequestClose={() => setCreateOpen(false)}
-        title="Start something new"
-        snapPoints={['55%']}
-      >
-        <View style={styles.sheetContent}>
-          <Text variant="body" color={colors.text.secondary}>
-            Create a fresh squad or browse leagues that are accepting team registrations.
-          </Text>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              setCreateOpen(false);
-              navigation.navigate('LeagueBrowse');
-            }}
-            style={({ pressed }) => [
-              styles.bigOption,
-              pressed ? styles.bigOptionPressed : null,
-            ]}
-          >
-            <View style={styles.optionIcon}>
-              <Trophy size={24} color={colors.brand.primary} strokeWidth={2.25} />
-            </View>
-            <View style={styles.optionBody}>
-              <Text variant="h3" color={colors.text.primary}>
-                Browse open leagues
-              </Text>
-              <Text variant="bodySm" color={colors.text.secondary}>
-                Captains can register a team and unlock per-player payment.
-              </Text>
-            </View>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              setCreateOpen(false);
-              navigation.navigate('TeamCreate');
-            }}
-            style={({ pressed }) => [
-              styles.bigOption,
-              pressed ? styles.bigOptionPressed : null,
-            ]}
-          >
-            <View style={styles.optionIcon}>
-              <Users size={24} color={colors.brand.primary} strokeWidth={2.25} />
-            </View>
-            <View style={styles.optionBody}>
-              <Text variant="h3" color={colors.text.primary}>
-                Start a casual squad
-              </Text>
-              <Text variant="bodySm" color={colors.text.secondary}>
-                Free or paid — invite players and you become the captain.
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-      </BottomSheet>
     </View>
   );
 }
@@ -735,28 +673,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     marginTop: spacing.lg,
-  },
-  bigOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    backgroundColor: colors.surface.bg,
-    padding: spacing.lg,
-    borderRadius: radii.lg,
-  },
-  bigOptionPressed: {
-    opacity: 0.7,
-  },
-  optionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.brand.soft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionBody: {
-    flex: 1,
-    gap: 2,
   },
 });
