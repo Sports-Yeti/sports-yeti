@@ -3,13 +3,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  ChevronDown,
-  MapPin,
-  Plus,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react-native';
+import { MapPin, Plus, SlidersHorizontal } from 'lucide-react-native';
 import { useAuthStore } from '../../stores';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
@@ -18,6 +12,7 @@ import {
   type DateRange,
   DateRangeField,
   EmptyState,
+  FilterPill,
   RadiusMapPicker,
   type RadiusCenter,
   ScreenHeader,
@@ -154,92 +149,6 @@ function hasNonDefaultFilters(f: FilterState): boolean {
   );
 }
 
-// ---------- Pill components ----------
-
-interface PillProps {
-  label: string;
-  onPress: () => void;
-  /** Optional close affordance. When provided shows an X icon and routes
-   *  its press to `onClose` instead of `onPress`. */
-  onClose?: () => void;
-  accessibilityLabel?: string;
-  /** Optional leading icon. */
-  leading?: React.ReactNode;
-}
-
-/**
- * Compact tappable filter pill. The whole pill opens the filter sheet (or
- * whatever `onPress` does). A small embedded X — when `onClose` is set —
- * removes just this filter without opening the sheet.
- */
-function Pill({ label, onPress, onClose, accessibilityLabel, leading }: PillProps) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      onPress={onPress}
-      style={({ pressed }) => [
-        pillStyles.base,
-        pressed ? pillStyles.pressed : null,
-      ]}
-      hitSlop={4}
-    >
-      {leading ? <View style={pillStyles.leading}>{leading}</View> : null}
-      <Text variant="caption" color={colors.brand.deep} style={pillStyles.label}>
-        {label}
-      </Text>
-      {onClose ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Remove ${label}`}
-          hitSlop={10}
-          onPress={onClose}
-          style={pillStyles.closeBtn}
-        >
-          <X size={12} color={colors.brand.deep} strokeWidth={2.5} />
-        </Pressable>
-      ) : (
-        <ChevronDown
-          size={12}
-          color={colors.brand.deep}
-          strokeWidth={2.5}
-        />
-      )}
-    </Pressable>
-  );
-}
-
-const pillStyles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    minHeight: 32,
-    borderRadius: radii.pill,
-    backgroundColor: colors.brand.soft,
-  },
-  pressed: {
-    opacity: 0.8,
-  },
-  leading: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    color: colors.brand.deep,
-  },
-  closeBtn: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface.card,
-  },
-});
-
 // ---------- Screen ----------
 
 export function DiscoverScreen() {
@@ -300,7 +209,7 @@ export function DiscoverScreen() {
 
         <View style={styles.pillRow}>
           {selectedSportEntries.map((entry) => (
-            <Pill
+            <FilterPill
               key={entry.key}
               label={entry.label}
               onPress={() => setSportSheetOpen(true)}
@@ -309,16 +218,16 @@ export function DiscoverScreen() {
             />
           ))}
           {selectedSportEntries.length === 0 ? (
-            <Pill
+            <FilterPill
               label="Sports · Any"
               onPress={() => setSportSheetOpen(true)}
             />
           ) : null}
-          <Pill
+          <FilterPill
             label={`Status · ${statusLabel(filters.status)}`}
             onPress={() => setFilterSheetOpen(true)}
           />
-          <Pill
+          <FilterPill
             label={
               filters.skill === 'all'
                 ? 'Skill · All'
@@ -326,7 +235,7 @@ export function DiscoverScreen() {
             }
             onPress={() => setFilterSheetOpen(true)}
           />
-          <Pill
+          <FilterPill
             label={distanceLabel(filters)}
             onPress={() => setFilterSheetOpen(true)}
             leading={

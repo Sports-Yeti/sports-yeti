@@ -5,6 +5,9 @@ export { Button } from './Button';
 export { Avatar, AvatarStack } from './Avatar';
 export { IconBadge } from './IconBadge';
 export { SearchBar } from './SearchBar';
+
+export { FilterPill } from './FilterPill';
+export type { FilterPillProps } from './FilterPill';
 export { SectionHeader } from './SectionHeader';
 export { ScreenHeader } from './ScreenHeader';
 
@@ -31,6 +34,9 @@ export type { SportComboboxMode, SportComboboxProps } from './SportCombobox';
 
 export { SportMultiSelectSheet } from './SportMultiSelectSheet';
 export type { SportMultiSelectSheetProps } from './SportMultiSelectSheet';
+
+export { SearchMultiSelect } from './SearchMultiSelect';
+export type { SearchMultiSelectProps } from './SearchMultiSelect';
 
 export { ToastProvider, useToast } from './Toast';
 export type { ToastInput, ToastVariant } from './Toast';

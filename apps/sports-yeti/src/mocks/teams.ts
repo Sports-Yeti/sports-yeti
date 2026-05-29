@@ -13,6 +13,17 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { PLAYER_AVATARS, SARAH_AVATAR } from './avatars';
+import type { GeoPoint } from './facilities';
+
+// Approximate city coordinates so Find a Team can filter teams by radius,
+// mirroring the Discover map picker. Keyed by the team's display location.
+export const CITY_COORDS: Record<string, GeoPoint> = {
+  'Denver, CO': { latitude: 39.7392, longitude: -104.9903 },
+  'Boulder, CO': { latitude: 40.018, longitude: -105.2766 },
+  'San Diego, CA': { latitude: 32.7693, longitude: -117.2519 },
+  'Anchorage, AK': { latitude: 61.2181, longitude: -149.9003 },
+  'Salt Lake City, UT': { latitude: 40.7608, longitude: -111.891 },
+};
 
 export type TeamLevel = 'INTERMEDIATE' | 'ADVANCED' | 'RECREATIONAL';
 export type SportKey =
@@ -76,6 +87,8 @@ export interface Squad {
   rosterMax: number;
   /** Current user's relationship to the team. */
   membership: Membership;
+  /** Approximate coordinates (from the team's city) for radius filtering. */
+  coords: GeoPoint;
 }
 
 // ----------------------------------------------------------------------------
@@ -1033,6 +1046,7 @@ export const SQUADS: Squad[] = Object.values(TEAM_DETAILS).map((team) => ({
   rosterCount: team.roster.length,
   rosterMax: team.rosterMax,
   membership: team.membership,
+  coords: CITY_COORDS[team.location] ?? { latitude: 39.7392, longitude: -104.9903 },
 }));
 
 export const CAPTAIN_OF_TEAMS = Object.values(TEAM_DETAILS).filter(
