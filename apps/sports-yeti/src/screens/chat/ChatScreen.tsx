@@ -48,6 +48,10 @@ const VOTE_LABEL: Record<CommitVote, string> = {
   out: "Can't",
 };
 
+// Stable reference so the zustand selector doesn't return a fresh array each
+// render (which triggers an infinite getSnapshot/update loop).
+const EMPTY_MESSAGES: ChatMessage[] = [];
+
 function deriveTeamIdFromChatId(chatId: string): string | undefined {
   if (!chatId.startsWith('chat-')) return undefined;
   const candidate = chatId.replace('chat-', '');
@@ -258,7 +262,7 @@ export function ChatScreen() {
   const toast = useToast();
   const chat = CHATS.find((c) => c.id === route.params.chatId);
   const messages = useTeamChat(
-    (s) => s.messagesByChat[route.params.chatId] ?? [],
+    (s) => s.messagesByChat[route.params.chatId] ?? EMPTY_MESSAGES,
   );
   const postCard = useTeamChat((s) => s.postCard);
   const appendUserMessage = useTeamChat((s) => s.appendUserMessage);
