@@ -195,6 +195,19 @@ export function TeamCreateScreen() {
     setStep((s) => (s - 1) as Step);
   };
 
+  // Skip league selection entirely → an independent, free squad with no fee.
+  const handleSkipLeague = () => {
+    Haptics.selectionAsync();
+    setForm((f) => ({
+      ...f,
+      leagueMode: 'custom',
+      leagueId: null,
+      customEntry: 'free',
+      manualFeePerPlayerCents: 0,
+    }));
+    setStep(3);
+  };
+
   const total = totalCostCents(form);
   const primaryLabel =
     step === STEP_COUNT
@@ -252,7 +265,7 @@ export function TeamCreateScreen() {
           {step === 1
             ? 'Name your team, pick a sport, skill level, and home city.'
             : step === 2
-            ? 'Find a league near you, or set up an independent squad.'
+            ? 'Find a league near you, set up an independent squad, or skip for a free squad with no fee.'
             : 'Set the roster size and decide how the entry fee is covered.'}
         </Text>
 
@@ -270,6 +283,15 @@ export function TeamCreateScreen() {
           disabled={!canAdvance || submitting}
           onPress={handleNext}
         />
+        {step === 2 ? (
+          <Button
+            label="Skip — only create squad"
+            variant="ghost"
+            fullWidth
+            onPress={handleSkipLeague}
+            style={styles.skipBtn}
+          />
+        ) : null}
       </View>
     </View>
   );
@@ -1084,5 +1106,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface.card,
     borderTopWidth: 1,
     borderTopColor: colors.border.soft,
+  },
+  skipBtn: {
+    marginTop: spacing.sm,
   },
 });

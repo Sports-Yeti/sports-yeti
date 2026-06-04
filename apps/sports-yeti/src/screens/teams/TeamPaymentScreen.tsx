@@ -206,7 +206,7 @@ export function TeamPaymentScreen() {
               Roster size
             </Text>
             <Text variant="button" color={colors.text.primary}>
-              {team.roster.length}
+              {team.rosterMax} expected · {team.roster.length} joined
             </Text>
           </View>
           <View style={styles.summaryDivider} />

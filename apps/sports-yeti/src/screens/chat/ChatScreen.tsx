@@ -280,13 +280,10 @@ export function ChatScreen() {
   const team = teamId ? TEAM_DETAILS[teamId] : undefined;
   const isCaptain = !!team?.isCaptain;
   const isMember = team?.membership === 'member' || team?.membership === 'captain';
-  const youArePaid =
-    !team
-      ? true
-      : team.costMode === 'free'
-      ? true
-      : !team.hasUnpaidShare;
-  const chatLocked = !!team && team.costMode === 'paid' && isMember && !youArePaid;
+  // Team chat is members-only and gated solely on approval: once the captain
+  // approves a player onto the roster they get full chat access. Payment never
+  // blocks chat. Non-team chats (DMs, events) are unaffected.
+  const blockedNonMember = !!team && !isMember;
 
   const send = () => {
     const body = draft.trim();
@@ -345,7 +342,7 @@ export function ChatScreen() {
     }
   };
 
-  if (chatLocked && team) {
+  if (blockedNonMember && team) {
     return (
       <View style={styles.root}>
         <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
@@ -373,15 +370,14 @@ export function ChatScreen() {
         <View style={styles.lockedBlock}>
           <EmptyState
             icon={<Lock size={28} color={colors.brand.primary} strokeWidth={2.25} />}
-            title="Chat is locked"
-            description={`Pay your ${formatCurrency(team.perPlayerCents)} season share to read and post in ${team.name} chat.`}
+            title="Members only"
+            description={
+              team.membership === 'pending'
+                ? `Your request to join ${team.name} is pending. You'll get into chat as soon as the captain approves you.`
+                : `Team chat opens up once the captain approves you onto ${team.name}.`
+            }
             primaryAction={{
-              label: `Pay ${formatCurrency(team.perPlayerCents)}`,
-              onPress: () =>
-                navigation.navigate('TeamPayment', { teamId: team.id }),
-            }}
-            secondaryAction={{
-              label: 'View team',
+              label: team.membership === 'pending' ? 'View team' : 'Offer to join',
               onPress: () =>
                 navigation.navigate('TeamDetails', { id: team.id }),
             }}

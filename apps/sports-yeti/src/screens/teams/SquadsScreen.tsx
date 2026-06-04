@@ -68,7 +68,7 @@ const LEVEL_LABEL: Record<LevelFilter, string> = {
 };
 
 const COST_LABEL: Record<CostFilter, string> = {
-  all: 'Any',
+  all: 'All',
   free: 'Free',
   paid: 'Paid',
 };
@@ -386,14 +386,6 @@ export function SquadsScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <SectionHeader
-            title={sectionTitle}
-            actionLabel={tab === 'mine' ? 'Find a team' : 'Browse leagues'}
-            onActionPress={() => {
-              if (tab === 'mine') setTab('discover');
-              else navigation.navigate('LeagueBrowse');
-            }}
-          />
           {visibleList.length === 0 ? (
             tab === 'mine' ? (
               <EmptyState

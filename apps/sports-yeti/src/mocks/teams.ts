@@ -219,6 +219,19 @@ export interface TeamDetail {
   needs: SquadNeed[];
 }
 
+/**
+ * A team counts as a "league team" once it's accepted into an organized league —
+ * either it already has a `league` reference or its registration was approved.
+ * League teams collect entry fees directly through the platform (payments route
+ * to the league). Everything else is a "custom" squad whose captain settles any
+ * league fee externally and marks players paid manually.
+ */
+export function isLeagueTeam(
+  team: Pick<TeamDetail, 'league' | 'leagueRegistration'>,
+): boolean {
+  return Boolean(team.league) || team.leagueRegistration?.status === 'approved';
+}
+
 // ----------------------------------------------------------------------------
 // Open leagues — used by both player browse and captain registration flow.
 // ----------------------------------------------------------------------------
@@ -810,6 +823,167 @@ export const TEAM_DETAILS: Record<string, TeamDetail> = {
       submittedAt: '3d ago',
       notesFromAdmin: "Approved — collect each player's $160 share before May 1.",
     },
+    needs: [],
+  },
+
+  // Paid + Sarah is captain, but a CUSTOM squad (no platform league). The captain
+  // pays the outside league fee herself and collects each player's share in
+  // person, then marks them paid here. Demonstrates the custom-league join +
+  // captain-confirmed payment flow.
+  'summit-ballers': {
+    id: 'summit-ballers',
+    name: 'Summit Ballers',
+    abbreviation: 'SMB',
+    sport: 'Co-ed Basketball 5v5',
+    sportKey: 'basketball',
+    location: 'Boulder, CO',
+    level: 'INTERMEDIATE',
+    league: undefined,
+    description:
+      "Independent run we organize ourselves at the Boulder Rec Center. I front the gym rental and collect everyone's share before the first night.",
+    stats: { wins: 4, losses: 2, ties: 0, pointsFor: 0, pointsAgainst: 0, streak: 'W1' },
+    roster: [
+      {
+        id: 'smb-1',
+        playerId: 'p-sarah',
+        name: 'Sarah Jenkins',
+        handle: '@jenkins_yeti',
+        avatar: SARAH_AVATAR,
+        position: 'Point Guard',
+        role: 'captain',
+        experience: 'advanced',
+        paymentStatus: 'paid',
+        isYou: true,
+      },
+      {
+        id: 'smb-2',
+        playerId: 'p-priya',
+        name: 'Priya S.',
+        handle: '@priya_serves',
+        avatar: PLAYER_AVATARS[5]!,
+        position: 'Shooting Guard',
+        role: 'member',
+        experience: 'pro',
+        paymentStatus: 'paid',
+      },
+      {
+        id: 'smb-3',
+        playerId: 'p-ash',
+        name: 'Ash D.',
+        handle: '@ash_d',
+        avatar: PLAYER_AVATARS[3]!,
+        position: 'Center',
+        role: 'member',
+        experience: 'intermediate',
+        paymentStatus: 'pending',
+      },
+    ],
+    rosterMax: 10,
+    pendingApplications: [
+      {
+        id: 'smb-app-1',
+        playerId: 'p-leo',
+        name: 'Leo P.',
+        handle: '@leo_p',
+        avatar: PLAYER_AVATARS[4]!,
+        position: 'Small Forward',
+        experience: 'intermediate',
+        appliedAt: '1d ago',
+        message: "I can run the wing and I'm good for my share up front. When do you tip off?",
+      },
+    ],
+    schedule: [
+      {
+        id: 'smb-s-1',
+        date: 'Wed · May 21',
+        opponent: 'Flatiron Fast Break',
+        opponentAbbreviation: 'FFB',
+        location: 'Boulder Rec Center · Court 2',
+        upcoming: true,
+      },
+    ],
+    Icon: Zap,
+    isCaptain: true,
+    membership: 'captain',
+    hasUnpaidShare: false,
+    costMode: 'paid',
+    feeTotalCents: 60000,
+    perPlayerCents: 6000,
+    currency: 'USD',
+    needs: [{ label: 'Small Forward' }, { label: 'Power Forward' }],
+  },
+
+  // Paid + Sarah is a MEMBER of a custom squad and hasn't paid yet. The captain
+  // collects in person, so Sarah can't self-pay — her chat stays locked until
+  // the captain marks her paid. Player side of the custom-league payment flow.
+  'riverside-rovers': {
+    id: 'riverside-rovers',
+    name: 'Riverside Rovers',
+    abbreviation: 'RIV',
+    sport: "Men's Soccer 11v11",
+    sportKey: 'soccer',
+    location: 'Fort Collins, CO',
+    level: 'RECREATIONAL',
+    league: undefined,
+    description:
+      "Pickup-turned-real-team that rents the turf at Rolland Moore on Thursdays. Cap fronts the field cost and we square up at the first session.",
+    stats: { wins: 2, losses: 2, ties: 1, pointsFor: 0, pointsAgainst: 0, streak: 'T1' },
+    roster: [
+      {
+        id: 'riv-1',
+        playerId: 'p-leo',
+        name: 'Leo P.',
+        handle: '@leo_p',
+        avatar: PLAYER_AVATARS[4]!,
+        position: 'Left Wing',
+        role: 'captain',
+        experience: 'advanced',
+        paymentStatus: 'paid',
+      },
+      {
+        id: 'riv-2',
+        playerId: 'p-sarah',
+        name: 'Sarah Jenkins',
+        handle: '@jenkins_yeti',
+        avatar: SARAH_AVATAR,
+        position: 'Center Mid',
+        role: 'member',
+        experience: 'intermediate',
+        paymentStatus: 'pending',
+        isYou: true,
+      },
+      {
+        id: 'riv-3',
+        playerId: 'p-marcus',
+        name: 'Marcus L.',
+        handle: '@marcus_strikes',
+        avatar: PLAYER_AVATARS[0]!,
+        position: 'Striker',
+        role: 'member',
+        experience: 'advanced',
+        paymentStatus: 'paid',
+      },
+    ],
+    rosterMax: 14,
+    pendingApplications: [],
+    schedule: [
+      {
+        id: 'riv-s-1',
+        date: 'Thu · May 22',
+        opponent: 'Old Town United',
+        opponentAbbreviation: 'OTU',
+        location: 'Rolland Moore · Turf 1',
+        upcoming: true,
+      },
+    ],
+    Icon: Wind,
+    isCaptain: false,
+    membership: 'member',
+    hasUnpaidShare: true,
+    costMode: 'paid',
+    feeTotalCents: 84000,
+    perPlayerCents: 6000,
+    currency: 'USD',
     needs: [],
   },
 

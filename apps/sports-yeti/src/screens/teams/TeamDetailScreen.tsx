@@ -10,6 +10,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
+  BadgeCheck,
   CalendarClock,
   CheckCircle2,
   ChevronLeft,
@@ -17,15 +18,12 @@ import {
   Clock,
   CreditCard,
   Crown,
-  Lock,
   MessageCircle,
   Share2,
-  ShieldCheck,
   Trash2,
   Trophy,
   UserMinus,
   UserPlus,
-  Vote,
 } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
@@ -35,6 +33,7 @@ import {
   Card,
   EmptyState,
   IconBadge,
+  Input,
   Modal,
   Tabs,
   Tag,
@@ -44,6 +43,7 @@ import {
 import {
   OPEN_LEAGUES,
   TEAM_DETAILS,
+  isLeagueTeam,
   type CommitPoll,
   type OpenLeague,
   type PendingApplication,
@@ -58,7 +58,7 @@ import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'TeamDetails'>;
 type Route = RouteProp<RootStackParamList, 'TeamDetails'>;
-type Tab = 'roster' | 'schedule' | 'about';
+type Tab = 'roster' | 'schedule' | 'fee';
 
 const PAYMENT_TONE = {
   paid: 'success' as const,
@@ -74,6 +74,67 @@ const PAYMENT_LABEL = {
   not_required: 'Free',
 };
 
+type LeagueTagTone = 'success' | 'warning' | 'live' | 'neutral' | 'info';
+
+interface LeagueInfo {
+  title: string;
+  subtitle: string;
+  tagLabel: string;
+  tone?: LeagueTagTone;
+}
+
+/** Surfaces the team's league affiliation as a "provider" card, mirroring the
+ *  venue/vendor block on the event detail page. */
+function describeLeague(team: TeamDetail): LeagueInfo {
+  const reg = team.leagueRegistration;
+  if (reg) {
+    switch (reg.status) {
+      case 'approved':
+        return {
+          title: reg.leagueName,
+          subtitle: `${team.sport} · registered for league play`,
+          tagLabel: 'Registered',
+          tone: 'success',
+        };
+      case 'pending_admin':
+        return {
+          title: reg.leagueName,
+          subtitle: 'Registration under review by the league',
+          tagLabel: 'Pending',
+          tone: 'warning',
+        };
+      case 'rejected':
+        return {
+          title: reg.leagueName,
+          subtitle: 'Registration was not approved',
+          tagLabel: 'Rejected',
+          tone: 'live',
+        };
+      default:
+        return {
+          title: reg.leagueName,
+          subtitle: 'Draft registration — not submitted yet',
+          tagLabel: 'Draft',
+          tone: 'neutral',
+        };
+    }
+  }
+  if (team.league) {
+    return {
+      title: team.league.name,
+      subtitle: `${team.sport} · league play`,
+      tagLabel: 'League',
+      tone: 'info',
+    };
+  }
+  return {
+    title: 'Custom league',
+    subtitle: 'Independent squad — the captain settles any league fee directly',
+    tagLabel: 'Custom',
+    tone: 'neutral',
+  };
+}
+
 interface CaptainHandlers {
   onRemove: (m: RosterMember) => void;
 }
@@ -82,18 +143,27 @@ function RosterRow({
   member,
   isCaptainView,
   costMode,
+  captainCollectsPayment,
   onMessage,
   onNudge,
+  onMarkPaid,
   captainHandlers,
 }: {
   member: RosterMember;
   isCaptainView: boolean;
   costMode: 'free' | 'paid';
+  /** Custom-league teams: the captain confirms payment manually. */
+  captainCollectsPayment: boolean;
   onMessage: (m: RosterMember) => void;
   onNudge: (m: RosterMember) => void;
+  onMarkPaid: (m: RosterMember) => void;
   captainHandlers: CaptainHandlers;
 }) {
   const showPaymentTag = costMode === 'paid';
+  const owesPayment =
+    member.paymentStatus === 'pending' || member.paymentStatus === 'overdue';
+  const canMarkPaid =
+    isCaptainView && captainCollectsPayment && costMode === 'paid' && owesPayment;
   return (
     <View style={styles.rosterRow}>
       <View style={styles.rosterAvatarShell}>
@@ -136,7 +206,19 @@ function RosterRow({
             strokeWidth={2.25}
           />
         </Pressable>
-        {isCaptainView && member.paymentStatus === 'overdue' ? (
+        {canMarkPaid ? (
+          <Pressable
+            onPress={() => onMarkPaid(member)}
+            accessibilityRole="button"
+            accessibilityLabel={`Mark ${member.name} as paid`}
+            accessibilityHint="Confirms you collected their share for this custom-league squad"
+            hitSlop={6}
+            style={styles.iconButton}
+          >
+            <BadgeCheck size={18} color={colors.status.success} strokeWidth={2.25} />
+          </Pressable>
+        ) : null}
+        {isCaptainView && !captainCollectsPayment && member.paymentStatus === 'overdue' ? (
           <Pressable
             onPress={() => onNudge(member)}
             accessibilityRole="button"
@@ -205,32 +287,48 @@ function PendingApplicationRow({
   app,
   onApprove,
   onDecline,
+  onViewProfile,
 }: {
   app: PendingApplication;
   onApprove: () => void;
   onDecline: () => void;
+  onViewProfile: () => void;
 }) {
   return (
     <View style={styles.appRow}>
-      <Avatar uri={app.avatar} initials={app.name.charAt(0)} size={40} />
-      <View style={styles.appBody}>
-        <Text variant="button" color={colors.text.primary}>
-          {app.name}
-        </Text>
-        <Text variant="caption" color={colors.text.secondary}>
-          {app.position} · applied {app.appliedAt}
-        </Text>
-        {app.message ? (
-          <Text
-            variant="bodySm"
-            color={colors.text.primary}
-            numberOfLines={2}
-            style={styles.appMessage}
-          >
-            "{app.message}"
+      <Pressable
+        onPress={onViewProfile}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${app.name}'s profile`}
+        accessibilityHint="Review their profile before approving the request"
+        style={styles.appProfileTap}
+      >
+        <Avatar uri={app.avatar} initials={app.name.charAt(0)} size={40} />
+        <View style={styles.appBody}>
+          <Text variant="button" color={colors.text.primary}>
+            {app.name}
           </Text>
-        ) : null}
-      </View>
+          <Text variant="caption" color={colors.text.secondary}>
+            {app.position} · applied {app.appliedAt}
+          </Text>
+          {app.message ? (
+            <Text
+              variant="bodySm"
+              color={colors.text.primary}
+              numberOfLines={2}
+              style={styles.appMessage}
+            >
+              "{app.message}"
+            </Text>
+          ) : null}
+          <View style={styles.appProfileHint}>
+            <Text variant="caption" color={colors.brand.primary}>
+              View profile
+            </Text>
+            <ChevronRight size={12} color={colors.brand.primary} strokeWidth={2.5} />
+          </View>
+        </View>
+      </Pressable>
       <View style={styles.appActions}>
         <Pressable
           onPress={onDecline}
@@ -244,147 +342,6 @@ function PendingApplicationRow({
         <Button label="Approve" variant="gradient" size="sm" onPress={onApprove} />
       </View>
     </View>
-  );
-}
-
-function CaptainControls({
-  team,
-  onBrowseLeagues,
-  onShareLeague,
-  onStartPoll,
-  onInvite,
-}: {
-  team: TeamDetail;
-  onBrowseLeagues: () => void;
-  onShareLeague: () => void;
-  onStartPoll: () => void;
-  onInvite: () => void;
-}) {
-  const isFull = team.roster.length >= team.rosterMax;
-  return (
-    <Card style={styles.captainCard}>
-      <View style={styles.captainHead}>
-        <IconBadge size={40} tone="brand">
-          <ShieldCheck size={18} color={colors.brand.deep} strokeWidth={2.25} />
-        </IconBadge>
-        <View style={styles.captainHeadBody}>
-          <Text variant="h3" color={colors.text.primary}>
-            Captain controls
-          </Text>
-          <Text variant="bodySm" color={colors.text.secondary}>
-            Manage league registration, roster, and team consensus.
-          </Text>
-        </View>
-      </View>
-
-      {team.leagueRegistration ? (
-        <View style={styles.regCard}>
-          <View style={styles.regHead}>
-            <Text variant="eyebrow" color={colors.text.secondary}>
-              League registration
-            </Text>
-            <Tag
-              tone={
-                team.leagueRegistration.status === 'approved'
-                  ? 'success'
-                  : team.leagueRegistration.status === 'pending_admin'
-                  ? 'warning'
-                  : team.leagueRegistration.status === 'rejected'
-                  ? 'live'
-                  : 'neutral'
-              }
-              size="sm"
-              label={
-                team.leagueRegistration.status === 'approved'
-                  ? 'Approved · payments unlocked'
-                  : team.leagueRegistration.status === 'pending_admin'
-                  ? 'Pending admin'
-                  : team.leagueRegistration.status === 'rejected'
-                  ? 'Rejected'
-                  : 'Draft'
-              }
-            />
-          </View>
-          <Text variant="button" color={colors.text.primary}>
-            {team.leagueRegistration.leagueName}
-          </Text>
-          {team.leagueRegistration.notesFromAdmin ? (
-            <Text variant="bodySm" color={colors.text.secondary}>
-              {team.leagueRegistration.notesFromAdmin}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
-
-      <View style={styles.captainActionGrid}>
-        <CaptainAction
-          Icon={Trophy}
-          label="Browse leagues"
-          description="Search and enrol your team"
-          onPress={onBrowseLeagues}
-        />
-        <CaptainAction
-          Icon={Share2}
-          label="Share a league"
-          description="Drop a league card in chat"
-          onPress={onShareLeague}
-        />
-        <CaptainAction
-          Icon={Vote}
-          label="Start commit poll"
-          description="Ask the squad if they're in"
-          onPress={onStartPoll}
-        />
-        <CaptainAction
-          Icon={UserPlus}
-          label={isFull ? 'Roster is full' : 'Invite players'}
-          description={isFull ? 'Remove a player to invite' : 'From the player directory'}
-          onPress={onInvite}
-          disabled={isFull}
-        />
-      </View>
-    </Card>
-  );
-}
-
-function CaptainAction({
-  Icon,
-  label,
-  description,
-  onPress,
-  disabled,
-}: {
-  Icon: typeof Trophy;
-  label: string;
-  description: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => [
-        styles.captainAction,
-        pressed && !disabled ? styles.captainActionPressed : null,
-        disabled ? styles.captainActionDisabled : null,
-      ]}
-    >
-      <View style={styles.captainActionIcon}>
-        <Icon size={18} color={colors.brand.primary} strokeWidth={2.25} />
-      </View>
-      <View style={styles.captainActionBody}>
-        <Text variant="button" color={colors.text.primary}>
-          {label}
-        </Text>
-        <Text variant="caption" color={colors.text.secondary}>
-          {description}
-        </Text>
-      </View>
-      <ChevronRight size={16} color={colors.text.muted} strokeWidth={2.25} />
-    </Pressable>
   );
 }
 
@@ -407,6 +364,8 @@ export function TeamDetailScreen() {
   const [removeTarget, setRemoveTarget] = useState<RosterMember | null>(null);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [pollSheetOpen, setPollSheetOpen] = useState(false);
+  const [joinSheetOpen, setJoinSheetOpen] = useState(false);
+  const [joinMessage, setJoinMessage] = useState('');
 
   // Re-pull the team from mocks if the user navigates back to a fresh detail.
   useFocusEffect(
@@ -417,15 +376,11 @@ export function TeamDetailScreen() {
     }, [route.params.id]),
   );
 
-  const totalGames = useMemo(() => {
-    if (!team) return 0;
-    return team.stats.wins + team.stats.losses + team.stats.ties;
-  }, [team]);
-
-  const winPct = useMemo(() => {
-    if (!team || totalGames === 0) return '—';
-    return `${Math.round((team.stats.wins / totalGames) * 100)}%`;
-  }, [team, totalGames]);
+  const teamPoll: CommitPoll | undefined = useMemo(() => {
+    const leagueId = team?.leagueRegistration?.leagueId;
+    if (!leagueId) return undefined;
+    return Object.values(polls).find((p) => p.leagueId === leagueId);
+  }, [polls, team?.leagueRegistration?.leagueId]);
 
   if (!team) {
     return (
@@ -448,13 +403,17 @@ export function TeamDetailScreen() {
   const yourPaymentStatus = youMember?.paymentStatus ?? 'pending';
   const youArePaid =
     team.costMode === 'free' || yourPaymentStatus === 'paid' || yourPaymentStatus === 'not_required';
-  const chatLocked = team.costMode === 'paid' && isMember && !youArePaid;
+  // League teams collect fees through the platform (player pays the league
+  // directly). Custom squads collect in person and the captain marks players
+  // paid manually — so members can't self-serve a payment for those.
+  const isLeague = isLeagueTeam(team);
+  const captainCollectsPayment = team.costMode === 'paid' && !isLeague;
+  // Chat is gated on approval, not payment. An unpaid member still gets full
+  // chat access; this just surfaces a non-blocking reminder to settle the fee.
+  const paymentDue = isMember && !youArePaid;
+  const captains = team.roster.filter((m) => m.role === 'captain');
+  const leagueInfo = describeLeague(team);
   const chatId = `chat-${team.id}`;
-  const teamPoll: CommitPoll | undefined = useMemo(() => {
-    return Object.values(polls).find(
-      (p) => p.leagueId && team.leagueRegistration?.leagueId === p.leagueId,
-    );
-  }, [polls, team.leagueRegistration?.leagueId]);
 
   const handleNudge = (m: RosterMember) => {
     Haptics.selectionAsync();
@@ -507,13 +466,52 @@ export function TeamDetailScreen() {
         pendingApplications: prev.pendingApplications.filter((a) => a.id !== app.id),
       };
     });
+    const description =
+      team.costMode === 'free'
+        ? "They've got team chat and the fixtures."
+        : isLeague
+        ? `They're in with full chat access. They'll pay their ${formatCurrency(team.perPlayerCents)} share to ${team.league?.name ?? 'the league'} directly.`
+        : `They're in with full chat access. Collect their ${formatCurrency(team.perPlayerCents)} share and mark them paid when settled.`;
     toast.show({
       variant: 'success',
       title: `${app.name} is on the squad`,
+      description,
+    });
+  };
+
+  const handleMarkPaid = (m: RosterMember) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTeam((prev) =>
+      prev
+        ? {
+            ...prev,
+            roster: prev.roster.map((r) =>
+              r.id === m.id ? { ...r, paymentStatus: 'paid' } : r,
+            ),
+          }
+        : prev,
+    );
+    toast.show({
+      variant: 'success',
+      title: `Marked ${m.name} as paid`,
+      description: 'Their share is settled. You handle the league fee externally.',
+    });
+  };
+
+  const handleSubmitJoin = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setJoinSheetOpen(false);
+    setJoinMessage('');
+    setTeam((prev) => (prev ? { ...prev, membership: 'pending' } : prev));
+    toast.show({
+      variant: 'success',
+      title: `Request sent to ${team.name}`,
       description:
         team.costMode === 'paid'
-          ? `Per-player share is now ${formatCurrency(Math.round(team.feeTotalCents / (team.roster.length + 1)))}.`
-          : 'They\'ve been added to team chat and the fixtures.',
+          ? isLeague
+            ? `The captain reviews your request. Once approved, you're in the chat and can pay your ${formatCurrency(team.perPlayerCents)} share to the league.`
+            : `The captain reviews your request. Once approved, you're in the chat — settle your ${formatCurrency(team.perPlayerCents)} share with the captain.`
+          : 'The captain will respond within 48 hours.',
     });
   };
 
@@ -584,20 +582,39 @@ export function TeamDetailScreen() {
   };
 
   const renderHeroBanner = () => {
-    if (chatLocked) {
+    // Custom squad: captain collects in person. Non-blocking reminder only —
+    // the member already has full chat access.
+    if (paymentDue && captainCollectsPayment) {
       return (
-        <Card style={styles.lockBanner}>
+        <Card style={styles.pendingBanner}>
+          <CreditCard size={20} color={colors.status.warning} strokeWidth={2.25} />
+          <View style={styles.lockBody}>
+            <Text variant="button" color={colors.text.primary}>
+              {`${formatCurrency(team.perPlayerCents)} share due`}
+            </Text>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {`This squad collects its share in person — settle up with the captain and they'll mark you paid.`}
+            </Text>
+          </View>
+        </Card>
+      );
+    }
+    // League team: player pays the league directly. Reminder with a pay action,
+    // but chat is not blocked.
+    if (paymentDue) {
+      return (
+        <Card style={styles.pendingBanner}>
           <View style={styles.lockBody}>
             <View style={styles.lockHeader}>
-              <Lock size={16} color={colors.status.live} strokeWidth={2.25} />
-              <Text variant="button" color={colors.status.live}>
-                Pay to unlock team chat
+              <CreditCard size={16} color={colors.status.warning} strokeWidth={2.25} />
+              <Text variant="button" color={colors.text.primary}>
+                {`${formatCurrency(team.perPlayerCents)} share due`}
               </Text>
             </View>
             <Text variant="bodySm" color={colors.text.secondary}>
-              Your {formatCurrency(team.perPlayerCents)} share is{' '}
-              {PAYMENT_LABEL[yourPaymentStatus].toLowerCase()} for{' '}
-              {team.league?.name ?? 'this season'}.
+              Your share is {PAYMENT_LABEL[yourPaymentStatus].toLowerCase()} for{' '}
+              {team.league?.name ?? 'this season'}. Payment goes directly to the
+              league.
             </Text>
           </View>
           <Button
@@ -642,35 +659,28 @@ export function TeamDetailScreen() {
     return null;
   };
 
-  const chatCtaLabel = chatLocked
-    ? `Pay ${formatCurrency(team.perPlayerCents)} to unlock chat`
-    : team.membership === 'none'
-    ? 'Apply to Team'
-    : team.membership === 'pending'
-    ? 'Application pending'
-    : 'Open team chat';
+  // Chat opens as soon as a player is approved onto the roster — payment never
+  // blocks access.
+  const chatCtaLabel =
+    team.membership === 'none'
+      ? 'Offer to join'
+      : team.membership === 'pending'
+      ? 'Request pending'
+      : 'Open team chat';
 
-  const chatCtaIcon = chatLocked ? (
-    <Lock size={18} color={colors.text.inverse} strokeWidth={2.5} />
-  ) : (
-    <MessageCircle size={18} color={colors.text.inverse} strokeWidth={2.5} />
-  );
+  const chatCtaDisabled = team.membership === 'pending';
+
+  const chatCtaIcon =
+    team.membership === 'none' ? (
+      <UserPlus size={18} color={colors.text.inverse} strokeWidth={2.5} />
+    ) : (
+      <MessageCircle size={18} color={colors.text.inverse} strokeWidth={2.5} />
+    );
 
   const handleChatCta = () => {
-    if (chatLocked) {
-      navigation.navigate('TeamPayment', { teamId: team.id });
-      return;
-    }
     if (team.membership === 'pending') return;
     if (team.membership === 'none') {
-      toast.show({
-        variant: 'success',
-        title: `Applied to ${team.name}`,
-        description: team.costMode === 'paid'
-          ? `Captain reviews within 48h. You\'ll pay ${formatCurrency(team.perPlayerCents)} once accepted.`
-          : 'The captain will respond within 48 hours.',
-      });
-      setTeam((prev) => (prev ? { ...prev, membership: 'pending' } : prev));
+      setJoinSheetOpen(true);
       return;
     }
     navigation.navigate('Chat', { chatId, title: `${team.name} Chat` });
@@ -727,7 +737,6 @@ export function TeamDetailScreen() {
                   : `${formatCurrency(team.perPlayerCents)} / player`
               }
             />
-            {team.league ? <Tag tone="info" label={team.league.name} size="sm" /> : null}
             {team.isCaptain ? (
               <Tag tone="brand" size="sm" label="You captain" />
             ) : null}
@@ -736,43 +745,73 @@ export function TeamDetailScreen() {
 
         {renderHeroBanner()}
 
-        <View style={styles.statsRow}>
-          <Card padded style={styles.statCard}>
-            <Text variant="display" color={colors.text.primary}>
-              {team.stats.wins}
-            </Text>
-            <Text variant="eyebrow" color={colors.text.secondary}>
-              Wins
-            </Text>
-          </Card>
-          <Card padded style={styles.statCard}>
-            <Text variant="display" color={colors.text.primary}>
-              {team.stats.losses}
-            </Text>
-            <Text variant="eyebrow" color={colors.text.secondary}>
-              Losses
-            </Text>
-          </Card>
-          <Card padded style={styles.statCard}>
-            <Text variant="display" color={colors.text.primary}>
-              {winPct}
-            </Text>
-            <Text variant="eyebrow" color={colors.text.secondary}>
-              Win %
+        <View style={styles.section}>
+          <Text variant="h2" color={colors.text.primary}>
+            About
+          </Text>
+          <Card style={styles.aboutCard}>
+            <Text variant="body" color={colors.text.primary}>
+              {team.description}
             </Text>
           </Card>
         </View>
 
-        {team.isCaptain ? (
-          <CaptainControls
-            team={team}
-            onBrowseLeagues={() =>
-              navigation.navigate('LeagueBrowse', { mode: 'captain', teamId: team.id })
-            }
-            onShareLeague={() => setShareSheetOpen(true)}
-            onStartPoll={() => setPollSheetOpen(true)}
-            onInvite={() => navigation.navigate('PlayerDirectory')}
-          />
+        <View style={styles.section}>
+          <Text variant="h2" color={colors.text.primary}>
+            League
+          </Text>
+          <View style={styles.providerRow}>
+            <IconBadge size={48} tone="brand">
+              <Trophy size={20} color={colors.brand.deep} strokeWidth={2.25} />
+            </IconBadge>
+            <View style={styles.providerBody}>
+              <Text variant="h3" color={colors.text.primary}>
+                {leagueInfo.title}
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {leagueInfo.subtitle}
+              </Text>
+            </View>
+            {leagueInfo.tone ? (
+              <Tag tone={leagueInfo.tone} size="sm" label={leagueInfo.tagLabel} />
+            ) : null}
+          </View>
+        </View>
+
+        {captains.length > 0 ? (
+          <View style={styles.section}>
+            <Text variant="h2" color={colors.text.primary}>
+              {captains.length > 1 ? 'Captains' : 'Captain'}
+            </Text>
+            {captains.map((captain) => (
+              <Pressable
+                key={captain.id}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${captain.name}'s profile`}
+                style={styles.providerRow}
+                onPress={() =>
+                  navigation.navigate('PlayerProfile', { playerId: captain.playerId })
+                }
+              >
+                <View style={styles.captainAvatarShell}>
+                  <Avatar uri={captain.avatar} initials={captain.name.charAt(0)} size={48} />
+                  <View style={styles.captainCrown}>
+                    <Crown size={10} color={colors.text.inverse} strokeWidth={3} />
+                  </View>
+                </View>
+                <View style={styles.providerBody}>
+                  <Text variant="h3" color={colors.text.primary}>
+                    {captain.name}
+                    {captain.isYou ? ' · You' : ''}
+                  </Text>
+                  <Text variant="bodySm" color={colors.text.secondary}>
+                    {captain.position}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={colors.text.secondary} strokeWidth={2.25} />
+              </Pressable>
+            ))}
+          </View>
         ) : null}
 
         <Tabs
@@ -780,7 +819,9 @@ export function TeamDetailScreen() {
           items={[
             { key: 'roster', label: `Roster (${team.roster.length}/${team.rosterMax})` },
             { key: 'schedule', label: 'Schedule' },
-            { key: 'about', label: 'About' },
+            ...(team.costMode === 'paid'
+              ? [{ key: 'fee', label: 'Fee' }]
+              : []),
           ]}
           value={tab}
           onChange={(k) => setTab(k as Tab)}
@@ -806,6 +847,9 @@ export function TeamDetailScreen() {
                     app={app}
                     onApprove={() => handleApprove(app)}
                     onDecline={() => handleDecline(app)}
+                    onViewProfile={() =>
+                      navigation.navigate('PlayerProfile', { playerId: app.playerId })
+                    }
                   />
                 ))}
               </Card>
@@ -817,8 +861,10 @@ export function TeamDetailScreen() {
                 member={m}
                 isCaptainView={team.isCaptain}
                 costMode={team.costMode}
+                captainCollectsPayment={captainCollectsPayment}
                 onNudge={handleNudge}
                 onMessage={handleMessage}
+                onMarkPaid={handleMarkPaid}
                 captainHandlers={{ onRemove: setRemoveTarget }}
               />
             ))}
@@ -839,56 +885,24 @@ export function TeamDetailScreen() {
         ) : null}
 
         {tab === 'schedule' ? (
-          <View style={styles.scheduleList}>
-            {team.schedule.length === 0 ? (
-              <EmptyState
-                icon={
-                  <CalendarClock
-                    size={28}
-                    color={colors.brand.primary}
-                    strokeWidth={2.25}
-                  />
-                }
-                title="No games scheduled"
-                description="Add a friendly or wait for the league to publish fixtures."
-              />
-            ) : (
-              team.schedule.map((g) => <ScheduleRow key={g.id} item={g} />)
-            )}
-          </View>
-        ) : null}
-
-        {tab === 'about' ? (
           <View style={styles.aboutBlock}>
-            <Card style={styles.aboutCard}>
-              <Text variant="h3" color={colors.text.primary}>
-                About {team.name}
-              </Text>
-              <Text variant="body" color={colors.text.primary}>
-                {team.description}
-              </Text>
-            </Card>
-            <Card style={styles.aboutCard}>
-              <Text variant="h3" color={colors.text.primary}>
-                Season fee
-              </Text>
-              <View style={styles.feeRow}>
-                <Text variant="body" color={colors.text.secondary}>
-                  Total
-                </Text>
-                <Text variant="button" color={colors.text.primary}>
-                  {team.feeTotalCents === 0 ? 'Free' : formatCurrency(team.feeTotalCents)}
-                </Text>
-              </View>
-              <View style={styles.feeRow}>
-                <Text variant="body" color={colors.text.secondary}>
-                  Per player ({team.roster.length} on roster)
-                </Text>
-                <Text variant="button" color={colors.brand.primary}>
-                  {team.perPlayerCents === 0 ? 'Free' : formatCurrency(team.perPlayerCents)}
-                </Text>
-              </View>
-            </Card>
+            <View style={styles.scheduleList}>
+              {team.schedule.length === 0 ? (
+                <EmptyState
+                  icon={
+                    <CalendarClock
+                      size={28}
+                      color={colors.brand.primary}
+                      strokeWidth={2.25}
+                    />
+                  }
+                  title="No games scheduled"
+                  description="Add a friendly or wait for the league to publish fixtures."
+                />
+              ) : (
+                team.schedule.map((g) => <ScheduleRow key={g.id} item={g} />)
+              )}
+            </View>
             {teamPoll ? (
               <Card style={styles.aboutCard}>
                 <View style={styles.appCardHead}>
@@ -926,15 +940,41 @@ export function TeamDetailScreen() {
             ) : null}
           </View>
         ) : null}
+
+        {tab === 'fee' ? (
+          <View style={styles.aboutBlock}>
+            <Card style={styles.aboutCard}>
+              <Text variant="h3" color={colors.text.primary}>
+                Season fee
+              </Text>
+              <View style={styles.feeRow}>
+                <Text variant="body" color={colors.text.secondary}>
+                  Total
+                </Text>
+                <Text variant="button" color={colors.text.primary}>
+                  {team.feeTotalCents === 0 ? 'Free' : formatCurrency(team.feeTotalCents)}
+                </Text>
+              </View>
+              <View style={styles.feeRow}>
+                <Text variant="body" color={colors.text.secondary}>
+                  Per player (split {team.rosterMax} ways)
+                </Text>
+                <Text variant="button" color={colors.brand.primary}>
+                  {team.perPlayerCents === 0 ? 'Free' : formatCurrency(team.perPlayerCents)}
+                </Text>
+              </View>
+            </Card>
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <Button
           label={chatCtaLabel}
-          variant={chatLocked ? 'solid' : 'gradient'}
+          variant="gradient"
           size="lg"
           fullWidth
-          disabled={team.membership === 'pending'}
+          disabled={chatCtaDisabled}
           leadingIcon={chatCtaIcon}
           onPress={handleChatCta}
         />
@@ -1012,6 +1052,44 @@ export function TeamDetailScreen() {
           ))}
         </ScrollView>
       </BottomSheet>
+
+      <BottomSheet
+        visible={joinSheetOpen}
+        onRequestClose={() => setJoinSheetOpen(false)}
+        title={`Offer to join ${team.name}`}
+        snapPoints={['62%']}
+      >
+        <ScrollView
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text variant="bodySm" color={colors.text.secondary}>
+            {team.costMode === 'free'
+              ? "Tell the captain why you're a fit. They'll review your profile and approve your spot."
+              : isLeague
+              ? `Tell the captain why you're a fit. Approval gets you into the chat; you'll pay your ${formatCurrency(team.perPlayerCents)} share directly to ${team.league?.name ?? 'the league'}.`
+              : `Tell the captain why you're a fit. Approval gets you into the chat; settle your ${formatCurrency(team.perPlayerCents)} share with the captain in person.`}
+          </Text>
+          <Input
+            label="Message to captain (optional)"
+            variant="multiline"
+            placeholder="Positions you play, availability, experience…"
+            value={joinMessage}
+            onChangeText={setJoinMessage}
+            maxLength={280}
+          />
+          <Button
+            label="Send request"
+            variant="gradient"
+            size="lg"
+            fullWidth
+            leadingIcon={
+              <UserPlus size={18} color={colors.text.inverse} strokeWidth={2.5} />
+            }
+            onPress={handleSubmitJoin}
+          />
+        </ScrollView>
+      </BottomSheet>
     </View>
   );
 }
@@ -1084,14 +1162,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  lockBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderWidth: 1,
-    borderColor: '#F4D6D2',
-    backgroundColor: '#FDE7E2',
-  },
   pendingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1117,14 +1187,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  statsRow: {
-    flexDirection: 'row',
+  section: {
     gap: spacing.md,
   },
-  statCard: {
-    flex: 1,
+  providerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.surface.card,
+    borderRadius: radii.lg,
+    ...shadows.soft,
+  },
+  providerBody: {
+    flex: 1,
+    gap: 2,
+  },
+  captainAvatarShell: {
+    position: 'relative',
+  },
+  captainCrown: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.surface.card,
   },
   rosterList: {
     gap: spacing.sm,
@@ -1292,6 +1385,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.surface.card,
   },
+  appProfileTap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
   appBody: {
     flex: 1,
     gap: 2,
@@ -1299,6 +1398,12 @@ const styles = StyleSheet.create({
   appMessage: {
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  appProfileHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 4,
   },
   appActions: {
     flexDirection: 'row',
@@ -1328,5 +1433,9 @@ const styles = StyleSheet.create({
   pickerBody: {
     flex: 1,
     gap: 2,
+  },
+  sheetContent: {
+    gap: spacing.md,
+    paddingBottom: spacing.xl,
   },
 });
