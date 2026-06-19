@@ -68,3 +68,6 @@ test-output
 
 # Redis
 dump.rdb
+.nx/polygraph
+.claude/worktrees
+.claude/settings.local.json
