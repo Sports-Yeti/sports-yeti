@@ -81,7 +81,9 @@ export type RootStackParamList = {
   TeamDetails: { id: string };
   TeamPayment: { teamId: string };
   PlayerDirectory: undefined;
-  LeagueBrowse: { mode?: 'browse' | 'captain'; teamId?: string } | undefined;
+  LeagueBrowse:
+    | { mode?: 'browse' | 'captain'; teamId?: string; fromChatId?: string }
+    | undefined;
 
   // Highlights stack
   Highlights: undefined; // alias for going to Highlights feed tab from elsewhere

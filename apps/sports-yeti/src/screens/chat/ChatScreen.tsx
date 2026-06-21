@@ -14,26 +14,37 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
   CalendarClock,
+  Check,
   ChevronLeft,
   Lock,
+  PencilLine,
   Plus,
   SendHorizonal,
-  Share2,
   Trophy,
   Vote,
+  X,
 } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
-import { Avatar, BottomSheet, Button, EmptyState, Tag, Text, useToast } from '../../ui';
+import {
+  Avatar,
+  BottomSheet,
+  Button,
+  EmptyState,
+  Input,
+  Tabs,
+  Tag,
+  Text,
+  useToast,
+} from '../../ui';
 import {
   CHATS,
   type ChatCard,
   type ChatMessage,
 } from '../../mocks/messages';
 import {
-  OPEN_LEAGUES,
   TEAM_DETAILS,
   type CommitVote,
-  type OpenLeague,
+  type TeamSchedule,
 } from '../../mocks/teams';
 import { formatCurrency } from '../../lib/format';
 import { useTeamChat, SARAH_VOTER_ID } from '../../features/team-chat-store';
@@ -138,6 +149,7 @@ function CommitPollInline({
     return base;
   }, [poll]);
   const totalVotes = counts.in + counts.maybe + counts.out;
+  const headerLabel = card.contextLabel ?? card.leagueName;
 
   return (
     <View style={styles.cardShell}>
@@ -147,7 +159,7 @@ function CommitPollInline({
         </View>
         <View style={styles.cardHeaderBody}>
           <Text variant="caption" color={colors.text.secondary}>
-            COMMIT POLL · {card.leagueName}
+            {headerLabel ? `COMMIT POLL · ${headerLabel}` : 'COMMIT POLL'}
           </Text>
           <Text variant="button" color={colors.text.primary}>
             {card.question}
@@ -187,6 +199,107 @@ function CommitPollInline({
               >
                 {counts[opt]}
               </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function CustomPollInline({
+  card,
+}: {
+  card: Extract<ChatCard, { kind: 'custom_poll' }>;
+}) {
+  const poll = useTeamChat((s) => s.customPollsById[card.pollId]);
+  const vote = useTeamChat((s) => s.voteCustomPoll);
+
+  const mySelection = poll?.responses[SARAH_VOTER_ID] ?? [];
+  const counts = useMemo(() => {
+    const base: Record<string, number> = {};
+    if (!poll) return base;
+    for (const opt of poll.options) base[opt.id] = 0;
+    for (const selection of Object.values(poll.responses)) {
+      for (const id of selection) base[id] = (base[id] ?? 0) + 1;
+    }
+    return base;
+  }, [poll]);
+
+  if (!poll) return null;
+
+  const totalVoters = Object.values(poll.responses).filter(
+    (s) => s.length > 0,
+  ).length;
+  const topCount = Math.max(1, ...poll.options.map((o) => counts[o.id] ?? 0));
+
+  return (
+    <View style={styles.cardShell}>
+      <View style={styles.cardHeader}>
+        <View style={[styles.cardIcon, { backgroundColor: colors.brand.soft }]}>
+          <Vote size={18} color={colors.brand.primary} strokeWidth={2.25} />
+        </View>
+        <View style={styles.cardHeaderBody}>
+          <Text variant="caption" color={colors.text.secondary}>
+            POLL · {poll.allowMultiple ? 'Select one or more' : 'Select one'}
+          </Text>
+          <Text variant="button" color={colors.text.primary}>
+            {poll.question}
+          </Text>
+          <Text variant="caption" color={colors.text.secondary}>
+            {totalVoters} {totalVoters === 1 ? 'person' : 'people'} voted
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.pollOptions}>
+        {poll.options.map((opt) => {
+          const selected = mySelection.includes(opt.id);
+          const count = counts[opt.id] ?? 0;
+          const fill = `${Math.round((count / topCount) * 100)}%` as const;
+          return (
+            <Pressable
+              key={opt.id}
+              accessibilityRole={poll.allowMultiple ? 'checkbox' : 'radio'}
+              accessibilityState={{ checked: selected }}
+              accessibilityLabel={`${opt.label}, ${count} vote${count === 1 ? '' : 's'}`}
+              onPress={() => vote(card.pollId, opt.id)}
+              style={styles.pollOptionRow}
+            >
+              <View
+                style={[
+                  styles.pollIndicator,
+                  poll.allowMultiple ? styles.pollIndicatorSquare : null,
+                  selected ? styles.pollIndicatorOn : null,
+                ]}
+              >
+                {selected ? (
+                  <Check size={12} color={colors.text.inverse} strokeWidth={3} />
+                ) : null}
+              </View>
+              <View style={styles.pollOptionBody}>
+                <View style={styles.pollOptionLabelRow}>
+                  <Text
+                    variant="bodySm"
+                    color={colors.text.primary}
+                    style={styles.pollOptionLabel}
+                  >
+                    {opt.label}
+                  </Text>
+                  <Text variant="caption" color={colors.text.secondary}>
+                    {count}
+                  </Text>
+                </View>
+                <View style={styles.pollTrack}>
+                  <View
+                    style={[
+                      styles.pollTrackFill,
+                      { width: fill },
+                      selected ? styles.pollTrackFillOn : null,
+                    ]}
+                  />
+                </View>
+              </View>
             </Pressable>
           );
         })}
@@ -236,6 +349,9 @@ function MessageBubble({
         {msg.card?.kind === 'commit_poll' ? (
           <CommitPollInline card={msg.card} />
         ) : null}
+        {msg.card?.kind === 'custom_poll' ? (
+          <CustomPollInline card={msg.card} />
+        ) : null}
         <Text variant="caption" color={colors.text.muted}>
           {msg.timestamp}
         </Text>
@@ -268,8 +384,11 @@ export function ChatScreen() {
   const appendUserMessage = useTeamChat((s) => s.appendUserMessage);
   const [draft, setDraft] = useState('');
   const [actionsOpen, setActionsOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
+  const [pollMode, setPollMode] = useState<'menu' | 'custom' | 'game'>('menu');
+  const [customQuestion, setCustomQuestion] = useState('');
+  const [customOptions, setCustomOptions] = useState<string[]>(['', '']);
+  const [allowMultiple, setAllowMultiple] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const title = chat?.title ?? route.params.title ?? 'Chat';
@@ -278,6 +397,10 @@ export function ChatScreen() {
 
   const teamId = deriveTeamIdFromChatId(route.params.chatId);
   const team = teamId ? TEAM_DETAILS[teamId] : undefined;
+  const upcomingGames = useMemo(
+    () => team?.schedule.filter((g) => g.upcoming) ?? [],
+    [team],
+  );
   const isCaptain = !!team?.isCaptain;
   const isMember = team?.membership === 'member' || team?.membership === 'captain';
   // Team chat is members-only and gated solely on approval: once the captain
@@ -294,41 +417,64 @@ export function ChatScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
   };
 
-  const handleShareLeague = (league: OpenLeague) => {
-    setShareOpen(false);
+  const openPollComposer = () => {
     setActionsOpen(false);
-    postCard(
-      route.params.chatId,
-      `Take a look at ${league.name} — could be our next league.`,
-      {
-        kind: 'league_share',
-        leagueId: league.id,
-        leagueName: league.name,
-        sport: league.sport,
-        city: league.city,
-        startDate: league.startDate,
-        registrationCloses: league.registrationCloses,
-        feeCents: league.feeCents,
-        maxTeams: league.maxTeams,
-        registeredTeams: league.registeredTeams,
-      },
+    setPollMode('menu');
+    setCustomQuestion('');
+    setCustomOptions(['', '']);
+    setAllowMultiple(false);
+    setPollOpen(true);
+  };
+
+  const setOptionAt = (index: number, value: string) => {
+    setCustomOptions((prev) => prev.map((o, i) => (i === index ? value : o)));
+  };
+
+  const addOption = () => {
+    setCustomOptions((prev) => (prev.length >= 6 ? prev : [...prev, '']));
+  };
+
+  const removeOptionAt = (index: number) => {
+    setCustomOptions((prev) =>
+      prev.length <= 2 ? prev : prev.filter((_, i) => i !== index),
     );
+  };
+
+  const trimmedOptions = customOptions.map((o) => o.trim()).filter(Boolean);
+  const canPostCustomPoll =
+    customQuestion.trim().length >= 3 && trimmedOptions.length >= 2;
+
+  const handlePostCustomPoll = () => {
+    if (!canPostCustomPoll) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const stamp = Date.now();
+    setPollOpen(false);
+    postCard(route.params.chatId, 'Quick poll — tap to vote:', {
+      kind: 'custom_poll',
+      pollId: `poll-custom-${stamp}`,
+      question: customQuestion.trim(),
+      allowMultiple,
+      options: trimmedOptions.map((label, i) => ({
+        id: `opt-${stamp}-${i}`,
+        label,
+      })),
+    });
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
   };
 
-  const handleStartPoll = (league: OpenLeague) => {
+  const handlePostGamePoll = (game: TeamSchedule) => {
+    if (!team) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setPollOpen(false);
-    setActionsOpen(false);
     postCard(
       route.params.chatId,
-      `Vote so I can lock in our ${league.name} registration:`,
+      `Who can make it ${game.date}? Vote so I can confirm the lineup:`,
       {
         kind: 'commit_poll',
-        pollId: `poll-chat-${league.id}-${Date.now()}`,
-        leagueId: league.id,
-        leagueName: league.name,
-        question: `Can you commit to the full ${league.name} season?`,
-        closesAt: league.registrationCloses,
+        pollId: `poll-game-${game.id}-${Date.now()}`,
+        contextLabel: `${team.abbreviation} vs ${game.opponentAbbreviation}`,
+        question: `Available for ${game.opponent} on ${game.date}?`,
+        closesAt: game.date,
       },
     );
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
@@ -336,9 +482,13 @@ export function ChatScreen() {
 
   const openLeague = () => {
     if (isCaptain) {
-      navigation.navigate('LeagueBrowse', { mode: 'captain', teamId });
+      navigation.navigate('LeagueBrowse', {
+        mode: 'captain',
+        teamId,
+        fromChatId: route.params.chatId,
+      });
     } else {
-      navigation.navigate('LeagueBrowse');
+      navigation.navigate('LeagueBrowse', { fromChatId: route.params.chatId });
     }
   };
 
@@ -506,29 +656,17 @@ export function ChatScreen() {
               <ActionRow
                 Icon={Trophy}
                 title="Browse leagues"
-                description="Search and enroll your team"
+                description="Search, share, and enroll your team"
                 onPress={() => {
                   setActionsOpen(false);
                   openLeague();
                 }}
               />
               <ActionRow
-                Icon={Share2}
-                title="Share a league"
-                description="Drop a card in this chat"
-                onPress={() => {
-                  setActionsOpen(false);
-                  setShareOpen(true);
-                }}
-              />
-              <ActionRow
                 Icon={Vote}
                 title="Start commit poll"
-                description="Ask the squad if they're in"
-                onPress={() => {
-                  setActionsOpen(false);
-                  setPollOpen(true);
-                }}
+                description="Ask a custom question or check a game"
+                onPress={openPollComposer}
               />
             </>
           ) : (
@@ -563,37 +701,163 @@ export function ChatScreen() {
       </BottomSheet>
 
       <BottomSheet
-        visible={shareOpen}
-        onRequestClose={() => setShareOpen(false)}
-        title="Share a league"
-        snapPoints={['72%']}
-      >
-        <ScrollView contentContainerStyle={styles.actionsSheet}>
-          {OPEN_LEAGUES.map((league) => (
-            <LeaguePickerRow
-              key={league.id}
-              league={league}
-              onPress={() => handleShareLeague(league)}
-            />
-          ))}
-        </ScrollView>
-      </BottomSheet>
-
-      <BottomSheet
         visible={pollOpen}
         onRequestClose={() => setPollOpen(false)}
-        title="Pick a league for the poll"
-        snapPoints={['72%']}
+        title={
+          pollMode === 'custom'
+            ? 'Custom poll'
+            : pollMode === 'game'
+            ? 'Poll an upcoming game'
+            : 'Start a commit poll'
+        }
+        snapPoints={['62%']}
       >
-        <ScrollView contentContainerStyle={styles.actionsSheet}>
-          {OPEN_LEAGUES.map((league) => (
-            <LeaguePickerRow
-              key={league.id}
-              league={league}
-              onPress={() => handleStartPoll(league)}
+        {pollMode === 'menu' ? (
+          <View style={styles.actionsSheet}>
+            <ActionRow
+              Icon={PencilLine}
+              title="Custom poll"
+              description="Ask the squad anything"
+              onPress={() => setPollMode('custom')}
             />
-          ))}
-        </ScrollView>
+            <ActionRow
+              Icon={CalendarClock}
+              title="Upcoming game"
+              description={
+                upcomingGames.length > 0
+                  ? 'Check who can make a fixture'
+                  : 'No upcoming games scheduled'
+              }
+              onPress={() => {
+                if (upcomingGames.length > 0) setPollMode('game');
+              }}
+            />
+            <Button
+              label="Cancel"
+              variant="ghost"
+              fullWidth
+              onPress={() => setPollOpen(false)}
+            />
+          </View>
+        ) : null}
+
+        {pollMode === 'custom' ? (
+          <ScrollView
+            contentContainerStyle={styles.actionsSheet}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Input
+              label="Question"
+              variant="multiline"
+              placeholder="Where should we go for the team social?"
+              value={customQuestion}
+              onChangeText={setCustomQuestion}
+              maxLength={120}
+            />
+
+            <View style={styles.optionsGroup}>
+              <Text variant="eyebrow" color={colors.text.secondary}>
+                OPTIONS
+              </Text>
+              {customOptions.map((value, index) => (
+                <View key={index} style={styles.optionInputRow}>
+                  <View style={styles.optionInputFill}>
+                    <Input
+                      placeholder={`Option ${index + 1}`}
+                      value={value}
+                      onChangeText={(t) => setOptionAt(index, t)}
+                      maxLength={60}
+                      accessibilityLabel={`Option ${index + 1}`}
+                    />
+                  </View>
+                  {customOptions.length > 2 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove option ${index + 1}`}
+                      hitSlop={8}
+                      onPress={() => removeOptionAt(index)}
+                      style={styles.optionRemoveBtn}
+                    >
+                      <X size={18} color={colors.text.secondary} strokeWidth={2.25} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))}
+              {customOptions.length < 6 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add another option"
+                  onPress={addOption}
+                  style={({ pressed }) => [
+                    styles.addOptionRow,
+                    pressed ? styles.actionRowPressed : null,
+                  ]}
+                >
+                  <Plus size={18} color={colors.brand.primary} strokeWidth={2.5} />
+                  <Text variant="button" color={colors.brand.primary}>
+                    Add option
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <View style={styles.multiToggle}>
+              <Text variant="eyebrow" color={colors.text.secondary}>
+                ANSWERS
+              </Text>
+              <Tabs
+                variant="segmented"
+                items={[
+                  { key: 'single', label: 'Single choice' },
+                  { key: 'multiple', label: 'Multiple choice' },
+                ]}
+                value={allowMultiple ? 'multiple' : 'single'}
+                onChange={(k) => setAllowMultiple(k === 'multiple')}
+              />
+              <Text variant="caption" color={colors.text.secondary}>
+                {allowMultiple
+                  ? 'Voters can pick more than one option.'
+                  : 'Voters pick a single option.'}
+              </Text>
+            </View>
+
+            <View style={styles.pollComposerActions}>
+              <Button
+                label="Back"
+                variant="ghost"
+                fullWidth
+                onPress={() => setPollMode('menu')}
+              />
+              <Button
+                label="Post poll"
+                variant="gradient"
+                fullWidth
+                disabled={!canPostCustomPoll}
+                onPress={handlePostCustomPoll}
+              />
+            </View>
+          </ScrollView>
+        ) : null}
+
+        {pollMode === 'game' ? (
+          <ScrollView contentContainerStyle={styles.actionsSheet}>
+            {upcomingGames.map((game) => (
+              <GamePollRow
+                key={game.id}
+                game={game}
+                teamAbbreviation={team?.abbreviation ?? ''}
+                onPress={() => handlePostGamePoll(game)}
+              />
+            ))}
+            <Button
+              label="Back"
+              variant="ghost"
+              fullWidth
+              onPress={() => setPollMode('menu')}
+            />
+          </ScrollView>
+        ) : null}
       </BottomSheet>
     </View>
   );
@@ -635,18 +899,22 @@ function ActionRow({
   );
 }
 
-function LeaguePickerRow({
-  league,
+function GamePollRow({
+  game,
+  teamAbbreviation,
   onPress,
 }: {
-  league: OpenLeague;
+  game: TeamSchedule;
+  teamAbbreviation: string;
   onPress: () => void;
 }) {
-  const Icon = league.Icon;
+  const matchup = teamAbbreviation
+    ? `${teamAbbreviation} vs ${game.opponentAbbreviation}`
+    : `vs ${game.opponent}`;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Pick ${league.name}`}
+      accessibilityLabel={`Poll availability for the game versus ${game.opponent} on ${game.date}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.actionRow,
@@ -654,14 +922,14 @@ function LeaguePickerRow({
       ]}
     >
       <View style={styles.cardIcon}>
-        <Icon size={18} color={colors.brand.primary} strokeWidth={2.25} />
+        <CalendarClock size={18} color={colors.brand.primary} strokeWidth={2.25} />
       </View>
       <View style={styles.actionRowBody}>
         <Text variant="button" color={colors.text.primary}>
-          {league.name}
+          {matchup}
         </Text>
         <Text variant="caption" color={colors.text.secondary}>
-          {league.sport} · {formatCurrency(league.feeCents)}
+          {game.date} · {game.location}
         </Text>
       </View>
     </Pressable>
@@ -838,6 +1106,58 @@ const styles = StyleSheet.create({
   voteOptionSelected: {
     backgroundColor: colors.brand.primary,
   },
+  pollOptions: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  pollOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  pollIndicator: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.border.strong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pollIndicatorSquare: {
+    borderRadius: 6,
+  },
+  pollIndicatorOn: {
+    backgroundColor: colors.brand.primary,
+    borderColor: colors.brand.primary,
+  },
+  pollOptionBody: {
+    flex: 1,
+    gap: 4,
+  },
+  pollOptionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  pollOptionLabel: {
+    flex: 1,
+  },
+  pollTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.surface.bg,
+    overflow: 'hidden',
+  },
+  pollTrackFill: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.border.strong,
+  },
+  pollTrackFillOn: {
+    backgroundColor: colors.brand.primary,
+  },
   lockedBlock: {
     flex: 1,
     padding: spacing.lg,
@@ -846,6 +1166,38 @@ const styles = StyleSheet.create({
   actionsSheet: {
     gap: spacing.sm,
     paddingBottom: spacing.xl,
+  },
+  pollComposerActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  optionsGroup: {
+    gap: spacing.sm,
+  },
+  optionInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  optionInputFill: {
+    flex: 1,
+  },
+  optionRemoveBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface.bg,
+  },
+  addOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  multiToggle: {
+    gap: spacing.sm,
   },
   actionRow: {
     flexDirection: 'row',

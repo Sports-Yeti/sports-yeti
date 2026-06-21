@@ -909,7 +909,7 @@ export function TeamDetailScreen() {
                   <Text variant="h3" color={colors.text.primary}>
                     Active poll
                   </Text>
-                  <Tag tone="brand" size="sm" label={teamPoll.leagueName} />
+                  <Tag tone="brand" size="sm" label={teamPoll.leagueName ?? 'League'} />
                 </View>
                 <Text variant="body" color={colors.text.primary}>
                   {teamPoll.question}

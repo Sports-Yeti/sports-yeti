@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Crown,
   Search,
+  Share2,
   Trophy,
 } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
@@ -33,6 +34,7 @@ import {
   type TeamDetail,
 } from '../../mocks/teams';
 import { formatCurrency } from '../../lib/format';
+import { useTeamChat } from '../../features/team-chat-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -50,10 +52,12 @@ function LeagueCard({
   league,
   onApply,
   primaryLabel,
+  onShare,
 }: {
   league: OpenLeague;
   onApply: () => void;
   primaryLabel: string;
+  onShare?: () => void;
 }) {
   const Icon = league.Icon;
   const spotsLeft = league.maxTeams - league.registeredTeams;
@@ -71,6 +75,21 @@ function LeagueCard({
             {league.sport} · {league.city}
           </Text>
         </View>
+        {onShare ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Share ${league.name} to team chat`}
+            accessibilityHint="Posts this league as a card in the chat you came from"
+            hitSlop={8}
+            onPress={onShare}
+            style={({ pressed }) => [
+              styles.shareBtn,
+              pressed ? styles.shareBtnPressed : null,
+            ]}
+          >
+            <Share2 size={18} color={colors.brand.primary} strokeWidth={2.25} />
+          </Pressable>
+        ) : null}
       </View>
 
       <Text variant="body" color={colors.text.primary}>
@@ -170,6 +189,8 @@ export function LeagueBrowseScreen() {
   const toast = useToast();
 
   const isCaptainMode = route.params?.mode === 'captain';
+  const fromChatId = route.params?.fromChatId;
+  const postCard = useTeamChat((s) => s.postCard);
   const initialTeam = route.params?.teamId
     ? TEAM_DETAILS[route.params.teamId]
     : CAPTAIN_OF_TEAMS[0];
@@ -215,6 +236,33 @@ export function LeagueBrowseScreen() {
   const openLeagueRegister = (league: OpenLeague) => {
     setPendingLeague(league);
     if (!isCaptainMode) setTeamName('');
+  };
+
+  const handleShareToChat = (league: OpenLeague) => {
+    if (!fromChatId) return;
+    Haptics.selectionAsync();
+    postCard(
+      fromChatId,
+      `Take a look at ${league.name} — could be our next league.`,
+      {
+        kind: 'league_share',
+        leagueId: league.id,
+        leagueName: league.name,
+        sport: league.sport,
+        city: league.city,
+        startDate: league.startDate,
+        registrationCloses: league.registrationCloses,
+        feeCents: league.feeCents,
+        maxTeams: league.maxTeams,
+        registeredTeams: league.registeredTeams,
+      },
+    );
+    toast.show({
+      variant: 'success',
+      title: `Shared ${league.name}`,
+      description: 'Posted to your team chat.',
+      action: { label: 'Open chat', onPress: () => navigation.goBack() },
+    });
   };
 
   const handleSubmit = () => {
@@ -330,6 +378,7 @@ export function LeagueBrowseScreen() {
               league={l}
               primaryLabel={isCaptainMode ? 'Enroll team' : 'Register team'}
               onApply={() => openLeagueRegister(l)}
+              onShare={fromChatId ? () => handleShareToChat(l) : undefined}
             />
           ))
         )}
@@ -493,6 +542,17 @@ const styles = StyleSheet.create({
   cardHeadBody: {
     flex: 1,
     gap: 2,
+  },
+  shareBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.brand.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareBtnPressed: {
+    opacity: 0.7,
   },
   metaRow: {
     flexDirection: 'row',

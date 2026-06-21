@@ -178,13 +178,36 @@ export type CommitVote = 'in' | 'out' | 'maybe';
 
 export interface CommitPoll {
   id: string;
-  leagueId: string;
-  leagueName: string;
+  /** Set for league-commitment polls; omitted for game polls. */
+  leagueId?: string;
+  leagueName?: string;
   question: string;
   createdBy: string;
   createdAt: string;
   responses: Record<string, CommitVote>;
   closesAt?: string;
+}
+
+export interface CustomPollOption {
+  id: string;
+  label: string;
+}
+
+/**
+ * Free-form poll authored in a team chat. Unlike a {@link CommitPoll} (fixed
+ * I'm in / Maybe / Can't), the captain sets the options themselves and can
+ * allow voters to pick more than one (WhatsApp-style multi-select).
+ */
+export interface CustomPoll {
+  id: string;
+  question: string;
+  options: CustomPollOption[];
+  allowMultiple: boolean;
+  createdBy: string;
+  createdAt: string;
+  closesAt?: string;
+  /** voterId -> selected option ids (always an array, even for single-select). */
+  responses: Record<string, string[]>;
 }
 
 export interface TeamDetail {

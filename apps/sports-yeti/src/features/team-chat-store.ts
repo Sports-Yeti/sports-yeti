@@ -3,6 +3,7 @@ import {
   INITIAL_COMMIT_POLLS,
   type CommitPoll,
   type CommitVote,
+  type CustomPoll,
 } from '../mocks/teams';
 import {
   CHAT_MESSAGES,
@@ -16,12 +17,18 @@ const SARAH_PLAYER_ID = 'p-sarah';
 interface TeamChatState {
   messagesByChat: Record<string, ChatMessage[]>;
   pollsById: Record<string, CommitPoll>;
+  customPollsById: Record<string, CustomPoll>;
   /** Append a plain text message authored by the current user. */
   appendUserMessage: (chatId: string, body: string) => void;
   /** Append a new captain message that posts a card into the named chat. */
   postCard: (chatId: string, body: string, card: ChatCard) => void;
   /** Cast / change the current user's vote on a commit poll. */
   votePoll: (pollId: string, vote: CommitVote) => void;
+  /**
+   * Toggle the current user's selection of an option on a custom poll.
+   * Single-select polls keep one option; multi-select polls toggle freely.
+   */
+  voteCustomPoll: (pollId: string, optionId: string) => void;
   /** Used by captain remove-player flow so the cached chat reflects the change. */
   removeMessageAuthor: (playerId: string) => void;
   ensureSeed: () => void;
@@ -38,6 +45,7 @@ function seedMessages(): Record<string, ChatMessage[]> {
 export const useTeamChat = create<TeamChatState>((set, get) => ({
   messagesByChat: seedMessages(),
   pollsById: { ...INITIAL_COMMIT_POLLS },
+  customPollsById: {},
   appendUserMessage: (chatId, body) => {
     const next: ChatMessage = {
       id: `m-${Date.now()}`,
@@ -83,6 +91,23 @@ export const useTeamChat = create<TeamChatState>((set, get) => ({
         },
       }));
     }
+    if (card.kind === 'custom_poll' && !get().customPollsById[card.pollId]) {
+      set((state) => ({
+        customPollsById: {
+          ...state.customPollsById,
+          [card.pollId]: {
+            id: card.pollId,
+            question: card.question,
+            options: card.options.map((o) => ({ ...o })),
+            allowMultiple: card.allowMultiple,
+            createdBy: 'Sarah Jenkins',
+            createdAt: 'Just now',
+            closesAt: card.closesAt,
+            responses: {},
+          },
+        },
+      }));
+    }
     set((state) => ({
       messagesByChat: {
         ...state.messagesByChat,
@@ -102,6 +127,35 @@ export const useTeamChat = create<TeamChatState>((set, get) => ({
             responses: {
               ...existing.responses,
               [SARAH_PLAYER_ID]: vote,
+            },
+          },
+        },
+      };
+    });
+  },
+  voteCustomPoll: (pollId, optionId) => {
+    set((state) => {
+      const existing = state.customPollsById[pollId];
+      if (!existing) return state;
+      const current = existing.responses[SARAH_PLAYER_ID] ?? [];
+      const isSelected = current.includes(optionId);
+      let next: string[];
+      if (existing.allowMultiple) {
+        next = isSelected
+          ? current.filter((id) => id !== optionId)
+          : [...current, optionId];
+      } else {
+        // Single-select: tapping the chosen option again clears it.
+        next = isSelected ? [] : [optionId];
+      }
+      return {
+        customPollsById: {
+          ...state.customPollsById,
+          [pollId]: {
+            ...existing,
+            responses: {
+              ...existing.responses,
+              [SARAH_PLAYER_ID]: next,
             },
           },
         },
@@ -128,7 +182,11 @@ export const useTeamChat = create<TeamChatState>((set, get) => ({
   },
   ensureSeed: () => {
     if (Object.keys(get().messagesByChat).length === 0) {
-      set({ messagesByChat: seedMessages(), pollsById: { ...INITIAL_COMMIT_POLLS } });
+      set({
+        messagesByChat: seedMessages(),
+        pollsById: { ...INITIAL_COMMIT_POLLS },
+        customPollsById: {},
+      });
     }
   },
 }));

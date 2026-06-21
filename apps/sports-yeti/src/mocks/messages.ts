@@ -122,7 +122,7 @@ export const CHATS: ChatPreview[] = [
   },
 ];
 
-export type ChatCardKind = 'league_share' | 'commit_poll';
+export type ChatCardKind = 'league_share' | 'commit_poll' | 'custom_poll';
 
 export interface LeagueShareCard {
   kind: 'league_share';
@@ -140,13 +140,29 @@ export interface LeagueShareCard {
 export interface CommitPollCard {
   kind: 'commit_poll';
   pollId: string;
-  leagueId: string;
-  leagueName: string;
+  /** Set for league-commitment polls; omitted for game polls. */
+  leagueId?: string;
+  leagueName?: string;
+  /**
+   * Label shown in the card header. For game polls this is the matchup
+   * (e.g. "AVA vs RSU"); falls back to leagueName for league polls.
+   */
+  contextLabel?: string;
   question: string;
   closesAt?: string;
 }
 
-export type ChatCard = LeagueShareCard | CommitPollCard;
+export interface CustomPollCard {
+  kind: 'custom_poll';
+  pollId: string;
+  question: string;
+  options: { id: string; label: string }[];
+  /** When true, voters can select more than one option (WhatsApp-style). */
+  allowMultiple: boolean;
+  closesAt?: string;
+}
+
+export type ChatCard = LeagueShareCard | CommitPollCard | CustomPollCard;
 
 export interface ChatMessage {
   id: string;
