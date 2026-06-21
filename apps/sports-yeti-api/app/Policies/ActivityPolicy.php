@@ -10,7 +10,7 @@ use Spatie\Activitylog\Models\Activity;
 
 /**
  * Policy for accessing audit logs (activity logs).
- * 
+ *
  * Only league admins and super admins can view audit logs.
  * Super admins can view all logs, while league admins can only
  * view logs for their league.
@@ -54,7 +54,7 @@ class ActivityPolicy
             if (app()->bound('current_league_id')) {
                 return $this->activityBelongsToLeague($activity, app('current_league_id'));
             }
-            
+
             // If no tenant context, check if user is admin of any league
             // where this activity occurred
             return $this->userIsAdminOfActivityLeague($user, $activity);
@@ -79,11 +79,11 @@ class ActivityPolicy
     {
         // Check if the activity's properties contain the league_id
         $properties = $activity->properties ?? collect();
-        
-        $attributesLeagueId = $properties->get('attributes.league_id') 
+
+        $attributesLeagueId = $properties->get('attributes.league_id')
             ?? data_get($properties->toArray(), 'attributes.league_id');
-        
-        $oldLeagueId = $properties->get('old.league_id') 
+
+        $oldLeagueId = $properties->get('old.league_id')
             ?? data_get($properties->toArray(), 'old.league_id');
 
         if ($attributesLeagueId === $leagueId || $oldLeagueId === $leagueId) {
@@ -108,17 +108,17 @@ class ActivityPolicy
     {
         // Get user's admin league IDs
         $adminLeagueIds = $user->leagueAdminRoles()->pluck('league_id')->toArray();
-        
+
         if (empty($adminLeagueIds)) {
             return false;
         }
 
         // Check activity's league_id
         $properties = $activity->properties ?? collect();
-        
-        $attributesLeagueId = $properties->get('attributes.league_id') 
+
+        $attributesLeagueId = $properties->get('attributes.league_id')
             ?? data_get($properties->toArray(), 'attributes.league_id');
-        
+
         if (in_array($attributesLeagueId, $adminLeagueIds)) {
             return true;
         }

@@ -16,11 +16,11 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class Camp extends Model
 {
+    use BelongsToLeague;
     use HasFactory;
     use HasUuids;
-    use SoftDeletes;
     use LogsActivity;
-    use BelongsToLeague;
+    use SoftDeletes;
 
     protected $fillable = [
         'league_id',

@@ -1,378 +1,586 @@
 import React from 'react';
+import { type WebPressableState } from '../../lib/pressable';
 import {
-  View,
-  Text,
+  Pressable,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
+  View,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import { api } from '../../services/api';
-import type { MainStackParamList } from '../../navigation/MainNavigator';
+import {
+  AlertTriangle,
+  CalendarPlus,
+  ClipboardList,
+  CreditCard,
+  Goal,
+  Megaphone,
+  Plus,
+  Trophy,
+  Users,
+  Wallet,
+} from 'lucide-react-native';
+import {
+  PageHeader,
+  PageScroll,
+  StatCard,
+  type AdminRouteName,
+} from '../../admin';
+import { Button, Card, IconBadge, Tag, Text } from '../../ui';
+import { colors, radii, shadows, spacing } from '../../theme';
+import { CURRENT_ADMIN, CURRENT_ORG } from '../../mocks/org';
+import { TEAMS, pendingTeams } from '../../mocks/teams';
+import { LEAGUES } from '../../mocks/leagues';
+import { peopleByKind } from '../../mocks/people';
+import {
+  liveGames,
+  upcomingGames,
+} from '../../mocks/games';
+import { pendingBookings } from '../../mocks/bookings';
+import { financeSummary, PAYMENTS } from '../../mocks/payments';
+import {
+  DASHBOARD_ALERTS,
+  recentAudit,
+  type DashboardAlert,
+} from '../../mocks/insights';
+import { formatCurrency, formatRelative, formatTime } from '../../lib/format';
 
-type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
+const ALERT_TONE_COLOR = {
+  warning: colors.status.warning,
+  live: colors.status.live,
+  info: colors.brand.primary,
+} as const;
 
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: string;
-  color: string;
-  onPress?: () => void;
-}
+interface NavParam { id?: string }
 
-function StatCard({ title, value, icon, color, onPress }: StatCardProps) {
-  const content = (
-    <View style={styles.statCard}>
-      <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
-        <Text style={styles.statIcon}>{icon}</Text>
-      </View>
-      <View style={styles.statInfo}>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statTitle}>{title}</Text>
-      </View>
-    </View>
-  );
-
-  if (onPress) {
-    return (
-      <TouchableOpacity onPress={onPress} style={styles.statCardWrapper}>
-        {content}
-      </TouchableOpacity>
-    );
-  }
-
-  return <View style={styles.statCardWrapper}>{content}</View>;
-}
-
-interface QuickActionProps {
-  icon: string;
-  title: string;
-  onPress: () => void;
-}
-
-function QuickAction({ icon, title, onPress }: QuickActionProps) {
-  return (
-    <TouchableOpacity style={styles.actionCard} onPress={onPress}>
-      <Text style={styles.actionIcon}>{icon}</Text>
-      <Text style={styles.actionText}>{title}</Text>
-    </TouchableOpacity>
-  );
+interface ScreenNavigation {
+  navigate: (route: AdminRouteName, params?: NavParam) => void;
 }
 
 export function DashboardScreen() {
-  const navigation = useNavigation<NavigationProp>();
+  const navigation = useNavigation() as unknown as ScreenNavigation;
 
-  // Fetch dashboard stats from API
-  const { data: stats, isLoading, error } = useQuery({
-    queryKey: ['dashboardStats'],
-    queryFn: () => api.getDashboardStats(),
-    staleTime: 60000, // 1 minute
-  });
-
-  // Also fetch recent counts for fallback
-  const { data: leaguesData } = useQuery({
-    queryKey: ['leagues', { per_page: 1 }],
-    queryFn: () => api.getLeagues({ per_page: 1 }),
-    staleTime: 60000,
-  });
-
-  const { data: teamsData } = useQuery({
-    queryKey: ['teams', { per_page: 1 }],
-    queryFn: () => api.getTeams({ per_page: 1 }),
-    staleTime: 60000,
-  });
-
-  const { data: playersData } = useQuery({
-    queryKey: ['players', { per_page: 1 }],
-    queryFn: () => api.getPlayers({ per_page: 1 }),
-    staleTime: 60000,
-  });
-
-  // Use API stats if available, fall back to pagination meta
-  const totalLeagues = stats?.total_leagues ?? leaguesData?.meta?.total ?? 0;
-  const totalTeams = stats?.total_teams ?? teamsData?.meta?.total ?? 0;
-  const totalPlayers = stats?.total_players ?? playersData?.meta?.total ?? 0;
-  const totalBookings = stats?.total_bookings ?? 0;
-  const revenueThisMonth = stats?.revenue_this_month ?? 0;
-  const activeGames = stats?.active_games ?? 0;
-
-  const formatCurrency = (amount: number): string => {
-    if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(1)}k`;
-    }
-    return `$${amount.toFixed(0)}`;
-  };
-
-  const dashboardStats = [
-    {
-      title: 'Total Leagues',
-      value: isLoading ? '...' : totalLeagues,
-      icon: '🏆',
-      color: COLORS.primary,
-      onPress: () => navigation.navigate('Leagues'),
-    },
-    {
-      title: 'Active Teams',
-      value: isLoading ? '...' : totalTeams,
-      icon: '👥',
-      color: COLORS.success,
-      onPress: () => navigation.navigate('Teams'),
-    },
-    {
-      title: 'Players',
-      value: isLoading ? '...' : totalPlayers,
-      icon: '🏃',
-      color: COLORS.secondary,
-      onPress: () => navigation.navigate('Players'),
-    },
-    {
-      title: 'Total Bookings',
-      value: isLoading ? '...' : totalBookings,
-      icon: '📅',
-      color: COLORS.warning,
-      onPress: () => navigation.navigate('Bookings'),
-    },
-    {
-      title: 'Revenue (MTD)',
-      value: isLoading ? '...' : formatCurrency(revenueThisMonth),
-      icon: '💰',
-      color: COLORS.accent,
-      onPress: () => navigation.navigate('Payments'),
-    },
-    {
-      title: 'Active Games',
-      value: isLoading ? '...' : activeGames,
-      icon: '🎮',
-      color: COLORS.error,
-    },
-  ];
+  const players = peopleByKind('player');
+  const referees = peopleByKind('referee');
+  const finance = financeSummary();
+  const upcoming = upcomingGames(4);
+  const live = liveGames();
+  const auditEvents = recentAudit(6);
+  const pending = pendingTeams();
+  const pendingBks = pendingBookings();
+  const failedPayments = PAYMENTS.filter((p) => p.status === 'failed');
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Dashboard</Text>
-        <Text style={styles.subtitle}>Welcome to Sports Yeti Admin</Text>
-      </View>
+    <PageScroll>
+      <PageHeader
+        variant="hero"
+        eyebrow="SEASON HUB"
+        title={`${greeting()}, ${CURRENT_ADMIN.name.split(' ')[0]}`}
+        subtitle={`${CURRENT_ORG.name} · season runs through ${formatDateMonth(
+          CURRENT_ORG.seasonEndIso,
+        )}`}
+        meta={`Updated ${formatRelative(new Date().toISOString())}`}
+        trailing={
+          <>
+            <Button
+              label="Send announcement"
+              variant="ghost"
+              size="sm"
+              leadingIcon={
+                <Megaphone size={14} color={colors.brand.primary} strokeWidth={2.25} />
+              }
+              onPress={() => navigation.navigate('News')}
+            />
+            <Button
+              label="Create league"
+              variant="solid"
+              size="sm"
+              leadingIcon={
+                <Plus size={14} color={colors.text.inverse} strokeWidth={2.5} />
+              }
+              onPress={() => navigation.navigate('Leagues')}
+            />
+          </>
+        }
+      />
 
-      {error ? (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>
-            Unable to load some stats. Showing available data.
-          </Text>
+      {DASHBOARD_ALERTS.length > 0 ? (
+        <View style={styles.alertList}>
+          {DASHBOARD_ALERTS.map((alert) => (
+            <AlertCard
+              key={alert.id}
+              alert={alert}
+              onAction={() =>
+                navigation.navigate(alert.cta.route as AdminRouteName)
+              }
+            />
+          ))}
         </View>
       ) : null}
 
-      <View style={styles.statsGrid}>
-        {dashboardStats.map((stat, index) => (
-          <StatCard
-            key={index}
-            title={stat.title}
-            value={stat.value}
-            icon={stat.icon}
-            color={stat.color}
-            onPress={stat.onPress}
-          />
-        ))}
+      <View style={styles.statsRow}>
+        <StatCard
+          label="Net revenue · 30d"
+          value={formatCurrency(finance.netCents)}
+          changePct={12.4}
+          helper="vs. previous 30 days"
+          tone="brand"
+          icon={<Wallet size={14} color={colors.brand.deep} strokeWidth={2.25} />}
+          onPress={() => navigation.navigate('Finance')}
+        />
+        <StatCard
+          label="Active players"
+          value={String(players.length)}
+          changePct={8.6}
+          helper="across leagues"
+          tone="success"
+          icon={<Goal size={14} color={colors.status.success} strokeWidth={2.25} />}
+          onPress={() => navigation.navigate('Players')}
+        />
+        <StatCard
+          label="Pending decisions"
+          value={String(pending.length + pendingBks.length + failedPayments.length)}
+          helper={`${pending.length} teams · ${pendingBks.length} bookings · ${failedPayments.length} payments`}
+          tone="warning"
+          icon={
+            <AlertTriangle
+              size={14}
+              color={colors.status.warning}
+              strokeWidth={2.25}
+            />
+          }
+          onPress={() => navigation.navigate('Teams')}
+        />
+        <StatCard
+          label="Live games"
+          value={String(live.length)}
+          helper={`${upcoming.length} scheduled today`}
+          tone="live"
+          icon={
+            <Trophy size={14} color={colors.status.live} strokeWidth={2.25} />
+          }
+          onPress={() => navigation.navigate('Schedule')}
+        />
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsGrid}>
-          <QuickAction
-            icon="➕"
-            title="Create League"
-            onPress={() => navigation.navigate('LeagueForm', {})}
-          />
-          <QuickAction
-            icon="👥"
-            title="View Teams"
-            onPress={() => navigation.navigate('Teams')}
-          />
-          <QuickAction
-            icon="🏟️"
-            title="Facilities"
-            onPress={() => navigation.navigate('Facilities')}
-          />
-          <QuickAction
-            icon="📋"
-            title="Audit Logs"
-            onPress={() => navigation.navigate('AuditLogs')}
-          />
-        </View>
+      <View style={styles.twoCol}>
+        <Card style={styles.col}>
+          <View style={styles.cardHead}>
+            <Text variant="h3" color={colors.text.primary}>
+              Upcoming games
+            </Text>
+            <Pressable
+              onPress={() => navigation.navigate('Schedule')}
+              accessibilityRole="link"
+              accessibilityLabel="Open schedule"
+              hitSlop={4}
+            >
+              <Text variant="button" color={colors.brand.primary}>
+                Open schedule
+              </Text>
+            </Pressable>
+          </View>
+          {upcoming.length === 0 ? (
+            <Text variant="bodySm" color={colors.text.muted}>
+              No games on the next few days.
+            </Text>
+          ) : (
+            upcoming.map((game) => (
+              <Pressable
+                key={game.id}
+                onPress={() =>
+                  navigation.navigate('GameDetail', { id: game.id })
+                }
+                accessibilityRole="button"
+                accessibilityLabel={`${game.homeTeamName} vs ${game.awayTeamName}`}
+                style={({ hovered }: WebPressableState) => [
+                  styles.gameRow,
+                  hovered ? styles.rowHover : null,
+                ]}
+              >
+                <View style={styles.gameTime}>
+                  <Text variant="caption" color={colors.text.secondary}>
+                    {formatDateMonth(game.startsAtIso)}
+                  </Text>
+                  <Text variant="h4" color={colors.text.primary}>
+                    {formatTime(game.startsAtIso)}
+                  </Text>
+                </View>
+                <View style={styles.gameBody}>
+                  <Text variant="bodySm" color={colors.text.primary}>
+                    {game.homeTeamName} vs {game.awayTeamName}
+                  </Text>
+                  <Text variant="caption" color={colors.text.muted}>
+                    {game.facilityName} · {game.spaceName}
+                  </Text>
+                </View>
+                <Tag
+                  tone={
+                    game.status === 'live'
+                      ? 'live'
+                      : game.status === 'cancelled'
+                      ? 'neutral'
+                      : 'brand'
+                  }
+                  size="sm"
+                  label={game.leagueName}
+                />
+              </Pressable>
+            ))
+          )}
+        </Card>
+
+        <Card style={styles.col}>
+          <View style={styles.cardHead}>
+            <Text variant="h3" color={colors.text.primary}>
+              Quick actions
+            </Text>
+          </View>
+          <View style={styles.actionsGrid}>
+            <ActionTile
+              icon={
+                <CalendarPlus
+                  size={16}
+                  color={colors.brand.deep}
+                  strokeWidth={2.25}
+                />
+              }
+              label="New game"
+              onPress={() => navigation.navigate('Schedule')}
+            />
+            <ActionTile
+              icon={
+                <CreditCard
+                  size={16}
+                  color={colors.brand.deep}
+                  strokeWidth={2.25}
+                />
+              }
+              label="Record payment"
+              onPress={() => navigation.navigate('Payments')}
+            />
+            <ActionTile
+              icon={
+                <Users
+                  size={16}
+                  color={colors.brand.deep}
+                  strokeWidth={2.25}
+                />
+              }
+              label="Approve teams"
+              onPress={() => navigation.navigate('Teams')}
+            />
+            <ActionTile
+              icon={
+                <ClipboardList
+                  size={16}
+                  color={colors.brand.deep}
+                  strokeWidth={2.25}
+                />
+              }
+              label="Open booking calendar"
+              onPress={() => navigation.navigate('Bookings')}
+            />
+            <ActionTile
+              icon={
+                <Megaphone
+                  size={16}
+                  color={colors.brand.deep}
+                  strokeWidth={2.25}
+                />
+              }
+              label="Send announcement"
+              onPress={() => navigation.navigate('News')}
+            />
+          </View>
+        </Card>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-        <View style={styles.activityList}>
-          <TouchableOpacity
-            style={styles.activityItem}
-            onPress={() => navigation.navigate('Leagues')}
-          >
-            <View style={styles.activityDot} />
-            <Text style={styles.activityText}>
-              {totalLeagues} leagues active across the platform
+      <View style={styles.twoCol}>
+        <Card style={styles.col}>
+          <View style={styles.cardHead}>
+            <Text variant="h3" color={colors.text.primary}>
+              Recent activity
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.activityItem}
-            onPress={() => navigation.navigate('Teams')}
-          >
-            <View style={[styles.activityDot, { backgroundColor: COLORS.success }]} />
-            <Text style={styles.activityText}>
-              {totalTeams} teams registered and competing
+            <Pressable
+              onPress={() => navigation.navigate('AuditLog')}
+              accessibilityRole="link"
+              accessibilityLabel="Open audit log"
+              hitSlop={4}
+            >
+              <Text variant="button" color={colors.brand.primary}>
+                Full audit log
+              </Text>
+            </Pressable>
+          </View>
+          <View style={styles.activityList}>
+            {auditEvents.map((event) => (
+              <View key={event.id} style={styles.activityRow}>
+                <View style={styles.activityIcon}>
+                  <IconBadge size={28} tone="soft">
+                    <Trophy
+                      size={12}
+                      color={colors.brand.primary}
+                      strokeWidth={2.25}
+                    />
+                  </IconBadge>
+                </View>
+                <View style={styles.activityBody}>
+                  <Text variant="bodySm" color={colors.text.primary}>
+                    {event.description}
+                  </Text>
+                  <Text variant="caption" color={colors.text.muted}>
+                    by {event.causerName} · {formatRelative(event.occurredAtIso)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </Card>
+
+        <Card style={styles.col}>
+          <View style={styles.cardHead}>
+            <Text variant="h3" color={colors.text.primary}>
+              Roster
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.activityItem}
-            onPress={() => navigation.navigate('Players')}
-          >
-            <View style={[styles.activityDot, { backgroundColor: COLORS.secondary }]} />
-            <Text style={styles.activityText}>
-              {totalPlayers} players in the system
+            <Pressable
+              onPress={() => navigation.navigate('Players')}
+              accessibilityRole="link"
+              hitSlop={4}
+            >
+              <Text variant="button" color={colors.brand.primary}>
+                Manage people
+              </Text>
+            </Pressable>
+          </View>
+          <View style={styles.miniStats}>
+            <View style={styles.miniStat}>
+              <Text variant="display" color={colors.text.primary} style={styles.miniValue}>
+                {LEAGUES.filter((l) => l.status === 'published').length}
+              </Text>
+              <Text variant="caption" color={colors.text.muted}>
+                Active leagues
+              </Text>
+            </View>
+            <View style={styles.miniStat}>
+              <Text variant="display" color={colors.text.primary} style={styles.miniValue}>
+                {TEAMS.filter((t) => t.status === 'approved').length}
+              </Text>
+              <Text variant="caption" color={colors.text.muted}>
+                Approved teams
+              </Text>
+            </View>
+            <View style={styles.miniStat}>
+              <Text variant="display" color={colors.text.primary} style={styles.miniValue}>
+                {referees.length}
+              </Text>
+              <Text variant="caption" color={colors.text.muted}>
+                Referees
+              </Text>
+            </View>
+          </View>
+          <View style={styles.payoutRow}>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              Next Stripe payout
             </Text>
-          </TouchableOpacity>
-        </View>
+            <Text variant="h4" color={colors.text.primary}>
+              {formatCurrency(finance.netCents)} · {formatDateMonth(finance.payoutDateIso)}
+            </Text>
+          </View>
+        </Card>
       </View>
-    </ScrollView>
+    </PageScroll>
   );
 }
 
+function AlertCard({
+  alert,
+  onAction,
+}: {
+  alert: DashboardAlert;
+  onAction: () => void;
+}) {
+  const tint = ALERT_TONE_COLOR[alert.tone];
+  return (
+    <View
+      style={[styles.alert, { borderLeftColor: tint }]}
+      accessibilityRole="alert"
+    >
+      <AlertTriangle size={16} color={tint} strokeWidth={2.25} />
+      <View style={styles.alertBody}>
+        <Text variant="h4" color={colors.text.primary}>
+          {alert.title}
+        </Text>
+        <Text variant="bodySm" color={colors.text.secondary}>
+          {alert.body}
+        </Text>
+      </View>
+      <Button
+        label={alert.cta.label}
+        variant="ghost"
+        size="sm"
+        onPress={onAction}
+      />
+    </View>
+  );
+}
+
+function ActionTile({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ hovered }: WebPressableState) => [
+        styles.action,
+        hovered ? styles.actionHover : null,
+      ]}
+    >
+      {icon}
+      <Text variant="bodySm" color={colors.text.primary}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function formatDateMonth(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    padding: SPACING.lg,
-  },
-  header: {
-    marginBottom: SPACING.xl,
-  },
-  title: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-  },
-  errorBanner: {
-    backgroundColor: COLORS.warning + '20',
-    padding: SPACING.md,
-    borderRadius: 8,
-    marginBottom: SPACING.lg,
-  },
-  errorText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.warning,
-    textAlign: 'center',
-  },
-  statsGrid: {
+  alertList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -SPACING.sm,
-    marginBottom: SPACING.xl,
+    gap: spacing.md,
   },
-  statCardWrapper: {
-    minWidth: 200,
+  alert: {
     flex: 1,
-    maxWidth: '31%',
-    margin: SPACING.sm,
-  },
-  statCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.lg,
+    minWidth: 320,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    gap: spacing.md,
+    backgroundColor: colors.surface.card,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+    borderLeftWidth: 4,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    ...shadows.soft,
   },
-  statIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  statIcon: {
-    fontSize: 24,
-  },
-  statInfo: {
+  alertBody: {
     flex: 1,
+    gap: 2,
   },
-  statValue: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    color: COLORS.text,
+  statsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
   },
-  statTitle: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
+  twoCol: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
   },
-  section: {
-    marginBottom: SPACING.xl,
+  col: {
+    flex: 1,
+    minWidth: 320,
+    gap: spacing.md,
   },
-  sectionTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.md,
+  },
+  rowHover: {
+    backgroundColor: colors.surface.bg,
+  },
+  gameTime: {
+    width: 64,
+    gap: 2,
+  },
+  gameBody: {
+    flex: 1,
+    gap: 2,
   },
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -SPACING.sm,
+    gap: spacing.sm,
   },
-  actionCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.lg,
-    margin: SPACING.sm,
-    alignItems: 'center',
+  action: {
+    flex: 1,
     minWidth: 140,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderStyle: 'dashed',
-  },
-  actionIcon: {
-    fontSize: 28,
-    marginBottom: SPACING.sm,
-  },
-  actionText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  activityList: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.lg,
-    gap: SPACING.md,
-  },
-  activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border.soft,
+    backgroundColor: colors.surface.card,
   },
-  activityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.primary,
-    marginRight: SPACING.md,
+  actionHover: {
+    backgroundColor: colors.brand.soft,
+    borderColor: colors.brand.primary,
   },
-  activityText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
+  activityList: {
+    gap: spacing.md,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  activityIcon: {
+    paddingTop: 2,
+  },
+  activityBody: {
     flex: 1,
+    gap: 2,
+  },
+  miniStats: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  miniStat: {
+    gap: 2,
+    flex: 1,
+  },
+  miniValue: {
+    fontSize: 28,
+    lineHeight: 32,
+  },
+  payoutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
 });

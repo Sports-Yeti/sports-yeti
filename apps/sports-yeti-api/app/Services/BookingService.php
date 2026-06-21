@@ -15,11 +15,11 @@ class BookingService
         $query = Booking::where('space_id', $space->id)
             ->whereIn('status', ['pending', 'confirmed'])
             ->where(function ($q) use ($startTime, $endTime) {
-                $q->where(function ($inner) use ($startTime, $endTime) {
+                $q->where(function ($inner) use ($startTime) {
                     // New booking starts during existing booking
                     $inner->where('start_time', '<=', $startTime)
                         ->where('end_time', '>', $startTime);
-                })->orWhere(function ($inner) use ($startTime, $endTime) {
+                })->orWhere(function ($inner) use ($endTime) {
                     // New booking ends during existing booking
                     $inner->where('start_time', '<', $endTime)
                         ->where('end_time', '>=', $endTime);
@@ -55,8 +55,8 @@ class BookingService
         $dayOfWeek = strtolower($targetDate->format('l'));
         $hours = $facility->operating_hours[$dayOfWeek] ?? ['open' => '08:00', 'close' => '22:00'];
 
-        $openTime = Carbon::parse($date . ' ' . $hours['open']);
-        $closeTime = Carbon::parse($date . ' ' . $hours['close']);
+        $openTime = Carbon::parse($date.' '.$hours['open']);
+        $closeTime = Carbon::parse($date.' '.$hours['close']);
 
         // Get all bookings for this space on this date
         $bookings = Booking::where('space_id', $space->id)

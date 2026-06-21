@@ -17,11 +17,11 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class Game extends Model
 {
+    use BelongsToLeague;
     use HasFactory;
     use HasUuids;
-    use SoftDeletes;
     use LogsActivity;
-    use BelongsToLeague;
+    use SoftDeletes;
 
     protected $fillable = [
         'league_id',
@@ -38,6 +38,10 @@ class Game extends Model
         'season_number',
         'week_number',
         'notes',
+        'max_players',
+        'referee_required',
+        'is_open_play',
+        'is_published',
     ];
 
     protected function casts(): array
@@ -48,6 +52,10 @@ class Game extends Model
             'team2_score' => 'integer',
             'season_number' => 'integer',
             'week_number' => 'integer',
+            'max_players' => 'integer',
+            'referee_required' => 'boolean',
+            'is_open_play' => 'boolean',
+            'is_published' => 'boolean',
         ];
     }
 
@@ -102,5 +110,10 @@ class Game extends Model
     public function chat(): HasOne
     {
         return $this->hasOne(Chat::class);
+    }
+
+    public function refereeAssignments(): HasMany
+    {
+        return $this->hasMany(RefereeAssignment::class);
     }
 }

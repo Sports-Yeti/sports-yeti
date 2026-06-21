@@ -17,8 +17,11 @@ class LeagueNewsControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private User $leagueAdminUser;
+
     private User $adminUser;
+
     private League $league;
 
     protected function setUp(): void

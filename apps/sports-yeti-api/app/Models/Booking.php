@@ -17,8 +17,8 @@ class Booking extends Model
 {
     use HasFactory;
     use HasUuids;
-    use SoftDeletes;
     use LogsActivity;
+    use SoftDeletes;
 
     protected $fillable = [
         'space_id',

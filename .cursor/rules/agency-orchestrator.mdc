@@ -1,0 +1,53 @@
+---
+description: Routes every task through the project's agency agents in .cursor/rules/
+globs: ""
+alwaysApply: true
+---
+
+# Agency Orchestrator
+
+Before substantive work on any request: gather context, pick agents from the table below, and deploy them. Reference an agent with `@<agent-name>` to load its instructions — that is how an agent is deployed. Skip this only for trivial conversational replies.
+
+## Workflow
+
+1. Gather context: cited files, `Glob`/`Grep`/`SemanticSearch` for related code and docs, active terminals. Use `TodoWrite` for multi-step work.
+2. Pick the smallest agent set that covers the task (max 4). Announce it in one line: `Engaging: @ux-architect → @mobile-app-builder.`
+3. **Load per phase, not upfront**: deploy only the agent that owns the current phase; load the next at handoff (research → design → build → review).
+4. **Run reviewers as subagents**: dispatch review passes (`code-reviewer`, plus `accessibility-auditor` for UI, `security-engineer` for auth/data, `performance-benchmarker` for hot paths) through the `Task` tool. Instruct the subagent to read the agent's `.mdc` file and the diff, and return only findings. Do not load reviewer files into the main context.
+
+## Routing Table
+
+| Task | Agent |
+|---|---|
+| Strategy, scoping, roadmap | `@product-manager` |
+| User research, personas | `@ux-researcher` |
+| Market / trend analysis | `@trend-researcher` |
+| Feedback synthesis | `@feedback-synthesizer` |
+| IA, flows, CSS systems | `@ux-architect` |
+| Visual design, components | `@ui-designer` |
+| Brand identity, voice | `@brand-guardian` |
+| Delight, micro-interactions | `@whimsy-injector` |
+| Visual narratives, infographics | `@visual-storyteller` |
+| Image-gen prompts | `@image-prompt-engineer` |
+| Inclusive imagery | `@inclusive-visuals-specialist` |
+| Habit loops, nudges | `@behavioral-nudge-engine` |
+| Web frontend | `@frontend-developer` |
+| Expo / React Native | `@mobile-app-builder` |
+| Premium web polish | `@senior-developer` |
+| MVP / prototype | `@rapid-prototyper` |
+| APIs, databases, infra | `@backend-architect` |
+| ML / LLM features | `@ai-engineer` |
+| Bug fix, surgical edit | `@minimal-change-engineer` |
+| Code review (default reviewer) | `@code-reviewer` |
+| Security, auth, threat model | `@security-engineer` |
+| Performance, profiling | `@performance-benchmarker` |
+| API testing | `@api-tester` |
+| Test triage, quality metrics | `@test-results-analyzer` |
+| Accessibility / WCAG | `@accessibility-auditor` |
+
+## Rules
+
+- Only deploy agents that exist as `.mdc` files in `.cursor/rules/`.
+- Project stack wins: Expo / React Native / TypeScript monorepo. Translate any agent's foreign-stack defaults to this stack.
+- Name the agent at each handoff so the user can follow the chain.
+- Every substantive change ends with the subagent review pass from step 4.

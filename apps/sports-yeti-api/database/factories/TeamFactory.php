@@ -19,15 +19,15 @@ class TeamFactory extends Factory
     public function definition(): array
     {
         $teamNames = [
-            'Thunder', 'Lightning', 'Storm', 'Warriors', 'Titans', 
+            'Thunder', 'Lightning', 'Storm', 'Warriors', 'Titans',
             'Eagles', 'Hawks', 'Panthers', 'Lions', 'Bears',
-            'Wolves', 'Sharks', 'Dragons', 'Phoenix', 'Blazers'
+            'Wolves', 'Sharks', 'Dragons', 'Phoenix', 'Blazers',
         ];
 
         return [
             'league_id' => League::factory(),
             'captain_id' => Player::factory(),
-            'name' => $this->faker->city() . ' ' . $this->faker->randomElement($teamNames),
+            'name' => $this->faker->city().' '.$this->faker->randomElement($teamNames),
             'description' => $this->faker->sentence(),
             'logo_url' => null,
             'status' => 'active',

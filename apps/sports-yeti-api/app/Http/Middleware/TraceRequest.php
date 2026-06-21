@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
 class TraceRequest
 {
     protected TracerInterface $tracer;
+
     protected TextMapPropagatorInterface $propagator;
 
     public function __construct(TracerInterface $tracer, TextMapPropagatorInterface $propagator)
@@ -31,7 +32,7 @@ class TraceRequest
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!config('opentelemetry.enabled')) {
+        if (! config('opentelemetry.enabled')) {
             return $next($request);
         }
 
@@ -77,7 +78,7 @@ class TraceRequest
             if ($response->getStatusCode() >= 400) {
                 $span->setStatus(
                     $response->getStatusCode() >= 500 ? StatusCode::STATUS_ERROR : StatusCode::STATUS_UNSET,
-                    'HTTP ' . $response->getStatusCode()
+                    'HTTP '.$response->getStatusCode()
                 );
             } else {
                 $span->setStatus(StatusCode::STATUS_OK);
@@ -110,6 +111,7 @@ class TraceRequest
         if ($route) {
             // Use route name or URI pattern
             $name = $route->getName() ?? $route->uri();
+
             return "{$method} {$name}";
         }
 

@@ -20,6 +20,8 @@ class RegisterRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'phone' => ['nullable', 'string', 'max:20'],
+            'roles' => ['nullable', 'array'],
+            'roles.*' => ['string', 'in:player,referee,league-admin,facility-manager'],
         ];
     }
 

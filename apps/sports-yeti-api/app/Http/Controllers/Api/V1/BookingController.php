@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Space;
 use App\Services\BookingService;
+use App\Services\NotificationService;
 use App\Services\QrCodeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -148,7 +149,7 @@ class BookingController extends Controller
 
     public function cancel(Booking $booking): JsonResponse
     {
-        $this->authorize('update', $booking);
+        $this->authorize('cancel', $booking);
 
         if ($booking->status === 'cancelled') {
             return response()->json([
@@ -175,8 +176,40 @@ class BookingController extends Controller
         ]);
     }
 
+    public function update(Request $request, Booking $booking): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'status' => ['required', 'string', 'in:pending,confirmed,rejected,cancelled,completed'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/422',
+                'title' => 'Validation Error',
+                'status' => 422,
+                'detail' => 'The given data was invalid.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $booking->update(['status' => $request->status]);
+        $booking->load('space.facility', 'user');
+
+        if ($booking->user) {
+            app(NotificationService::class)->sendBookingStatusUpdate(
+                $booking->user,
+                $booking->id,
+                $request->status,
+                $booking->space?->facility?->name ?? 'the facility'
+            );
+        }
+
+        return response()->json(['data' => $booking]);
+    }
+
     public function checkIn(Request $request): JsonResponse
     {
+        // TODO: Verify required waivers are signed before allowing check-in
         $validator = Validator::make($request->all(), [
             'qr_code' => ['required', 'string'],
         ]);
@@ -193,7 +226,7 @@ class BookingController extends Controller
 
         $booking = Booking::where('qr_code', $request->qr_code)->first();
 
-        if (!$booking) {
+        if (! $booking) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/404',
                 'title' => 'Not Found',

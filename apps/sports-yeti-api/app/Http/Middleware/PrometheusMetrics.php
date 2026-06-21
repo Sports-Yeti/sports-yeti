@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 class PrometheusMetrics
 {
     protected CollectorRegistry $registry;
+
     protected string $namespace;
 
     public function __construct(CollectorRegistry $registry)
@@ -25,7 +26,7 @@ class PrometheusMetrics
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!config('prometheus.enabled') || !config('prometheus.http.enabled')) {
+        if (! config('prometheus.enabled') || ! config('prometheus.http.enabled')) {
             return $next($request);
         }
 
@@ -53,7 +54,7 @@ class PrometheusMetrics
         $method = $request->getMethod();
         $route = $this->getRouteName($request);
         $status = (string) $response->getStatusCode();
-        $statusClass = substr($status, 0, 1) . 'xx';
+        $statusClass = substr($status, 0, 1).'xx';
 
         // Request counter
         $counter = $this->registry->getOrRegisterCounter(
@@ -119,6 +120,7 @@ class PrometheusMetrics
 
             // Use route URI pattern (replaces dynamic segments)
             $uri = $route->uri();
+
             // Normalize route parameters to placeholders
             return preg_replace('/\{[^}]+\}/', '{id}', $uri) ?? $uri;
         }

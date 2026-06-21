@@ -83,6 +83,12 @@ export interface League {
   is_active: boolean;
   settings: Record<string, unknown> | null;
   created_at: string;
+  season_start_date?: string | null;
+  season_end_date?: string | null;
+  registration_open_date?: string | null;
+  registration_close_date?: string | null;
+  max_teams?: number | null;
+  status?: 'draft' | 'published' | null;
   admin?: User;
   teams_count?: number;
   players_count?: number;
@@ -237,11 +243,102 @@ export interface DashboardStats {
   total_leagues: number;
   total_teams: number;
   total_players: number;
-  total_bookings: number;
-  revenue_this_month: number;
-  active_games: number;
-  recent_signups: number;
-  pending_bookings: number;
+  total_games: number;
+  upcoming_games: number;
+  completed_games: number;
+  active_leagues: number;
+  total_revenue: number;
+}
+
+// Game types
+export interface Game {
+  id: string;
+  league_id: string;
+  team1_id: string;
+  team2_id: string;
+  facility_id: string | null;
+  space_id: string | null;
+  scheduled_at: string;
+  status: string;
+  team1_score: number | null;
+  team2_score: number | null;
+  game_type: string;
+  league?: League;
+  team1?: Team;
+  team2?: Team;
+  facility?: Facility;
+}
+
+// Referee types
+export interface Referee {
+  id: string;
+  user_id: number;
+  league_id: string | null;
+  sport_types: string[];
+  experience_level: string;
+  certification: string | null;
+  hourly_rate: number;
+  rating: number;
+  total_games: number;
+  is_available: boolean;
+  bio: string | null;
+  created_at: string;
+  user?: User;
+  league?: League;
+}
+
+export interface RefereeAssignment {
+  id: string;
+  referee_id: string;
+  game_id: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'completed';
+  assigned_rate: number;
+  is_bidding: boolean;
+  bid_amount: number | null;
+  admin_approved: boolean;
+  report: string | null;
+  rating_given: number | null;
+  referee?: Referee;
+  game?: Game;
+}
+
+// Waiver types
+export interface Waiver {
+  id: string;
+  league_id: string;
+  title: string;
+  content: string;
+  is_required: boolean;
+  created_at: string;
+  league?: League;
+  signatures_count?: number;
+}
+
+export interface WaiverSignature {
+  id: string;
+  waiver_id: string;
+  player_id: string;
+  signed_at: string;
+  ip_address: string | null;
+  player?: Player;
+}
+
+// Camp types
+export interface Camp {
+  id: string;
+  league_id: string;
+  name: string;
+  description: string | null;
+  start_date: string;
+  end_date: string;
+  registration_fee: number;
+  max_participants: number;
+  skill_level: string;
+  age_group: string | null;
+  status: 'draft' | 'open' | 'closed' | 'completed' | 'cancelled';
+  image_url: string | null;
+  league?: League;
+  registrations_count?: number;
 }
 
 // Navigation types
@@ -261,4 +358,20 @@ export type MainStackParamList = {
   Payments: undefined;
   PaymentDetail: { id: string };
   AuditLogs: undefined;
+  Referees: undefined;
+  RefereeDetail: { id: string };
+  RefereeAssignments: undefined;
+  Waivers: undefined;
+  WaiverDetail: { id: string };
+  WaiverForm: { id?: string };
+  Camps: undefined;
+  CampDetail: { id: string };
+  CampForm: { id?: string };
+  Schedule: undefined;
+  Finance: undefined;
+  Stats: undefined;
+  News: undefined;
+  Analytics: undefined;
+  Settings: undefined;
+  MarketplaceMonitor: undefined;
 };

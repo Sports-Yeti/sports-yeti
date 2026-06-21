@@ -1,560 +1,235 @@
-import React, { useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  Switch,
-} from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import { api } from '../../services/api';
-import type { League } from '../../types';
-import type { MainStackParamList } from '../../navigation/MainNavigator';
+  Form,
+  FormActions,
+  FormField,
+  FormRow,
+  FormSection,
+  Input,
+  Select,
+  TextArea,
+  useFieldController,
+} from '@sports-yeti/ui';
+import {
+  leagueById,
+  leagueFormSchema,
+  SPORT_OPTIONS,
+  type LeagueFormValues,
+} from '@sports-yeti/mocks';
+import {
+  PageHeader,
+  PageScroll,
+  type AdminRouteName,
+} from '../../admin';
+import { useToast } from '../../ui';
+import { spacing } from '../../theme';
 
-type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
-type RouteProps = RouteProp<MainStackParamList, 'LeagueForm'>;
-
-interface FormData {
-  name: string;
-  description: string;
-  sport_type: string;
-  location: string;
-  timezone: string;
-  registration_fee: string;
-  is_active: boolean;
+interface ScreenNavigation {
+  navigate: (route: AdminRouteName, params?: { id?: string }) => void;
+  goBack: () => void;
 }
-
-interface FormErrors {
-  name?: string;
-  sport_type?: string;
-  registration_fee?: string;
-}
-
-const SPORT_TYPES = [
-  'Basketball',
-  'Soccer',
-  'Football',
-  'Baseball',
-  'Volleyball',
-  'Hockey',
-  'Tennis',
-  'Golf',
-  'Swimming',
-  'Other',
-];
-
-const TIMEZONES = [
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Phoenix',
-  'Pacific/Honolulu',
-  'UTC',
-];
 
 export function LeagueFormScreen() {
-  const navigation = useNavigation<NavigationProp>();
-  const route = useRoute<RouteProps>();
-  const queryClient = useQueryClient();
-  const leagueId = route.params?.id;
-  const isEditing = !!leagueId;
+  const navigation = useNavigation() as unknown as ScreenNavigation;
+  const route = useRoute<
+    RouteProp<{ params: { id?: string } }, 'params'>
+  >();
+  const toast = useToast();
+  const editingId = route.params?.id;
+  const editing = useMemo(
+    () => (editingId ? leagueById(editingId) : undefined),
+    [editingId],
+  );
 
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
-    description: '',
-    sport_type: 'Basketball',
-    location: '',
-    timezone: 'America/New_York',
-    registration_fee: '0',
-    is_active: true,
-  });
-
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [showSportPicker, setShowSportPicker] = useState(false);
-  const [showTimezonePicker, setShowTimezonePicker] = useState(false);
-
-  // Fetch existing league data if editing
-  const { data: existingLeague, isLoading: isLoadingLeague } = useQuery({
-    queryKey: ['league', leagueId],
-    queryFn: () => api.getLeague(leagueId!),
-    enabled: isEditing,
-  });
-
-  // Populate form with existing data
-  useEffect(() => {
-    if (existingLeague) {
-      setFormData({
-        name: existingLeague.name,
-        description: existingLeague.description ?? '',
-        sport_type: existingLeague.sport_type ?? 'Basketball',
-        location: existingLeague.location ?? '',
-        timezone: existingLeague.timezone ?? 'America/New_York',
-        registration_fee: String(existingLeague.registration_fee ?? 0),
-        is_active: existingLeague.is_active,
-      });
-    }
-  }, [existingLeague]);
-
-  const createMutation = useMutation({
-    mutationFn: (data: Partial<League>) => api.createLeague(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leagues'] });
-      navigation.goBack();
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (data: Partial<League>) => api.updateLeague(leagueId!, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leagues'] });
-      queryClient.invalidateQueries({ queryKey: ['league', leagueId] });
-      navigation.goBack();
-    },
-  });
-
-  const isSaving = createMutation.isPending || updateMutation.isPending;
-
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-
-    if (!formData.sport_type) {
-      newErrors.sport_type = 'Sport type is required';
-    }
-
-    const fee = parseFloat(formData.registration_fee);
-    if (isNaN(fee) || fee < 0) {
-      newErrors.registration_fee = 'Registration fee must be a valid number';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSave = async () => {
-    if (!validateForm()) return;
-
-    const data: Partial<League> = {
-      name: formData.name.trim(),
-      description: formData.description.trim() || null,
-      sport_type: formData.sport_type,
-      location: formData.location.trim() || null,
-      timezone: formData.timezone,
-      registration_fee: parseFloat(formData.registration_fee),
-      is_active: formData.is_active,
-    };
-
-    if (isEditing) {
-      await updateMutation.mutateAsync(data);
-    } else {
-      await createMutation.mutateAsync(data);
-    }
-  };
-
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
-  const updateField = (field: keyof FormData, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field as keyof FormErrors]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
-  };
-
-  if (isEditing && isLoadingLeague) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
+  const defaultValues: LeagueFormValues = useMemo(
+    () => ({
+      name: editing?.name ?? '',
+      slug: editing?.slug ?? '',
+      sport: editing?.sport ?? 'soccer',
+      sportTagline: editing?.sportTagline ?? '',
+      city: editing?.city ?? '',
+      description: editing?.description ?? '',
+      rulesUrl: editing?.rulesUrl ?? '',
+    }),
+    [editing],
+  );
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.backLink} onPress={handleBack}>
-            <Text style={styles.backLinkText}>← Cancel</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>
-            {isEditing ? 'Edit League' : 'Create League'}
-          </Text>
+    <PageScroll>
+      <PageHeader
+        title={editing ? `Edit ${editing.name}` : 'New league'}
+        subtitle="Identity, sport, and branding only — registration windows + fees live on the Season and Division forms."
+        crumbs={[
+          { label: 'Competition' },
+          { label: 'Leagues', route: 'Leagues' },
+          { label: editing ? editing.name : 'New league' },
+        ]}
+        onNavigate={(r) => navigation.navigate(r)}
+      />
+      <Form<LeagueFormValues>
+        defaultValues={defaultValues}
+        resolver={zodResolver(leagueFormSchema)}
+        onSubmit={async (values) => {
+          // eslint-disable-next-line no-console
+          console.log('League form submit (mock)', values);
+          toast.show({
+            variant: 'success',
+            title: editing ? 'League updated' : 'League created',
+            description: `${values.name} saved (mock).`,
+          });
+          navigation.goBack();
+        }}
+      >
+        <View style={styles.stack}>
+          <FormSection title="Identity">
+            <FormRow columns={2}>
+              <NameField />
+              <SlugField />
+            </FormRow>
+            <FormRow columns={2}>
+              <SportField />
+              <CityField />
+            </FormRow>
+            <SportTaglineField />
+          </FormSection>
+
+          <FormSection title="Description">
+            <DescField />
+            <RulesUrlField />
+          </FormSection>
+
+          <FormActions
+            submitLabel={editing ? 'Save changes' : 'Create league'}
+            cancelLabel="Cancel"
+            onCancel={() => navigation.goBack()}
+          />
         </View>
-        <TouchableOpacity
-          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color={COLORS.textLight} />
-          ) : (
-            <Text style={styles.saveButtonText}>
-              {isEditing ? 'Save Changes' : 'Create League'}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      </Form>
+    </PageScroll>
+  );
+}
 
-      {/* Form */}
-      <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Basic Information</Text>
+function NameField() {
+  const ctrl = useFieldController<LeagueFormValues, 'name'>({ name: 'name' });
+  return (
+    <FormField label="Name" required error={ctrl.error}>
+      <Input
+        value={ctrl.value}
+        onChangeText={ctrl.onChange}
+        onBlur={ctrl.onBlur}
+        placeholder="Yeti Soccer"
+      />
+    </FormField>
+  );
+}
 
-          {/* Name */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>League Name *</Text>
-            <TextInput
-              style={[styles.textInput, errors.name && styles.textInputError]}
-              value={formData.name}
-              onChangeText={(value) => updateField('name', value)}
-              placeholder="Enter league name"
-              placeholderTextColor={COLORS.textMuted}
-            />
-            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
-          </View>
+function SlugField() {
+  const ctrl = useFieldController<LeagueFormValues, 'slug'>({ name: 'slug' });
+  return (
+    <FormField
+      label="URL slug"
+      description="Lowercase letters, numbers, and dashes."
+      required
+      error={ctrl.error}
+    >
+      <Input
+        value={ctrl.value}
+        onChangeText={ctrl.onChange}
+        onBlur={ctrl.onBlur}
+        placeholder="yeti-soccer"
+      />
+    </FormField>
+  );
+}
 
-          {/* Description */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Description</Text>
-            <TextInput
-              style={[styles.textInput, styles.textArea]}
-              value={formData.description}
-              onChangeText={(value) => updateField('description', value)}
-              placeholder="Enter league description"
-              placeholderTextColor={COLORS.textMuted}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
+function SportField() {
+  const ctrl = useFieldController<LeagueFormValues, 'sport'>({ name: 'sport' });
+  return (
+    <FormField label="Sport" required error={ctrl.error}>
+      <Select
+        options={SPORT_OPTIONS}
+        value={ctrl.value}
+        onChange={(v) => ctrl.onChange(v as LeagueFormValues['sport'])}
+      />
+    </FormField>
+  );
+}
 
-          {/* Sport Type */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Sport Type *</Text>
-            <TouchableOpacity
-              style={styles.selectButton}
-              onPress={() => setShowSportPicker(!showSportPicker)}
-            >
-              <Text style={styles.selectButtonText}>{formData.sport_type}</Text>
-              <Text style={styles.selectArrow}>▼</Text>
-            </TouchableOpacity>
-            {showSportPicker && (
-              <View style={styles.pickerContainer}>
-                {SPORT_TYPES.map((sport) => (
-                  <TouchableOpacity
-                    key={sport}
-                    style={[
-                      styles.pickerOption,
-                      formData.sport_type === sport && styles.pickerOptionActive,
-                    ]}
-                    onPress={() => {
-                      updateField('sport_type', sport);
-                      setShowSportPicker(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.pickerOptionText,
-                        formData.sport_type === sport && styles.pickerOptionTextActive,
-                      ]}
-                    >
-                      {sport}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            {errors.sport_type && (
-              <Text style={styles.errorText}>{errors.sport_type}</Text>
-            )}
-          </View>
-        </View>
+function CityField() {
+  const ctrl = useFieldController<LeagueFormValues, 'city'>({ name: 'city' });
+  return (
+    <FormField label="City" required error={ctrl.error}>
+      <Input
+        value={ctrl.value}
+        onChangeText={ctrl.onChange}
+        onBlur={ctrl.onBlur}
+        placeholder="Denver, CO"
+      />
+    </FormField>
+  );
+}
 
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Location & Settings</Text>
+function SportTaglineField() {
+  const ctrl = useFieldController<LeagueFormValues, 'sportTagline'>({
+    name: 'sportTagline',
+  });
+  return (
+    <FormField
+      label="Sport tagline"
+      description="Short copy for cards (e.g. “Co-ed 7v7 Outdoor”)."
+      required
+      error={ctrl.error}
+    >
+      <Input
+        value={ctrl.value}
+        onChangeText={ctrl.onChange}
+        onBlur={ctrl.onBlur}
+        placeholder="Co-ed 7v7 Outdoor"
+      />
+    </FormField>
+  );
+}
 
-          {/* Location */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Location</Text>
-            <TextInput
-              style={styles.textInput}
-              value={formData.location}
-              onChangeText={(value) => updateField('location', value)}
-              placeholder="City, State"
-              placeholderTextColor={COLORS.textMuted}
-            />
-          </View>
+function DescField() {
+  const ctrl = useFieldController<LeagueFormValues, 'description'>({
+    name: 'description',
+  });
+  return (
+    <FormField label="Description" required error={ctrl.error}>
+      <TextArea
+        value={ctrl.value}
+        onChangeText={ctrl.onChange}
+        onBlur={ctrl.onBlur}
+        minRows={3}
+        maxRows={6}
+        placeholder="Year-round 7v7 outdoor soccer at Yeti Center fields…"
+      />
+    </FormField>
+  );
+}
 
-          {/* Timezone */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Timezone</Text>
-            <TouchableOpacity
-              style={styles.selectButton}
-              onPress={() => setShowTimezonePicker(!showTimezonePicker)}
-            >
-              <Text style={styles.selectButtonText}>{formData.timezone}</Text>
-              <Text style={styles.selectArrow}>▼</Text>
-            </TouchableOpacity>
-            {showTimezonePicker && (
-              <View style={styles.pickerContainer}>
-                {TIMEZONES.map((tz) => (
-                  <TouchableOpacity
-                    key={tz}
-                    style={[
-                      styles.pickerOption,
-                      formData.timezone === tz && styles.pickerOptionActive,
-                    ]}
-                    onPress={() => {
-                      updateField('timezone', tz);
-                      setShowTimezonePicker(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.pickerOptionText,
-                        formData.timezone === tz && styles.pickerOptionTextActive,
-                      ]}
-                    >
-                      {tz}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-
-          {/* Registration Fee */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Registration Fee ($)</Text>
-            <TextInput
-              style={[
-                styles.textInput,
-                errors.registration_fee && styles.textInputError,
-              ]}
-              value={formData.registration_fee}
-              onChangeText={(value) => updateField('registration_fee', value)}
-              placeholder="0.00"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="decimal-pad"
-            />
-            {errors.registration_fee && (
-              <Text style={styles.errorText}>{errors.registration_fee}</Text>
-            )}
-          </View>
-
-          {/* Active Status */}
-          <View style={styles.fieldContainer}>
-            <View style={styles.switchRow}>
-              <View>
-                <Text style={styles.fieldLabel}>Active Status</Text>
-                <Text style={styles.fieldHint}>
-                  Inactive leagues are hidden from players
-                </Text>
-              </View>
-              <Switch
-                value={formData.is_active}
-                onValueChange={(value) => updateField('is_active', value)}
-                trackColor={{ false: COLORS.border, true: COLORS.primary + '80' }}
-                thumbColor={formData.is_active ? COLORS.primary : COLORS.textMuted}
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* Error Message */}
-        {(createMutation.error || updateMutation.error) && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>
-              {(createMutation.error as Error)?.message ||
-                (updateMutation.error as Error)?.message ||
-                'An error occurred. Please try again.'}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
-    </View>
+function RulesUrlField() {
+  const ctrl = useFieldController<LeagueFormValues, 'rulesUrl'>({
+    name: 'rulesUrl',
+  });
+  return (
+    <FormField label="Rules URL" description="Optional link to the rule book." error={ctrl.error}>
+      <Input
+        value={ctrl.value ?? ''}
+        onChangeText={ctrl.onChange}
+        onBlur={ctrl.onBlur}
+        placeholder="https://"
+      />
+    </FormField>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  backLink: {
-    marginBottom: SPACING.sm,
-  },
-  backLinkText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.primary,
-    fontWeight: '500',
-  },
-  title: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  saveButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.sm + 2,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 8,
-    minWidth: 120,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.7,
-  },
-  saveButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  formContainer: {
-    flex: 1,
-    padding: SPACING.lg,
-  },
-  formSection: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.lg,
-  },
-  fieldContainer: {
-    marginBottom: SPACING.lg,
-  },
-  fieldLabel: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-  },
-  fieldHint: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  textInput: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingVertical: SPACING.sm + 2,
-    paddingHorizontal: SPACING.md,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-  },
-  textInputError: {
-    borderColor: COLORS.error,
-  },
-  textArea: {
-    minHeight: 100,
-    paddingTop: SPACING.md,
-  },
-  selectButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingVertical: SPACING.sm + 2,
-    paddingHorizontal: SPACING.md,
-  },
-  selectButtonText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-  },
-  selectArrow: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-  },
-  pickerContainer: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    marginTop: SPACING.xs,
-    overflow: 'hidden',
-  },
-  pickerOption: {
-    paddingVertical: SPACING.sm + 2,
-    paddingHorizontal: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  pickerOptionActive: {
-    backgroundColor: COLORS.primaryLight,
-  },
-  pickerOptionText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-  },
-  pickerOptionTextActive: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.error,
-    marginTop: SPACING.xs,
-  },
-  errorBanner: {
-    backgroundColor: COLORS.error + '15',
-    borderRadius: 8,
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  errorBannerText: {
-    color: COLORS.error,
-    fontSize: FONT_SIZES.sm,
-    textAlign: 'center',
-  },
-  bottomSpacing: {
-    height: SPACING.xxl,
+  stack: {
+    gap: spacing.lg,
+    width: '100%',
   },
 });

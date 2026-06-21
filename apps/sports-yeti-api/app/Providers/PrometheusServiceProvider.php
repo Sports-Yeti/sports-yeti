@@ -43,7 +43,7 @@ class PrometheusServiceProvider extends ServiceProvider
 
         return match ($storage) {
             'redis' => new CollectorRegistry($this->createRedisAdapter()),
-            default => new CollectorRegistry(new InMemory()),
+            default => new CollectorRegistry(new InMemory),
         };
     }
 

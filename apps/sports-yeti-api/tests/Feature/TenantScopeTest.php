@@ -33,7 +33,7 @@ class TenantScopeTest extends TestCase
         if (app()->bound('current_league')) {
             app()->forgetInstance('current_league');
         }
-        
+
         parent::tearDown();
     }
 
@@ -195,7 +195,7 @@ class TenantScopeTest extends TestCase
     {
         $league = League::factory()->create();
         $player = Player::factory()->create();
-        
+
         // Set tenant context
         app()->instance('current_league_id', $league->id);
 

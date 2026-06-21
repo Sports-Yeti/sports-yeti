@@ -23,7 +23,7 @@ class LeagueController extends Controller
         }
 
         if ($request->has('location')) {
-            $query->where('location', 'like', '%' . $request->location . '%');
+            $query->where('location', 'like', '%'.$request->location.'%');
         }
 
         $perPage = min($request->get('per_page', 15), 100);

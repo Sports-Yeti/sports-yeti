@@ -1,11 +1,22 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { RootNavigator } from '../navigation';
 import { ErrorBoundary } from '../components';
-import { SENTRY_DSN, IS_PRODUCTION } from '../constants';
+import { SENTRY_DSN, IS_PRODUCTION, STRIPE_PUBLISHABLE_KEY } from '../constants';
+import { UIThemeProvider } from '@sports-yeti/ui';
+import { colors, useFonts, uiTheme } from '../theme';
+import { ToastProvider } from '../ui';
+import { RoleStackProvider } from '../features/role-stack';
+
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* no-op: ignore if already hidden */
+});
 
 // Initialize Sentry
 Sentry.init({
@@ -60,8 +71,9 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
+  const fontsLoaded = useFonts();
+
   useEffect(() => {
-    // Add navigation breadcrumb on app start
     Sentry.addBreadcrumb({
       category: 'lifecycle',
       message: 'App mounted',
@@ -77,13 +89,39 @@ function AppContent() {
     };
   }, []);
 
+  const onLayoutRootView = useCallback(async () => {
+    if (fontsLoaded) {
+      await SplashScreen.hideAsync().catch(() => {
+        /* no-op */
+      });
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <RootNavigator />
-      </SafeAreaProvider>
-    </QueryClientProvider>
+    <View
+      style={{ flex: 1, backgroundColor: colors.surface.bg }}
+      onLayout={onLayoutRootView}
+    >
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <StripeProvider
+            publishableKey={STRIPE_PUBLISHABLE_KEY}
+            merchantIdentifier="merchant.com.sportsyeti"
+          >
+            <UIThemeProvider value={uiTheme}>
+              <RoleStackProvider>
+                <ToastProvider>
+                  <StatusBar style="dark" />
+                  <RootNavigator />
+                </ToastProvider>
+              </RoleStackProvider>
+            </UIThemeProvider>
+          </StripeProvider>
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    </View>
   );
 }
 

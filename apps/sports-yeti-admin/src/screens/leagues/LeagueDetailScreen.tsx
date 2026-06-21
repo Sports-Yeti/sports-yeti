@@ -1,712 +1,278 @@
-import React, { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { CalendarDays, Edit3, Plus } from 'lucide-react-native';
+import { OrgAvatar, SeasonPill } from '@sports-yeti/ui';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import { api } from '../../services/api';
-import type { Team, Player } from '../../types';
-import type { MainStackParamList } from '../../navigation/MainNavigator';
+  divisionsForSeason,
+  leagueById,
+  organizationById,
+  seasonsByLeague,
+  type SeasonStatus,
+} from '@sports-yeti/mocks';
+import {
+  PageHeader,
+  PageScroll,
+  StatCard,
+  type AdminRouteName,
+} from '../../admin';
+import { Button, Card, EmptyState, Tabs, Tag, Text } from '../../ui';
+import { OrgBrandingProvider } from '../../features/org-branding';
+import { colors, spacing } from '../../theme';
+import { formatDate } from '../../lib/format';
 
-type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
-type RouteProps = RouteProp<MainStackParamList, 'LeagueDetail'>;
-
-type TabId = 'overview' | 'teams' | 'players';
-
-interface TabButtonProps {
-  id: TabId;
-  label: string;
-  count?: number;
-  isActive: boolean;
-  onPress: () => void;
+interface ScreenNavigation {
+  navigate: (route: AdminRouteName, params?: { id?: string }) => void;
+  goBack: () => void;
 }
 
-function TabButton({ label, count, isActive, onPress }: TabButtonProps) {
-  return (
-    <TouchableOpacity
-      style={[styles.tabButton, isActive && styles.tabButtonActive]}
-      onPress={onPress}
-    >
-      <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
-        {label}
-        {count !== undefined && (
-          <Text style={styles.tabCount}> ({count})</Text>
-        )}
-      </Text>
-    </TouchableOpacity>
-  );
-}
+const TABS = [
+  { key: 'seasons', label: 'Seasons' },
+  { key: 'about', label: 'About' },
+  { key: 'rules', label: 'Rules' },
+];
 
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: string;
-  color: string;
-}
+const STATUS_LABEL: Record<SeasonStatus, string> = {
+  draft: 'Draft',
+  registration_open: 'Registration open',
+  in_progress: 'In progress',
+  completed: 'Completed',
+  archived: 'Archived',
+};
 
-function StatCard({ title, value, icon, color }: StatCardProps) {
-  return (
-    <View style={styles.statCard}>
-      <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
-        <Text style={styles.statIcon}>{icon}</Text>
-      </View>
-      <View style={styles.statInfo}>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statTitle}>{title}</Text>
-      </View>
-    </View>
-  );
-}
-
-interface TeamRowProps {
-  team: Team;
-  onPress: () => void;
-}
-
-function TeamRow({ team, onPress }: TeamRowProps) {
-  const statusColors: Record<string, string> = {
-    approved: COLORS.success,
-    pending: COLORS.warning,
-    rejected: COLORS.error,
-    inactive: COLORS.textMuted,
-  };
-
-  return (
-    <TouchableOpacity style={styles.listRow} onPress={onPress}>
-      <View style={styles.listRowLeft}>
-        <View style={styles.teamAvatar}>
-          <Text style={styles.teamAvatarText}>
-            {team.name.charAt(0).toUpperCase()}
-          </Text>
-        </View>
-        <View>
-          <Text style={styles.listRowTitle}>{team.name}</Text>
-          <Text style={styles.listRowSubtitle}>
-            {team.players_count ?? 0} players
-          </Text>
-        </View>
-      </View>
-      <View
-        style={[
-          styles.statusBadge,
-          { backgroundColor: (statusColors[team.status] || COLORS.textMuted) + '20' },
-        ]}
-      >
-        <Text
-          style={[
-            styles.statusBadgeText,
-            { color: statusColors[team.status] || COLORS.textMuted },
-          ]}
-        >
-          {team.status}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-interface PlayerRowProps {
-  player: Player;
-  onPress: () => void;
-}
-
-function PlayerRow({ player, onPress }: PlayerRowProps) {
-  const experienceColors: Record<string, string> = {
-    beginner: COLORS.success,
-    intermediate: COLORS.primary,
-    advanced: COLORS.warning,
-    pro: COLORS.error,
-  };
-
-  return (
-    <TouchableOpacity style={styles.listRow} onPress={onPress}>
-      <View style={styles.listRowLeft}>
-        <View style={styles.playerAvatar}>
-          <Text style={styles.playerAvatarText}>
-            {player.user?.name?.charAt(0).toUpperCase() ?? 'P'}
-          </Text>
-        </View>
-        <View>
-          <Text style={styles.listRowTitle}>{player.user?.name ?? 'Unknown'}</Text>
-          <Text style={styles.listRowSubtitle}>
-            {player.position ?? 'No position'} • {player.experience_level}
-          </Text>
-        </View>
-      </View>
-      <View
-        style={[
-          styles.experienceBadge,
-          { backgroundColor: (experienceColors[player.experience_level] || COLORS.textMuted) + '20' },
-        ]}
-      >
-        <Text
-          style={[
-            styles.experienceBadgeText,
-            { color: experienceColors[player.experience_level] || COLORS.textMuted },
-          ]}
-        >
-          {player.experience_level}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
+const STATUS_TONE: Record<SeasonStatus, 'success' | 'warning' | 'neutral'> = {
+  draft: 'warning',
+  registration_open: 'success',
+  in_progress: 'success',
+  completed: 'neutral',
+  archived: 'neutral',
+};
 
 export function LeagueDetailScreen() {
-  const navigation = useNavigation<NavigationProp>();
-  const route = useRoute<RouteProps>();
-  const { id } = route.params;
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const navigation = useNavigation() as unknown as ScreenNavigation;
+  const route = useRoute<RouteProp<{ params: { id: string } }, 'params'>>();
+  const league = useMemo(() => leagueById(route.params.id), [route.params.id]);
+  const org = useMemo(
+    () => (league ? organizationById(league.organizationId) : undefined),
+    [league],
+  );
+  const seasons = useMemo(
+    () => (league ? seasonsByLeague(league.id) : []),
+    [league],
+  );
+  const [tab, setTab] = useState('seasons');
 
-  const { data: league, isLoading, error } = useQuery({
-    queryKey: ['league', id],
-    queryFn: () => api.getLeague(id),
-  });
-
-  const { data: teamsData } = useQuery({
-    queryKey: ['teams', { league_id: id }],
-    queryFn: () => api.getTeams({ league_id: id, per_page: 50 }),
-    enabled: !!id,
-  });
-
-  const { data: playersData } = useQuery({
-    queryKey: ['players', { league_id: id }],
-    queryFn: () => api.getPlayers({ league_id: id, per_page: 50 }),
-    enabled: !!id,
-  });
-
-  const teams = teamsData?.data ?? [];
-  const players = playersData?.data ?? [];
-
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
-  const handleEdit = () => {
-    navigation.navigate('LeagueForm', { id });
-  };
-
-  const handleTeamPress = (team: Team) => {
-    navigation.navigate('TeamDetail', { id: team.id });
-  };
-
-  const handlePlayerPress = (player: Player) => {
-    navigation.navigate('PlayerDetail', { id: player.id });
-  };
-
-  if (isLoading) {
+  if (!league || !org) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
+      <PageScroll>
+        <PageHeader
+          title="League not found"
+          crumbs={[{ label: 'Leagues', route: 'Leagues' }, { label: '—' }]}
+          onNavigate={(r) => navigation.navigate(r)}
+        />
+        <EmptyState
+          title="League not found"
+          description="It may have been deleted or the link is stale."
+          primaryAction={{
+            label: 'Back to leagues',
+            onPress: () => navigation.navigate('Leagues'),
+          }}
+        />
+      </PageScroll>
     );
   }
 
-  if (error || !league) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Failed to load league</Text>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const inner = (
+    <PageScroll>
+      <PageHeader
+        title={league.name}
+        subtitle={`${league.sportTagline} · ${league.city}`}
+        crumbs={[
+          { label: 'Competition' },
+          { label: 'Leagues', route: 'Leagues' },
+          { label: league.name },
+        ]}
+        onNavigate={(r) => navigation.navigate(r)}
+        trailing={
+          <View style={[styles.headerTrail, { gap: spacing.sm }]}>
+            <OrgAvatar
+              name={org.name}
+              logoUrl={org.logoUrl}
+              brandColor={org.brandColor}
+              size="md"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              label="Edit league"
+              leadingIcon={
+                <Edit3 size={14} color={colors.text.primary} strokeWidth={2.4} />
+              }
+              onPress={() =>
+                navigation.navigate('LeagueForm', { id: league.id })
+              }
+            />
+          </View>
+        }
+      />
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.backLink} onPress={handleBack}>
-            <Text style={styles.backLinkText}>← Leagues</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>{league.name}</Text>
-          <View style={styles.headerMeta}>
-            <View style={styles.sportBadge}>
-              <Text style={styles.sportBadgeText}>{league.sport_type}</Text>
-            </View>
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor: league.is_active
-                    ? COLORS.success + '20'
-                    : COLORS.error + '20',
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusBadgeText,
-                  { color: league.is_active ? COLORS.success : COLORS.error },
-                ]}
-              >
-                {league.is_active ? 'Active' : 'Inactive'}
+      <View style={[styles.statRow, { gap: spacing.md }]}>
+        <StatCard
+          label="Seasons"
+          value={String(seasons.length)}
+          tone="brand"
+        />
+        <StatCard
+          label="Active divisions"
+          value={String(
+            seasons
+              .filter(
+                (s) =>
+                  s.status === 'registration_open' ||
+                  s.status === 'in_progress',
+              )
+              .reduce((sum, s) => sum + divisionsForSeason(s.id).length, 0),
+          )}
+          tone="success"
+        />
+        <StatCard
+          label="Sport"
+          value={league.sport.replace('_', ' ')}
+          tone="alpine"
+        />
+        <StatCard
+          label="Organization"
+          value={org.name}
+          tone="neutral"
+          onPress={() =>
+            navigation.navigate('OrganizationDetail', { id: org.id })
+          }
+        />
+      </View>
+
+      <Tabs items={TABS} value={tab} onChange={setTab} />
+
+      {tab === 'seasons' ? (
+        <Card padded>
+          <View style={[styles.cardHead, { gap: spacing.sm }]}>
+            <Text variant="h3">Seasons</Text>
+            <Button
+              size="sm"
+              variant="solid"
+              label="New season"
+              leadingIcon={
+                <Plus size={14} color={colors.text.inverse} strokeWidth={2.4} />
+              }
+              onPress={() => navigation.navigate('SeasonForm')}
+            />
+          </View>
+          {seasons.length === 0 ? (
+            <View style={[styles.emptyBlock, { gap: spacing.sm }]}>
+              <CalendarDays size={28} color={colors.text.muted} />
+              <Text variant="body" color={colors.text.secondary}>
+                No seasons yet. Add one to start scheduling games.
               </Text>
             </View>
-            {league.location && (
-              <Text style={styles.locationText}>📍 {league.location}</Text>
-            )}
-          </View>
-        </View>
-        <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
-          <Text style={styles.editButtonText}>Edit League</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        <TabButton
-          id="overview"
-          label="Overview"
-          isActive={activeTab === 'overview'}
-          onPress={() => setActiveTab('overview')}
-        />
-        <TabButton
-          id="teams"
-          label="Teams"
-          count={teams.length}
-          isActive={activeTab === 'teams'}
-          onPress={() => setActiveTab('teams')}
-        />
-        <TabButton
-          id="players"
-          label="Players"
-          count={players.length}
-          isActive={activeTab === 'players'}
-          onPress={() => setActiveTab('players')}
-        />
-      </View>
-
-      {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {activeTab === 'overview' && (
-          <View>
-            {/* Stats Grid */}
-            <View style={styles.statsGrid}>
-              <StatCard
-                title="Total Teams"
-                value={league.teams_count ?? teams.length}
-                icon="👥"
-                color={COLORS.primary}
-              />
-              <StatCard
-                title="Total Players"
-                value={league.players_count ?? players.length}
-                icon="🏃"
-                color={COLORS.success}
-              />
-              <StatCard
-                title="Registration Fee"
-                value={`$${league.registration_fee?.toFixed(2) ?? '0.00'}`}
-                icon="💰"
-                color={COLORS.warning}
-              />
-              <StatCard
-                title="Timezone"
-                value={league.timezone || 'UTC'}
-                icon="🌍"
-                color={COLORS.secondary}
-              />
-            </View>
-
-            {/* Description */}
-            {league.description && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Description</Text>
-                <View style={styles.descriptionCard}>
-                  <Text style={styles.descriptionText}>{league.description}</Text>
-                </View>
-              </View>
-            )}
-
-            {/* League Info */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>League Information</Text>
-              <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Created</Text>
-                  <Text style={styles.infoValue}>
-                    {new Date(league.created_at).toLocaleDateString()}
+          ) : (
+            seasons.map((s) => {
+              const divCount = divisionsForSeason(s.id).length;
+              return (
+                <View key={s.id} style={[styles.seasonRow, { gap: spacing.sm }]}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text variant="bodySm" weight="600">
+                      {s.label}
+                    </Text>
+                    <View style={[styles.metaRow, { gap: spacing.xs }]}>
+                      <SeasonPill cycle={s.cycle} year={s.year} />
+                      <Tag
+                        size="sm"
+                        tone={STATUS_TONE[s.status]}
+                        label={STATUS_LABEL[s.status]}
+                        leadingDot
+                      />
+                      <Text variant="caption" color={colors.text.muted}>
+                        {formatDate(s.startIso)} – {formatDate(s.endIso)}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text variant="bodySm" color={colors.text.primary}>
+                    {divCount} division{divCount === 1 ? '' : 's'}
                   </Text>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    label="Open"
+                    onPress={() =>
+                      navigation.navigate('SeasonDetail', { id: s.id })
+                    }
+                  />
                 </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Admin</Text>
-                  <Text style={styles.infoValue}>
-                    {league.admin?.name ?? 'Unknown'}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Sport Type</Text>
-                  <Text style={styles.infoValue}>{league.sport_type}</Text>
-                </View>
-                <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.infoLabel}>Location</Text>
-                  <Text style={styles.infoValue}>{league.location ?? 'Not set'}</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        )}
+              );
+            })
+          )}
+        </Card>
+      ) : null}
 
-        {activeTab === 'teams' && (
-          <View style={styles.listContainer}>
-            {teams.length === 0 ? (
-              <View style={styles.emptyTabContainer}>
-                <Text style={styles.emptyTabIcon}>👥</Text>
-                <Text style={styles.emptyTabTitle}>No teams yet</Text>
-                <Text style={styles.emptyTabText}>
-                  Teams that join this league will appear here
-                </Text>
-              </View>
-            ) : (
-              teams.map((team) => (
-                <TeamRow
-                  key={team.id}
-                  team={team}
-                  onPress={() => handleTeamPress(team)}
-                />
-              ))
-            )}
-          </View>
-        )}
+      {tab === 'about' ? (
+        <Card padded>
+          <Text variant="h3">About</Text>
+          <Text variant="body" color={colors.text.secondary}>
+            {league.description}
+          </Text>
+        </Card>
+      ) : null}
 
-        {activeTab === 'players' && (
-          <View style={styles.listContainer}>
-            {players.length === 0 ? (
-              <View style={styles.emptyTabContainer}>
-                <Text style={styles.emptyTabIcon}>🏃</Text>
-                <Text style={styles.emptyTabTitle}>No players yet</Text>
-                <Text style={styles.emptyTabText}>
-                  Players that join this league will appear here
-                </Text>
-              </View>
-            ) : (
-              players.map((player) => (
-                <PlayerRow
-                  key={player.id}
-                  player={player}
-                  onPress={() => handlePlayerPress(player)}
-                />
-              ))
-            )}
-          </View>
-        )}
-      </ScrollView>
-    </View>
+      {tab === 'rules' ? (
+        <Card padded>
+          <Text variant="h3">Rules</Text>
+          {league.rulesUrl ? (
+            <Text variant="body" color={colors.brand.primary}>
+              {league.rulesUrl}
+            </Text>
+          ) : (
+            <Text variant="body" color={colors.text.secondary}>
+              No rules document attached. Edit the league to add one.
+            </Text>
+          )}
+        </Card>
+      ) : null}
+    </PageScroll>
   );
+
+  return <OrgBrandingProvider org={org}>{inner}</OrgBrandingProvider>;
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    padding: SPACING.xl,
-  },
-  errorText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.error,
-    marginBottom: SPACING.md,
-  },
-  backButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  backLink: {
-    marginBottom: SPACING.sm,
-  },
-  backLinkText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.primary,
-    fontWeight: '500',
-  },
-  title: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-  },
-  headerMeta: {
+  headerTrail: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-    flexWrap: 'wrap',
   },
-  sportBadge: {
-    backgroundColor: COLORS.primaryLight,
-    paddingVertical: 4,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: 4,
-  },
-  sportBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.primary,
-    fontWeight: '500',
-  },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: 4,
-  },
-  statusBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  locationText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  editButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.sm + 2,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 8,
-  },
-  editButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  tabButton: {
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    marginRight: SPACING.sm,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabButtonActive: {
-    borderBottomColor: COLORS.primary,
-  },
-  tabButtonText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  tabButtonTextActive: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  tabCount: {
-    color: COLORS.textMuted,
-  },
-  content: {
-    flex: 1,
-    padding: SPACING.lg,
-  },
-  statsGrid: {
+  statRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -SPACING.sm,
-    marginBottom: SPACING.xl,
+    width: '100%',
   },
-  statCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.lg,
-    margin: SPACING.sm,
+  cardHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 200,
-    flex: 1,
-    maxWidth: '48%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  statIcon: {
-    fontSize: 24,
-  },
-  statInfo: {
-    flex: 1,
-  },
-  statValue: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  statTitle: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  section: {
-    marginBottom: SPACING.xl,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-  },
-  descriptionCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.lg,
-  },
-  descriptionText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    lineHeight: 24,
-  },
-  infoCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  infoRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    flexWrap: 'wrap',
+    marginBottom: 12,
   },
-  infoLabel: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-  },
-  infoValue: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    fontWeight: '500',
-  },
-  listContainer: {
-    gap: SPACING.sm,
-  },
-  listRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: 10,
-  },
-  listRowLeft: {
+  seasonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
-  teamAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
+  metaRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: SPACING.md,
+    flexWrap: 'wrap',
   },
-  teamAvatarText: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.textLight,
-  },
-  playerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.secondary,
-    justifyContent: 'center',
+  emptyBlock: {
+    paddingVertical: 24,
     alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  playerAvatarText: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.textLight,
-  },
-  listRowTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  listRowSubtitle: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  experienceBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: 4,
-  },
-  experienceBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  emptyTabContainer: {
-    alignItems: 'center',
-    paddingVertical: SPACING.xxl * 2,
-  },
-  emptyTabIcon: {
-    fontSize: 48,
-    marginBottom: SPACING.md,
-  },
-  emptyTabTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  emptyTabText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
   },
 });

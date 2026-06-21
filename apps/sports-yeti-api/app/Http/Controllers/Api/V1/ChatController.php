@@ -9,9 +9,12 @@ use App\Models\Chat;
 use App\Models\ChatMessage;
 use App\Models\ChatPoll;
 use App\Models\ChatPollVote;
+use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ChatController extends Controller
 {
@@ -51,9 +54,8 @@ class ChatController extends Controller
     public function sendMessage(Request $request, Chat $chat): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'message' => ['required', 'string', 'max:2000'],
-            'message_type' => ['nullable', 'string', 'in:text,image'],
-            'media_url' => ['nullable', 'url'],
+            'message' => ['required', 'string', 'max:5000'],
+            'message_type' => ['nullable', 'string', 'in:text'],
             'reply_to_id' => ['nullable', 'uuid', 'exists:chat_messages,id'],
         ]);
 
@@ -72,11 +74,44 @@ class ChatController extends Controller
             'user_id' => auth()->id(),
             'message' => $request->message,
             'message_type' => $request->message_type ?? 'text',
-            'media_url' => $request->media_url,
+            'media_url' => null,
             'reply_to_id' => $request->reply_to_id,
         ]);
 
         $message->load('user:id,name,avatar_url');
+
+        $chat->load('game.team1.players.user', 'game.team2.players.user', 'team.players.user', 'league.players.user');
+
+        $recipientIds = collect();
+        if ($chat->game) {
+            foreach (['team1', 'team2'] as $key) {
+                if ($chat->game->{$key}) {
+                    foreach ($chat->game->{$key}->players ?? [] as $p) {
+                        if ($p->user) {
+                            $recipientIds->push($p->user->id);
+                        }
+                    }
+                }
+            }
+        } elseif ($chat->team) {
+            foreach ($chat->team->players ?? [] as $p) {
+                if ($p->user) {
+                    $recipientIds->push($p->user->id);
+                }
+            }
+        }
+
+        $senderUser = auth()->user();
+        $senderName = $senderUser?->name ?? 'Someone';
+        $preview = mb_substr($request->message ?? '', 0, 100);
+
+        $notif = app(NotificationService::class);
+        foreach ($recipientIds->unique()->reject(fn ($id) => $id === auth()->id()) as $userId) {
+            $user = User::find($userId);
+            if ($user) {
+                $notif->sendChatMessage($user, $chat->id, $senderName, $preview);
+            }
+        }
 
         return response()->json([
             'data' => $message,
@@ -198,7 +233,7 @@ class ChatController extends Controller
         }
 
         // Check if already voted (and not allows_multiple)
-        if (!$poll->allows_multiple) {
+        if (! $poll->allows_multiple) {
             $existingVote = ChatPollVote::where('poll_id', $poll->id)
                 ->where('user_id', auth()->id())
                 ->first();
@@ -273,10 +308,8 @@ class ChatController extends Controller
 
     /**
      * SSE endpoint for real-time chat updates
-     * 
-     * @param Request $request
-     * @param Chat $chat
-     * @return \Symfony\Component\HttpFoundation\StreamedResponse
+     *
+     * @return StreamedResponse
      */
     public function stream(Request $request, Chat $chat)
     {
@@ -336,7 +369,7 @@ class ChatController extends Controller
                         'options' => $poll->options,
                         'vote_counts' => $poll->getVoteCounts(),
                         'is_closed' => $poll->is_closed,
-                    ], 'poll-' . $poll->id);
+                    ], 'poll-'.$poll->id);
                 }
 
                 // Send heartbeat to keep connection alive
@@ -373,6 +406,6 @@ class ChatController extends Controller
             echo "id: {$id}\n";
         }
         echo "event: {$event}\n";
-        echo "data: " . json_encode($data) . "\n\n";
+        echo 'data: '.json_encode($data)."\n\n";
     }
 }

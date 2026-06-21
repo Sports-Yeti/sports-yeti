@@ -1,205 +1,332 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { type WebPressableState } from '../../lib/pressable';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
-  ActivityIndicator,
+  View,
 } from 'react-native';
+import { Apple, KeyRound, Mail, ShieldCheck } from 'lucide-react-native';
 import { useAuthStore } from '../../stores';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
+import { colors, radii, shadows, spacing } from '../../theme';
+import { Button, Card, Input, Text, useToast, type InputRef } from '../../ui';
+
+interface FieldErrors {
+  email?: string;
+  password?: string;
+}
+
+function validate(values: { email: string; password: string }): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!values.email) errors.email = 'Enter your work email';
+  else if (!/^\S+@\S+\.\S+$/.test(values.email)) errors.email = 'That email looks off';
+  if (!values.password) errors.password = 'Enter your password';
+  else if (values.password.length < 8) errors.password = 'At least 8 characters';
+  return errors;
+}
 
 export function LoginScreen() {
+  const toast = useToast();
+  const { login, isLoading, error, clearError } = useAuthStore();
+  const passwordRef = useRef<InputRef>(null);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, isLoading, error, clearError } = useAuthStore();
+  const [touched, setTouched] = useState<{ email: boolean; password: boolean }>({
+    email: false,
+    password: false,
+  });
+  const [submitted, setSubmitted] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      return;
-    }
+  const errors = validate({ email, password });
+  const showError = (field: keyof FieldErrors) =>
+    submitted || touched[field] ? errors[field] : undefined;
 
+  const handleSubmit = async () => {
+    setSubmitted(true);
+    clearError();
+    if (errors.email || errors.password) return;
     try {
       await login({ email, password });
     } catch {
-      // Error is handled by the store
+      toast.show({
+        variant: 'error',
+        title: 'Sign in failed',
+        description: error ?? 'Check your credentials and try again.',
+        action: { label: 'Retry', onPress: handleSubmit },
+      });
     }
   };
 
-  const handleKeyPress = (e: { nativeEvent: { key: string } }) => {
-    if (e.nativeEvent.key === 'Enter') {
-      handleLogin();
-    }
+  const handleSSO = (provider: 'google' | 'microsoft' | 'saml') => {
+    toast.show({
+      variant: 'info',
+      title: `${provider === 'google' ? 'Google Workspace' : provider === 'microsoft' ? 'Microsoft Entra' : 'SAML'} sign-in coming soon`,
+      description: 'Use email + password while we wire OAuth.',
+    });
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.loginCard}>
-        <View style={styles.header}>
-          <Text style={styles.logo}>Sports Yeti</Text>
-          <Text style={styles.subtitle}>Admin Dashboard</Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="admin@sportsyeti.com"
-              placeholderTextColor={COLORS.textMuted}
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                clearError();
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your password"
-              placeholderTextColor={COLORS.textMuted}
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                clearError();
-              }}
-              secureTextEntry
-              onKeyPress={handleKeyPress}
-              autoComplete="password"
-            />
-          </View>
-
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
+    <View style={styles.root}>
+      <KeyboardAvoidingView
+        style={styles.fill}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          style={styles.fill}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.brand}>
+            <View style={styles.brandMark}>
+              <Text variant="h2" color={colors.text.inverse}>
+                SY
+              </Text>
             </View>
-          ) : null}
+            <Text variant="h1" color={colors.text.sidebarPrimary}>
+              SportsYeti Admin
+            </Text>
+            <Text variant="body" color={colors.text.sidebarMuted} align="center" style={styles.tagline}>
+              Run leagues, venues, and money — all from one console.
+            </Text>
+          </View>
 
-          <TouchableOpacity
-            style={[
-              styles.button,
-              (isLoading || !email || !password) && styles.buttonDisabled,
-            ]}
-            onPress={handleLogin}
-            disabled={isLoading || !email || !password}
+          <Card style={styles.card} padded={false}>
+            <View style={styles.cardInner}>
+              <Text variant="h2" color={colors.text.primary}>
+                Sign in
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                Admin access only. Contact your owner if you need an invite.
+              </Text>
+
+              <View style={styles.ssoBlock}>
+                <Pressable
+                  onPress={() => handleSSO('google')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue with Google Workspace"
+                  style={({ hovered }: WebPressableState) => [
+                    styles.ssoBtn,
+                    hovered ? styles.ssoBtnHover : null,
+                  ]}
+                >
+                  <View style={styles.googleMark}>
+                    <Text variant="button" color={colors.text.primary}>
+                      G
+                    </Text>
+                  </View>
+                  <Text variant="button" color={colors.text.primary}>
+                    Continue with Google Workspace
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleSSO('microsoft')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue with Microsoft Entra"
+                  style={({ hovered }: WebPressableState) => [
+                    styles.ssoBtn,
+                    hovered ? styles.ssoBtnHover : null,
+                  ]}
+                >
+                  <View style={styles.msMark} />
+                  <Text variant="button" color={colors.text.primary}>
+                    Continue with Microsoft Entra
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleSSO('saml')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign in with SAML SSO"
+                  style={({ hovered }: WebPressableState) => [
+                    styles.ssoBtn,
+                    hovered ? styles.ssoBtnHover : null,
+                  ]}
+                >
+                  <KeyRound size={16} color={colors.text.primary} strokeWidth={2.25} />
+                  <Text variant="button" color={colors.text.primary}>
+                    Single sign-on (SAML)
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text variant="caption" color={colors.text.muted}>
+                  or use email
+                </Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <Input
+                label="Work email"
+                variant="email"
+                value={email}
+                onChangeText={setEmail}
+                onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+                error={showError('email')}
+                placeholder="alex@yetiathletic.com"
+                leadingIcon={<Mail size={14} color={colors.text.secondary} strokeWidth={2.25} />}
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+              />
+              <Input
+                ref={passwordRef}
+                label="Password"
+                variant="password"
+                value={password}
+                onChangeText={setPassword}
+                onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+                error={showError('password')}
+                placeholder="At least 8 characters"
+                returnKeyType="go"
+                onSubmitEditing={handleSubmit}
+              />
+
+              <View style={styles.footerRow}>
+                <Pressable
+                  onPress={() =>
+                    toast.show({ variant: 'info', title: 'Reset email sent (mock)' })
+                  }
+                  accessibilityRole="link"
+                  accessibilityLabel="Reset your password"
+                  hitSlop={6}
+                >
+                  <Text variant="button" color={colors.brand.primary}>
+                    Forgot password?
+                  </Text>
+                </Pressable>
+                <View style={styles.mfaRow}>
+                  <ShieldCheck size={12} color={colors.text.muted} strokeWidth={2.25} />
+                  <Text variant="caption" color={colors.text.muted}>
+                    2FA enforced
+                  </Text>
+                </View>
+              </View>
+
+              <Button
+                label={isLoading ? 'Signing in…' : 'Sign in'}
+                variant="solid"
+                size="lg"
+                fullWidth
+                loading={isLoading}
+                onPress={handleSubmit}
+              />
+            </View>
+          </Card>
+
+          <Text
+            variant="caption"
+            color={colors.text.sidebarMuted}
+            align="center"
+            style={styles.legal}
           >
-            {isLoading ? (
-              <ActivityIndicator color={COLORS.textLight} />
-            ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Admin access only. Contact your administrator for access.
+            By signing in you agree to the SportsYeti Terms and Privacy Policy.
           </Text>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.sidebar,
+    backgroundColor: colors.surface.sidebar,
+  },
+  fill: {
+    flex: 1,
+  },
+  scroll: {
+    flexGrow: 1,
+    alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: spacing.huge,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.lg,
+  },
+  brand: {
     alignItems: 'center',
-    padding: SPACING.lg,
+    gap: spacing.sm,
   },
-  loginCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: SPACING.xl,
-    width: '100%',
-    maxWidth: 420,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  header: {
+  brandMark: {
+    width: 56,
+    height: 56,
+    borderRadius: radii.lg,
+    backgroundColor: colors.brand.primary,
     alignItems: 'center',
-    marginBottom: SPACING.xl,
+    justifyContent: 'center',
+    ...shadows.popover,
   },
-  logo: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '700',
-    color: COLORS.primary,
-    marginBottom: SPACING.xs,
+  tagline: {
+    maxWidth: 360,
+    marginTop: spacing.xs,
   },
-  subtitle: {
-    fontSize: FONT_SIZES.lg,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
+  card: {
+    width: 420,
+    maxWidth: '100%',
+    borderColor: 'transparent',
   },
-  form: {
-    marginBottom: SPACING.lg,
+  cardInner: {
+    padding: spacing.xxl,
+    gap: spacing.md,
   },
-  inputGroup: {
-    marginBottom: SPACING.md,
+  ssoBlock: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
-  label: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  input: {
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
+  ssoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 40,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border.strong,
+    backgroundColor: colors.surface.card,
   },
-  errorContainer: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
+  ssoBtnHover: {
+    backgroundColor: colors.surface.bg,
+  },
+  googleMark: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.surface.bg,
     borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: FONT_SIZES.sm,
-    textAlign: 'center',
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: SPACING.md,
+    borderColor: colors.border.soft,
     alignItems: 'center',
-    marginTop: SPACING.sm,
+    justifyContent: 'center',
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  msMark: {
+    width: 14,
+    height: 14,
+    backgroundColor: '#0078D4',
   },
-  buttonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  footer: {
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border.soft,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  footerText: {
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZES.xs,
-    textAlign: 'center',
+  mfaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legal: {
+    maxWidth: 320,
   },
 });

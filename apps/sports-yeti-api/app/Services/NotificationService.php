@@ -145,19 +145,56 @@ class NotificationService
         );
     }
 
+    public function sendBookingStatusUpdate(
+        User $user,
+        string $bookingId,
+        string $newStatus,
+        string $facilityName
+    ): Notification {
+        $statusLabel = ucfirst($newStatus);
+
+        return $this->send(
+            $user,
+            'booking_status',
+            "Booking {$statusLabel}",
+            "Your booking at {$facilityName} has been {$newStatus}.",
+            [
+                'booking_id' => $bookingId,
+                'status' => $newStatus,
+            ],
+            "/bookings/{$bookingId}"
+        );
+    }
+
+    public function sendPaymentReminder(
+        User $user,
+        string $description,
+        float $amount,
+        ?array $data = null
+    ): Notification {
+        return $this->send(
+            $user,
+            'payment_reminder',
+            'Payment Reminder',
+            "You have an outstanding payment of \${$amount} for {$description}.",
+            $data,
+            '/payments'
+        );
+    }
+
     private function sendPushNotification(
         User $user,
         string $title,
         string $body,
         ?array $data = null
     ): void {
-        if (!$user->expo_push_token) {
+        if (! $user->expo_push_token) {
             return;
         }
 
         // Check user preferences
         $preferences = $user->notification_preferences ?? [];
-        if (isset($preferences['push_notifications']) && !$preferences['push_notifications']) {
+        if (isset($preferences['push_notifications']) && ! $preferences['push_notifications']) {
             return;
         }
 
@@ -173,7 +210,7 @@ class NotificationService
                 'sound' => 'default',
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::warning('Failed to send push notification', [
                     'user_id' => $user->id,
                     'response' => $response->body(),
@@ -194,7 +231,7 @@ class NotificationService
     ): void {
         // Check user preferences
         $preferences = $user->notification_preferences ?? [];
-        if (isset($preferences['email_notifications']) && !$preferences['email_notifications']) {
+        if (isset($preferences['email_notifications']) && ! $preferences['email_notifications']) {
             return;
         }
 

@@ -17,8 +17,8 @@ class Payment extends Model
 {
     use HasFactory;
     use HasUuids;
-    use SoftDeletes;
     use LogsActivity;
+    use SoftDeletes;
 
     protected $fillable = [
         'user_id',

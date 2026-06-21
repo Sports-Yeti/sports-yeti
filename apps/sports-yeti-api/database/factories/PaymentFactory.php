@@ -25,7 +25,7 @@ class PaymentFactory extends Factory
             'type' => $this->faker->randomElement(['booking', 'camp', 'league', 'membership']),
             'status' => 'pending',
             'description' => $this->faker->sentence(),
-            'stripe_payment_intent_id' => 'pi_' . Str::random(24),
+            'stripe_payment_intent_id' => 'pi_'.Str::random(24),
             'idempotency_key' => Str::uuid()->toString(),
             'metadata' => [],
         ];
@@ -35,7 +35,7 @@ class PaymentFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'status' => 'completed',
-            'stripe_charge_id' => 'ch_' . Str::random(24),
+            'stripe_charge_id' => 'ch_'.Str::random(24),
             'paid_at' => now(),
         ]);
     }

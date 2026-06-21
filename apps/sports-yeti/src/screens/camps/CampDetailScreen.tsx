@@ -1,679 +1,581 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import {
-  View,
+  Building2,
+  CalendarDays,
+  ChevronLeft,
+  CircleDollarSign,
+  Clock,
+  MapPin,
+  Share2,
+  ShieldCheck,
+  UserRound,
+  Users,
+} from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
+import {
+  Avatar,
+  AvatarStack,
+  Button,
+  Card,
+  EmptyState,
+  IconBadge,
+  Modal,
+  ProgressBar,
+  Tag,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Image,
-  Alert,
-} from 'react-native';
-import { api } from '../../services/api';
-import { COLORS, SPACING, FONT_SIZES, EXPERIENCE_LEVELS } from '../../constants';
-import type { Camp } from '../../types';
+  useToast,
+} from '../../ui';
+import { SKILL_LABELS, sportLabel } from '../../mocks/games';
+import { campById, type CampSession } from '../../mocks/camps';
+import { formatCurrency } from '../../lib/format';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-interface CampDetailScreenProps {
-  route: {
-    params: {
-      id: string;
-    };
-  };
-  navigation: {
-    navigate: (screen: string, params?: Record<string, unknown>) => void;
-    goBack: () => void;
-  };
-}
+type Navigation = NativeStackNavigationProp<RootStackParamList, 'CampDetails'>;
+type Route = RouteProp<RootStackParamList, 'CampDetails'>;
 
-const CAMP_STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  open: 'Open for Registration',
-  closed: 'Registration Closed',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-};
+export function CampDetailScreen() {
+  const navigation = useNavigation<Navigation>();
+  const route = useRoute<Route>();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
+  const camp = campById(route.params.id);
+  const [registered, setRegistered] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-const CAMP_STATUS_COLORS: Record<string, string> = {
-  draft: COLORS.textSecondary,
-  open: COLORS.success,
-  closed: COLORS.warning,
-  completed: COLORS.textSecondary,
-  cancelled: COLORS.error,
-};
-
-export function CampDetailScreen({ route, navigation }: CampDetailScreenProps) {
-  const { id } = route.params;
-  const [camp, setCamp] = useState<Camp | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadCamp = async () => {
-    try {
-      setError(null);
-      const data = await api.getCamp(id);
-      setCamp(data);
-    } catch (err) {
-      console.error('Failed to load camp:', err);
-      setError('Failed to load camp details');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadCamp();
-  }, [id]);
-
-  const onRefresh = () => {
-    setIsRefreshing(true);
-    loadCamp();
-  };
-
-  const handleRegister = async () => {
-    if (!camp) return;
-
-    Alert.alert(
-      'Register for Camp',
-      `Would you like to register for "${camp.name}"?\n\nRegistration Fee: $${camp.registration_fee.toFixed(2)}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Register',
-          onPress: async () => {
-            try {
-              setIsRegistering(true);
-              await api.registerForCamp(id);
-              Alert.alert('Success', 'You have been registered for this camp!');
-              loadCamp(); // Refresh to update registration count
-            } catch (err) {
-              console.error('Failed to register:', err);
-              Alert.alert('Error', 'Failed to register for camp. Please try again.');
-            } finally {
-              setIsRegistering(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const formatDateShort = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const getDuration = (startDate: string, endDate: string) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return diffDays === 1 ? '1 day' : `${diffDays} days`;
-  };
-
-  const getSpotsRemaining = () => {
-    if (!camp) return 0;
-    const registered = camp.registrations_count || 0;
-    return Math.max(0, camp.max_participants - registered);
-  };
-
-  const getRegistrationProgress = () => {
-    if (!camp || camp.max_participants === 0) return 0;
-    const registered = camp.registrations_count || 0;
-    return Math.min((registered / camp.max_participants) * 100, 100);
-  };
-
-  const isRegistrationOpen = () => {
-    if (!camp) return false;
-    return camp.status === 'open' && getSpotsRemaining() > 0;
-  };
-
-  if (isLoading) {
+  if (!camp) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+      <View style={styles.root}>
+        <EmptyState
+          title="Camp not found"
+          description="It may have been removed or you opened a stale link."
+          primaryAction={{ label: 'Back to Discover', onPress: () => navigation.goBack() }}
+        />
       </View>
     );
   }
 
-  if (error || !camp) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorEmoji}>😞</Text>
-        <Text style={styles.errorText}>{error || 'Camp not found'}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadCamp}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const Icon = camp.Icon;
+  const sport = sportLabel(camp.sport);
+  const isClosed = camp.status === 'closed';
+  const spotsLeft = Math.max(0, camp.capacity - camp.registered);
+  const fillRatio = camp.capacity > 0 ? camp.registered / camp.capacity : 0;
+  const org = camp.organization;
+  const shownRegistrants = camp.registrants.slice(0, 5);
 
-  const statusColor = CAMP_STATUS_COLORS[camp.status] || COLORS.textSecondary;
+  const handleConfirm = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setConfirmOpen(false);
+    setRegistered(true);
+    toast.show({
+      variant: 'success',
+      title: isClosed ? 'Added to waitlist' : `Registered for ${camp.title}`,
+      description: isClosed
+        ? "We'll notify you if a spot opens."
+        : `${camp.dateLabel} · ${camp.venueName}`,
+    });
+  };
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Header Image */}
-      {camp.image_url ? (
-        <Image source={{ uri: camp.image_url }} style={styles.headerImage} />
-      ) : (
-        <View style={styles.headerImagePlaceholder}>
-          <Text style={styles.headerImagePlaceholderText}>⛺</Text>
-        </View>
-      )}
-
-      {/* Content */}
-      <View style={styles.content}>
-        {/* Status Badge */}
-        <View style={styles.statusContainer}>
-          <View
-            style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}
+    <View style={styles.root}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + 140 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            hitSlop={8}
+            onPress={() => navigation.goBack()}
+            style={styles.iconBtn}
           >
-            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={[styles.statusText, { color: statusColor }]}>
-              {CAMP_STATUS_LABELS[camp.status] || camp.status}
-            </Text>
-          </View>
+            <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Share camp"
+            hitSlop={8}
+            onPress={() => {
+              Haptics.selectionAsync();
+              toast.show({ variant: 'info', title: 'Share link copied' });
+            }}
+            style={styles.iconBtn}
+          >
+            <Share2 size={20} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
         </View>
 
-        {/* Camp Name and Price */}
-        <View style={styles.headerRow}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.campName}>{camp.name}</Text>
-            {camp.league && (
-              <Text style={styles.leagueName}>{camp.league.name}</Text>
-            )}
-          </View>
-          <View style={styles.priceContainer}>
-            <Text style={styles.priceAmount}>
-              ${camp.registration_fee.toFixed(2)}
-            </Text>
-            <Text style={styles.priceLabel}>per person</Text>
-          </View>
-        </View>
+        <Image source={{ uri: camp.cover }} style={styles.cover} contentFit="cover" />
 
-        {/* Description */}
-        {camp.description && (
-          <Text style={styles.description}>{camp.description}</Text>
-        )}
-
-        {/* Quick Info Cards */}
-        <View style={styles.infoCardsRow}>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoCardIcon}>📅</Text>
-            <Text style={styles.infoCardTitle}>Duration</Text>
-            <Text style={styles.infoCardValue}>
-              {getDuration(camp.start_date, camp.end_date)}
-            </Text>
+        <View style={styles.heroBlock}>
+          <View style={styles.heroTags}>
+            <Tag tone="brand" leadingDot label="Camp" />
+            {sport ? <Tag tone="info" size="sm" label={sport} /> : null}
+            <Tag tone="neutral" size="sm" label={SKILL_LABELS[camp.skillLevel]} />
+            {isClosed ? <Tag tone="neutral" size="sm" label="Full" /> : null}
           </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoCardIcon}>🎯</Text>
-            <Text style={styles.infoCardTitle}>Skill Level</Text>
-            <Text style={styles.infoCardValue}>
-              {EXPERIENCE_LEVELS[camp.skill_level as keyof typeof EXPERIENCE_LEVELS] ||
-                camp.skill_level}
-            </Text>
-          </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoCardIcon}>👥</Text>
-            <Text style={styles.infoCardTitle}>Capacity</Text>
-            <Text style={styles.infoCardValue}>{camp.max_participants}</Text>
-          </View>
-        </View>
-
-        {/* Dates Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Camp Dates</Text>
-          <View style={styles.datesCard}>
-            <View style={styles.dateItem}>
-              <View style={styles.dateIconContainer}>
-                <Text style={styles.dateIcon}>🏁</Text>
-              </View>
-              <View>
-                <Text style={styles.dateLabel}>Starts</Text>
-                <Text style={styles.dateValue}>{formatDate(camp.start_date)}</Text>
-              </View>
-            </View>
-            <View style={styles.dateSeparator} />
-            <View style={styles.dateItem}>
-              <View style={styles.dateIconContainer}>
-                <Text style={styles.dateIcon}>🎉</Text>
-              </View>
-              <View>
-                <Text style={styles.dateLabel}>Ends</Text>
-                <Text style={styles.dateValue}>{formatDate(camp.end_date)}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Age Group Section */}
-        {camp.age_group && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Age Group</Text>
-            <View style={styles.ageCard}>
-              <Text style={styles.ageIcon}>👤</Text>
-              <Text style={styles.ageText}>{camp.age_group}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Registration Progress */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Registration</Text>
-          <View style={styles.registrationCard}>
-            <View style={styles.registrationHeader}>
-              <Text style={styles.registrationCount}>
-                {camp.registrations_count || 0} / {camp.max_participants}
+          <View style={styles.heroRow}>
+            <IconBadge size={64} tone="brand">
+              <Icon size={28} color={colors.brand.deep} strokeWidth={2.25} />
+            </IconBadge>
+            <View style={styles.heroText}>
+              <Text variant="h1" color={colors.text.primary}>
+                {camp.title}
               </Text>
-              <Text style={styles.registrationLabel}>registered</Text>
-            </View>
-            <View style={styles.progressBarContainer}>
-              <View
-                style={[
-                  styles.progressBar,
-                  { width: `${getRegistrationProgress()}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.spotsRemaining}>
-              {getSpotsRemaining() > 0
-                ? `${getSpotsRemaining()} spots remaining`
-                : 'No spots remaining'}
-            </Text>
-          </View>
-        </View>
-
-        {/* What's Included (placeholder for sessions) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>What's Included</Text>
-          <View style={styles.includedCard}>
-            <View style={styles.includedItem}>
-              <Text style={styles.includedIcon}>✓</Text>
-              <Text style={styles.includedText}>
-                {getDuration(camp.start_date, camp.end_date)} of training
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {camp.ageGroup} · {camp.city}
               </Text>
             </View>
-            <View style={styles.includedItem}>
-              <Text style={styles.includedIcon}>✓</Text>
-              <Text style={styles.includedText}>Professional coaching</Text>
-            </View>
-            <View style={styles.includedItem}>
-              <Text style={styles.includedIcon}>✓</Text>
-              <Text style={styles.includedText}>Skills assessment</Text>
-            </View>
-            <View style={styles.includedItem}>
-              <Text style={styles.includedIcon}>✓</Text>
-              <Text style={styles.includedText}>Equipment provided</Text>
-            </View>
+            <Text variant="h2" color={colors.brand.primary} align="right">
+              {camp.feeCents === 0 ? 'Free' : formatCurrency(camp.feeCents)}
+            </Text>
           </View>
         </View>
 
-        {/* Registration Button */}
-        <View style={styles.registerSection}>
-          <TouchableOpacity
-            style={[
-              styles.registerButton,
-              !isRegistrationOpen() && styles.registerButtonDisabled,
-            ]}
-            onPress={handleRegister}
-            disabled={!isRegistrationOpen() || isRegistering}
-          >
-            {isRegistering ? (
-              <ActivityIndicator size="small" color={COLORS.textLight} />
-            ) : (
-              <>
-                <Text style={styles.registerButtonText}>
-                  {isRegistrationOpen()
-                    ? `Register Now - $${camp.registration_fee.toFixed(2)}`
-                    : camp.status === 'open'
-                    ? 'Camp is Full'
-                    : 'Registration Closed'}
+        <Card style={styles.detailsCard}>
+          <View style={styles.detailRow}>
+            <CalendarDays size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <View style={styles.detailBody}>
+              <Text variant="button" color={colors.text.primary}>
+                {camp.dateLabel}
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {camp.sessionsLabel}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.detailDivider} />
+          <View style={styles.detailRow}>
+            <MapPin size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <View style={styles.detailBody}>
+              <Text variant="button" color={colors.text.primary}>
+                {camp.venueName}
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {camp.address}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.detailDivider} />
+          <View style={styles.detailRow}>
+            <CircleDollarSign size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <View style={styles.detailBody}>
+              <Text variant="button" color={colors.text.primary}>
+                {camp.feeCents === 0 ? 'Free' : `${formatCurrency(camp.feeCents)} per athlete`}
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                Includes all {camp.schedule.length} sessions
+              </Text>
+            </View>
+          </View>
+        </Card>
+
+        <View style={styles.section}>
+          <Text variant="h2" color={colors.text.primary}>
+            About this camp
+          </Text>
+          <Text variant="body" color={colors.text.primary}>
+            {camp.description}
+          </Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text variant="h2" color={colors.text.primary}>
+            Organization
+          </Text>
+          <Card style={styles.orgCard}>
+            <View style={styles.orgHead}>
+              <View style={styles.orgIcon}>
+                <Building2 size={22} color={colors.brand.deep} strokeWidth={2.25} />
+              </View>
+              <View style={styles.orgHeadBody}>
+                <View style={styles.orgNameRow}>
+                  <Text variant="h3" color={colors.text.primary}>
+                    {org.name}
+                  </Text>
+                  {org.verified ? (
+                    <ShieldCheck size={16} color={colors.brand.primary} strokeWidth={2.5} />
+                  ) : null}
+                </View>
+                <Text variant="caption" color={colors.text.secondary}>
+                  Est. {org.foundedYear} · {org.campsRun} camps · ★ {org.rating.toFixed(1)}
                 </Text>
-              </>
-            )}
-          </TouchableOpacity>
-          {isRegistrationOpen() && (
-            <Text style={styles.registerNote}>
-              You will be redirected to complete payment
+              </View>
+            </View>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {org.tagline}
             </Text>
-          )}
+            <View style={styles.orgDivider} />
+            <View style={styles.coachRow}>
+              <Avatar uri={camp.organizerAvatar} initials={camp.organizer.charAt(0)} size={44} />
+              <View style={styles.coachBody}>
+                <View style={styles.coachNameRow}>
+                  <UserRound size={14} color={colors.text.secondary} strokeWidth={2.25} />
+                  <Text variant="button" color={colors.text.primary}>
+                    {camp.organizer}
+                  </Text>
+                </View>
+                <Text variant="caption" color={colors.text.secondary}>
+                  {camp.organizerBio}
+                </Text>
+              </View>
+            </View>
+          </Card>
         </View>
+
+        <View style={styles.section}>
+          <Text variant="h2" color={colors.text.primary}>
+            Schedule
+          </Text>
+          <Card style={styles.scheduleCard}>
+            {camp.schedule.map((session, idx) => (
+              <SessionRow
+                key={session.id}
+                session={session}
+                showDivider={idx < camp.schedule.length - 1}
+              />
+            ))}
+          </Card>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.registrantsHead}>
+            <Text variant="h2" color={colors.text.primary}>
+              Registrants
+            </Text>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {camp.registered}/{camp.capacity} registered
+            </Text>
+          </View>
+          <Card style={styles.registrantsCard}>
+            <ProgressBar
+              value={fillRatio}
+              tone={camp.spotsTone === 'warning' ? 'warning' : 'brand'}
+              size="md"
+            />
+            <View style={styles.registrantsRow}>
+              <AvatarStack
+                uris={camp.registrants.map((r) => r.avatar)}
+                totalCount={camp.registered}
+                size={32}
+              />
+              <View style={styles.spotsPill}>
+                <Users
+                  size={13}
+                  color={camp.spotsTone === 'warning' ? colors.status.live : colors.brand.primary}
+                  strokeWidth={2.5}
+                />
+                <Text
+                  variant="caption"
+                  color={camp.spotsTone === 'warning' ? colors.status.live : colors.brand.primary}
+                >
+                  {isClosed ? 'Waitlist only' : `${spotsLeft} spots left`}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.registrantList}>
+              {shownRegistrants.map((r) => (
+                <View key={r.id} style={styles.registrantItem}>
+                  <Avatar uri={r.avatar} initials={r.name.charAt(0)} size={28} />
+                  <Text variant="bodySm" color={colors.text.primary}>
+                    {r.name}
+                  </Text>
+                </View>
+              ))}
+              {camp.registered > shownRegistrants.length ? (
+                <Text variant="caption" color={colors.text.muted}>
+                  +{camp.registered - shownRegistrants.length} more registered
+                </Text>
+              ) : null}
+            </View>
+          </Card>
+        </View>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        {registered ? (
+          <View style={styles.registeredRow}>
+            <Tag tone="success" leadingDot label={isClosed ? 'On the waitlist' : "You're registered"} />
+            <Button
+              label="View in Schedule"
+              variant="ghost"
+              size="md"
+              leadingIcon={
+                <CalendarDays size={16} color={colors.brand.primary} strokeWidth={2.5} />
+              }
+              onPress={() => navigation.navigate('Schedule')}
+            />
+          </View>
+        ) : (
+          <Button
+            label={
+              isClosed
+                ? 'Join waitlist'
+                : camp.feeCents === 0
+                ? 'Register'
+                : `Register · ${formatCurrency(camp.feeCents)}`
+            }
+            variant="gradient"
+            size="lg"
+            fullWidth
+            onPress={() => setConfirmOpen(true)}
+          />
+        )}
       </View>
 
-      <View style={styles.bottomPadding} />
-    </ScrollView>
+      <Modal
+        visible={confirmOpen}
+        onRequestClose={() => setConfirmOpen(false)}
+        variant={isClosed ? 'info' : 'success'}
+        title={isClosed ? 'Join the waitlist?' : `Register for ${camp.title}`}
+        description={
+          isClosed
+            ? "This camp is full. We'll notify you the moment a spot frees up."
+            : camp.feeCents === 0
+            ? `${camp.dateLabel} at ${camp.venueName}. You can cancel up to 48 hours before it starts.`
+            : `${formatCurrency(camp.feeCents)} will be charged when you confirm. Refundable up to 48 hours before the first session.`
+        }
+        primaryAction={{
+          label: isClosed ? 'Join waitlist' : 'Confirm',
+          onPress: handleConfirm,
+        }}
+        secondaryAction={{ label: 'Not now', onPress: () => setConfirmOpen(false) }}
+      />
+    </View>
+  );
+}
+
+function SessionRow({
+  session,
+  showDivider,
+}: {
+  session: CampSession;
+  showDivider: boolean;
+}) {
+  return (
+    <View>
+      <View style={styles.sessionRow}>
+        <View style={styles.sessionDayBadge}>
+          <Text variant="caption" color={colors.brand.deep}>
+            {session.label}
+          </Text>
+        </View>
+        <View style={styles.sessionBody}>
+          <Text variant="button" color={colors.text.primary}>
+            {session.focus}
+          </Text>
+          <View style={styles.sessionMeta}>
+            <CalendarDays size={13} color={colors.text.secondary} strokeWidth={2.25} />
+            <Text variant="caption" color={colors.text.secondary}>
+              {session.date}
+            </Text>
+            <Clock size={13} color={colors.text.secondary} strokeWidth={2.25} />
+            <Text variant="caption" color={colors.text.secondary}>
+              {session.time}
+            </Text>
+          </View>
+        </View>
+      </View>
+      {showDivider ? <View style={styles.sessionDivider} /> : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    padding: SPACING.lg,
-  },
-  errorEmoji: {
-    fontSize: 64,
-    marginBottom: SPACING.md,
-  },
-  errorText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.lg,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  headerImage: {
-    width: '100%',
-    height: 200,
-  },
-  headerImagePlaceholder: {
-    width: '100%',
-    height: 200,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerImagePlaceholderText: {
-    fontSize: 64,
+    backgroundColor: colors.surface.bg,
   },
   content: {
-    padding: SPACING.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xl,
   },
-  statusContainer: {
-    flexDirection: 'row',
-    marginBottom: SPACING.md,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: 20,
-    gap: SPACING.xs,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-  },
-  headerRow: {
+  topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.md,
-  },
-  titleContainer: {
-    flex: 1,
-    marginRight: SPACING.md,
-  },
-  campName: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  leagueName: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  priceContainer: {
-    alignItems: 'flex-end',
-  },
-  priceAmount: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  priceLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-  },
-  description: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    lineHeight: 22,
-    marginBottom: SPACING.lg,
-  },
-  infoCardsRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.lg,
-  },
-  infoCard: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  infoCardIcon: {
-    fontSize: 24,
-    marginBottom: SPACING.xs,
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.soft,
   },
-  infoCardTitle: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
+  cover: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface.chip,
   },
-  infoCardValue: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.text,
-    textAlign: 'center',
+  heroBlock: {
+    gap: spacing.lg,
+  },
+  heroTags: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    alignItems: 'center',
+  },
+  heroText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  detailsCard: {
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  detailBody: {
+    flex: 1,
+    gap: 2,
+  },
+  detailDivider: {
+    height: 1,
+    backgroundColor: colors.border.soft,
   },
   section: {
-    marginBottom: SPACING.lg,
+    gap: spacing.md,
   },
-  sectionTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
+  orgCard: {
+    gap: spacing.md,
+    padding: spacing.lg,
   },
-  datesCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  dateItem: {
+  orgHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
+    gap: spacing.md,
   },
-  dateIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primaryLight,
+  orgIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.brand.soft,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  dateIcon: {
-    fontSize: 18,
+  orgHeadBody: {
+    flex: 1,
+    gap: 2,
   },
-  dateLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-  },
-  dateValue: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    fontWeight: '500',
-  },
-  dateSeparator: {
-    height: 1,
-    backgroundColor: COLORS.background,
-    marginVertical: SPACING.md,
-    marginLeft: 56,
-  },
-  ageCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
+  orgNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: spacing.xs,
   },
-  ageIcon: {
-    fontSize: 24,
+  orgDivider: {
+    height: 1,
+    backgroundColor: colors.border.soft,
   },
-  ageText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    fontWeight: '500',
+  coachRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
-  registrationCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+  coachBody: {
+    flex: 1,
+    gap: 2,
   },
-  registrationHeader: {
+  coachNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  scheduleCard: {
+    padding: spacing.md,
+    gap: 0,
+  },
+  sessionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  sessionDayBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radii.sm,
+    backgroundColor: colors.brand.soft,
+    minWidth: 52,
+    alignItems: 'center',
+  },
+  sessionBody: {
+    flex: 1,
+    gap: 4,
+  },
+  sessionMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  sessionDivider: {
+    height: 1,
+    backgroundColor: colors.border.soft,
+  },
+  registrantsHead: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: SPACING.xs,
-    marginBottom: SPACING.sm,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
   },
-  registrationCount: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+  registrantsCard: {
+    gap: spacing.md,
+    padding: spacing.lg,
   },
-  registrationLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: COLORS.background,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: SPACING.sm,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: COLORS.primary,
-    borderRadius: 4,
-  },
-  spotsRemaining: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  includedCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  includedItem: {
+  registrantsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  includedIcon: {
-    fontSize: 16,
-    color: COLORS.success,
-    fontWeight: 'bold',
-  },
-  includedText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-  },
-  registerSection: {
-    marginTop: SPACING.md,
-  },
-  registerButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.md,
-    borderRadius: 12,
+  spotsPill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
+    gap: 4,
   },
-  registerButtonDisabled: {
-    backgroundColor: COLORS.disabled,
+  registrantList: {
+    gap: spacing.sm,
   },
-  registerButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
+  registrantItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  registerNote: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: SPACING.sm,
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: spacing.lg,
+    backgroundColor: colors.surface.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
-  bottomPadding: {
-    height: SPACING.xl,
+  registeredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });

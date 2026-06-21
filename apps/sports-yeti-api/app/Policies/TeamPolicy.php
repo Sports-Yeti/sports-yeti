@@ -29,22 +29,26 @@ class TeamPolicy
 
     public function update(User $user, Team $team): bool
     {
-        if (!$user->hasPermissionTo('teams.update')) {
-            return false;
-        }
-
-        // Team captain can update their team
-        if ($team->captain_id === $user->id) {
+        $player = $user->player;
+        if ($player && $team->captain_id === $player->id) {
             return true;
         }
 
-        // League admin can update any team in their league
+        if (! $user->hasPermissionTo('teams.update')) {
+            return false;
+        }
+
         return $this->isLeagueAdminForTeam($user, $team);
     }
 
     public function delete(User $user, Team $team): bool
     {
-        if (!$user->hasPermissionTo('teams.delete')) {
+        $player = $user->player;
+        if ($player && $team->captain_id === $player->id) {
+            return true;
+        }
+
+        if (! $user->hasPermissionTo('teams.delete')) {
             return false;
         }
 
@@ -53,13 +57,13 @@ class TeamPolicy
 
     public function manageMembers(User $user, Team $team): bool
     {
-        if (!$user->hasPermissionTo('teams.manage-members')) {
-            return false;
+        $player = $user->player;
+        if ($player && $team->captain_id === $player->id) {
+            return true;
         }
 
-        // Team captain can manage members
-        if ($team->captain_id === $user->id) {
-            return true;
+        if (! $user->hasPermissionTo('teams.manage-members')) {
+            return false;
         }
 
         return $this->isLeagueAdminForTeam($user, $team);
@@ -68,8 +72,8 @@ class TeamPolicy
     private function isLeagueAdminForTeam(User $user, Team $team): bool
     {
         $league = $team->league;
-        
-        if (!$league) {
+
+        if (! $league) {
             return false;
         }
 

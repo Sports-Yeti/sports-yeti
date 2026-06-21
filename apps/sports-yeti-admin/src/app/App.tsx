@@ -2,9 +2,12 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { UIThemeProvider } from '@sports-yeti/ui';
+import { uiTheme } from '../theme';
 import { RootNavigator } from '../navigation';
+import { ToastProvider } from '../ui';
+import { RoleStackProvider } from '../features/role-stack';
 
-// Create a client for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -19,8 +22,14 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
-        <RootNavigator />
+        <UIThemeProvider value={uiTheme}>
+          <RoleStackProvider>
+            <ToastProvider>
+              <StatusBar style="light" />
+              <RootNavigator />
+            </ToastProvider>
+          </RoleStackProvider>
+        </UIThemeProvider>
       </SafeAreaProvider>
     </QueryClientProvider>
   );

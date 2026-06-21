@@ -19,7 +19,7 @@ class SpaceFactory extends Factory
     {
         return [
             'facility_id' => Facility::factory(),
-            'name' => 'Court ' . $this->faker->numberBetween(1, 10),
+            'name' => 'Court '.$this->faker->numberBetween(1, 10),
             'type' => $this->faker->randomElement(['basketball_court', 'soccer_field', 'volleyball_court', 'tennis_court', 'multipurpose']),
             'description' => $this->faker->sentence(),
             'capacity' => $this->faker->numberBetween(10, 50),
@@ -33,7 +33,7 @@ class SpaceFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'type' => 'basketball_court',
-            'name' => 'Basketball Court ' . $this->faker->numberBetween(1, 5),
+            'name' => 'Basketball Court '.$this->faker->numberBetween(1, 5),
         ]);
     }
 

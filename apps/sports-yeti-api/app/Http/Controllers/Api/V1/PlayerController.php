@@ -32,7 +32,7 @@ class PlayerController extends Controller
         if ($request->has('search')) {
             $search = $request->search;
             $query->whereHas('user', function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%');
+                $q->where('name', 'like', '%'.$search.'%');
             });
         }
 
@@ -126,11 +126,21 @@ class PlayerController extends Controller
 
     public function me(): JsonResponse
     {
-        $player = Player::with([
+        $player = Player::where('user_id', auth()->id())->first();
+
+        if (! $player) {
+            $player = Player::create([
+                'user_id' => auth()->id(),
+                'experience_level' => 'beginner',
+                'availability_status' => 'available',
+            ]);
+        }
+
+        $player->load([
             'user:id,name,email,avatar_url',
             'league:id,name',
             'teams:id,name,league_id',
-        ])->where('user_id', auth()->id())->firstOrFail();
+        ]);
 
         return response()->json([
             'data' => $player,

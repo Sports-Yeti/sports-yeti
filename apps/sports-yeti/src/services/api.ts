@@ -11,9 +11,14 @@ import type {
   Camp,
   Facility,
   Game,
+  HighlightDetail,
+  HighlightSummary,
   League,
   LoginCredentials,
   Player,
+  Referee,
+  RefereeAssignment,
+  RefereeEarnings,
   RegisterData,
   Team,
   User,
@@ -383,6 +388,22 @@ class ApiService {
     await this.client.post(`/games/${gameId}/attendance`, { response });
   }
 
+  async createGame(data: {
+    league_id?: string;
+    team1_id?: string;
+    team2_id?: string;
+    facility_id?: string;
+    space_id?: string;
+    scheduled_at: string;
+    game_type?: string;
+    max_players?: number;
+    referee_required?: boolean;
+    is_open_play?: boolean;
+  }): Promise<Game> {
+    const response = await this.client.post<{ data: Game }>('/games', data);
+    return response.data.data;
+  }
+
   // Chats
   async getChat(chatId: string): Promise<{ data: { id: string; type: string; name: string } }> {
     const response = await this.client.get(`/chats/${chatId}`);
@@ -470,6 +491,331 @@ class ApiService {
 
   async updatePushToken(token: string): Promise<void> {
     await this.client.put('/notifications/push-token', { expo_push_token: token });
+  }
+
+  // Highlights Studio
+  async uploadVideo(
+    uri: string,
+    onProgress?: (progress: number) => void
+  ): Promise<{ video_path: string; price: number; currency: string }> {
+    const formData = new FormData();
+    formData.append('video', {
+      uri,
+      type: 'video/mp4',
+      name: 'upload.mp4',
+    } as unknown as Blob);
+
+    const response = await this.client.post<{
+      data: { video_path: string; price: number; currency: string };
+    }>('/highlights/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000,
+      onUploadProgress: (event) => {
+        if (onProgress && event.total) {
+          onProgress(Math.round((event.loaded * 100) / event.total));
+        }
+      },
+    });
+    return response.data.data;
+  }
+
+  async createHighlightPaymentIntent(amount: number): Promise<{
+    payment: { id: string; stripe_payment_intent_id: string };
+    client_secret: string;
+  }> {
+    const response = await this.client.post<{
+      data: {
+        payment: { id: string; stripe_payment_intent_id: string };
+        client_secret: string;
+      };
+    }>('/payments/intent', {
+      amount,
+      type: 'highlight_generation',
+      payable_type: 'App\\Models\\Highlight',
+      payable_id: '00000000-0000-0000-0000-000000000000',
+    });
+    return response.data.data;
+  }
+
+  async generateHighlights(
+    videoPath: string,
+    paymentIntentId: string
+  ): Promise<{ id: string; status: string }> {
+    const response = await this.client.post<{
+      data: { id: string; status: string };
+    }>('/highlights/generate', {
+      video_path: videoPath,
+      payment_intent_id: paymentIntentId,
+    });
+    return response.data.data;
+  }
+
+  async getHighlights(
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<HighlightSummary[]>> {
+    const response = await this.client.get<ApiResponse<HighlightSummary[]>>(
+      '/highlights',
+      { params }
+    );
+    return response.data;
+  }
+
+  async getHighlight(id: string): Promise<HighlightDetail> {
+    const response = await this.client.get<{ data: HighlightDetail }>(
+      `/highlights/${id}`
+    );
+    return response.data.data;
+  }
+
+  async getClipDownloadUrl(
+    highlightId: string,
+    clipId: string
+  ): Promise<{ download_url: string; expires_at: string; filename: string }> {
+    const response = await this.client.get<{
+      data: { download_url: string; expires_at: string; filename: string };
+    }>(`/highlights/${highlightId}/clips/${clipId}/download`);
+    return response.data.data;
+  }
+
+  async shareHighlightToFeed(
+    highlightId: string,
+    clipIds: string[],
+    caption?: string,
+    visibility?: string
+  ): Promise<{ id: string }> {
+    const response = await this.client.post<{ data: { id: string } }>(
+      `/highlights/${highlightId}/share`,
+      { clip_ids: clipIds, caption, visibility }
+    );
+    return response.data.data;
+  }
+
+  async deleteHighlight(id: string): Promise<void> {
+    await this.client.delete(`/highlights/${id}`);
+  }
+
+  // Referees
+  async getRefereeProfile(): Promise<Referee> {
+    const response = await this.client.get<{ data: Referee }>('/referees/me');
+    return response.data.data;
+  }
+
+  async createRefereeProfile(
+    data: Partial<Referee> & { radius_miles?: number }
+  ): Promise<Referee> {
+    const response = await this.client.post<{ data: Referee }>(
+      '/referees',
+      data
+    );
+    return response.data.data;
+  }
+
+  async updateRefereeProfile(
+    id: string,
+    data: Partial<Referee> & { radius_miles?: number }
+  ): Promise<Referee> {
+    const response = await this.client.put<{ data: Referee }>(
+      `/referees/${id}`,
+      data
+    );
+    return response.data.data;
+  }
+
+  async getAvailableRefereeGames(
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<Game[]>> {
+    const response = await this.client.get<ApiResponse<Game[]>>(
+      '/referees/available-games',
+      { params }
+    );
+    return response.data;
+  }
+
+  async acceptRefereeAssignment(
+    assignmentId: string
+  ): Promise<RefereeAssignment> {
+    const response = await this.client.post<{ data: RefereeAssignment }>(
+      `/referees/assignments/${assignmentId}/accept`
+    );
+    return response.data.data;
+  }
+
+  async declineRefereeAssignment(
+    assignmentId: string
+  ): Promise<RefereeAssignment> {
+    const response = await this.client.post<{ data: RefereeAssignment }>(
+      `/referees/assignments/${assignmentId}/decline`
+    );
+    return response.data.data;
+  }
+
+  async submitRefereeBid(
+    gameId: string,
+    data: { bid_amount: number }
+  ): Promise<RefereeAssignment> {
+    const response = await this.client.post<{ data: RefereeAssignment }>(
+      `/referees/games/${gameId}/bid`,
+      data
+    );
+    return response.data.data;
+  }
+
+  async getMyRefereeAssignments(
+    params?: Record<string, unknown>
+  ): Promise<ApiResponse<RefereeAssignment[]>> {
+    const response = await this.client.get<ApiResponse<RefereeAssignment[]>>(
+      '/referees/me/assignments',
+      { params }
+    );
+    return response.data;
+  }
+
+  async getRefereeEarnings(): Promise<RefereeEarnings> {
+    const response = await this.client.get<{ data: RefereeEarnings }>(
+      '/referees/me/earnings'
+    );
+    return response.data.data;
+  }
+
+  async submitRefereeReport(
+    assignmentId: string,
+    data: { report: string; rating?: number }
+  ): Promise<RefereeAssignment> {
+    const response = await this.client.post<{ data: RefereeAssignment }>(
+      `/referees/assignments/${assignmentId}/report`,
+      data
+    );
+    return response.data.data;
+  }
+
+  async joinGame(gameId: string): Promise<unknown> {
+    const response = await this.client.post(`/games/${gameId}/join`);
+    return response.data.data;
+  }
+
+  async getTeamInvitations(teamId: string): Promise<ApiResponse<Array<{
+    id: string;
+    team_id: string;
+    player_id: string;
+    status: string;
+    message: string | null;
+    player?: Player;
+    created_at: string;
+  }>>> {
+    const response = await this.client.get(`/teams/${teamId}/invitations`);
+    return response.data;
+  }
+
+  async invitePlayerToTeam(teamId: string, playerId: string, message?: string): Promise<void> {
+    await this.client.post(`/teams/${teamId}/invitations`, { player_id: playerId, message });
+  }
+
+  async invitePlayer(teamId: string, playerId: string, message?: string): Promise<unknown> {
+    const response = await this.client.post(`/teams/${teamId}/invitations`, {
+      player_id: playerId,
+      message,
+    });
+    return response.data.data;
+  }
+
+  async respondToInvitation(
+    teamId: string,
+    invitationId: string,
+    accept: boolean | 'accepted' | 'declined'
+  ): Promise<void> {
+    const response =
+      typeof accept === 'boolean' ? (accept ? 'accepted' : 'declined') : accept;
+    await this.client.post(`/teams/${teamId}/invitations/${invitationId}/respond`, {
+      response,
+      accept: typeof accept === 'boolean' ? accept : accept === 'accepted',
+    });
+  }
+
+  async getTeamPaymentSummary(teamId: string): Promise<{
+    team_id: string;
+    team_name: string;
+    league_name: string;
+    total_fee: number;
+    per_player_share: number;
+    roster_count: number;
+    paid_count: number;
+    pending_count: number;
+    is_complete: boolean;
+    members: Array<{
+      id: string;
+      player_id: string;
+      name: string;
+      avatar_url: string | null;
+      payment_status: string;
+      role: string;
+    }>;
+  }> {
+    const response = await this.client.get(`/teams/${teamId}/payment-summary`);
+    return response.data.data;
+  }
+
+  async createTeamPaymentIntent(teamId: string): Promise<{
+    payment: { id: string };
+    client_secret: string;
+    amount: number;
+    currency?: string;
+    roster_size?: number;
+    total_fee?: number;
+  }> {
+    const response = await this.client.post<{
+      data: {
+        payment: { id: string };
+        client_secret: string;
+        amount: number;
+        currency?: string;
+        roster_size?: number;
+        total_fee?: number;
+      };
+    }>(`/teams/${teamId}/payment-intent`);
+    return response.data.data;
+  }
+
+  async getAvailableSubRequests(params?: Record<string, unknown>): Promise<ApiResponse<Array<{
+    id: string;
+    game_id: string;
+    team_id: string;
+    position: string | null;
+    message: string | null;
+    status: string;
+    game?: Game;
+    team?: Team;
+    created_at: string;
+  }>>> {
+    const response = await this.client.get('/sub-requests/available', { params });
+    return response.data;
+  }
+
+  async createSubRequest(
+    gameId: string,
+    data: { team_id?: string; position?: string; message?: string }
+  ): Promise<unknown> {
+    const response = await this.client.post(`/games/${gameId}/sub-requests`, data);
+    return response.data.data;
+  }
+
+  async getSubRequestsForGame(gameId: string): Promise<unknown[]> {
+    const response = await this.client.get(`/games/${gameId}/sub-requests`);
+    return response.data.data;
+  }
+
+  async acceptSubRequest(subRequestId: string): Promise<unknown> {
+    const response = await this.client.post(`/sub-requests/${subRequestId}/accept`);
+    return response.data.data;
+  }
+
+  async getWaivers(params?: Record<string, unknown>): Promise<unknown[]> {
+    const response = await this.client.get('/waivers', { params });
+    return response.data.data;
+  }
+
+  async signWaiver(waiverId: string): Promise<unknown> {
+    const response = await this.client.post(`/waivers/${waiverId}/sign`);
+    return response.data.data;
   }
 }
 

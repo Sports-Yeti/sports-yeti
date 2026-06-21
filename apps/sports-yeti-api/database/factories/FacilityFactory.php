@@ -18,13 +18,13 @@ class FacilityFactory extends Factory
     public function definition(): array
     {
         $facilityTypes = [
-            'Sports Center', 'Recreation Complex', 'Community Center', 
-            'Athletic Club', 'Gym', 'Arena', 'Field House'
+            'Sports Center', 'Recreation Complex', 'Community Center',
+            'Athletic Club', 'Gym', 'Arena', 'Field House',
         ];
 
         return [
             'league_id' => League::factory(),
-            'name' => $this->faker->company() . ' ' . $this->faker->randomElement($facilityTypes),
+            'name' => $this->faker->company().' '.$this->faker->randomElement($facilityTypes),
             'description' => $this->faker->paragraph(),
             'address' => $this->faker->streetAddress(),
             'city' => $this->faker->city(),

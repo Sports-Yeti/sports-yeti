@@ -26,8 +26,13 @@ class AuthController extends Controller
             'phone' => $validated['phone'] ?? null,
         ]);
 
-        // Assign default player role
-        $user->assignRole('player');
+        $roles = $validated['roles'] ?? ['player'];
+        if (empty($roles)) {
+            $roles = ['player'];
+        }
+        foreach ($roles as $role) {
+            $user->assignRole($role);
+        }
 
         // Create a player profile for the user
         Player::create([
@@ -35,6 +40,10 @@ class AuthController extends Controller
             'experience_level' => 'beginner',
             'availability_status' => 'available',
         ]);
+
+        if (app()->environment('local', 'testing')) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
 
         $token = JWTAuth::fromUser($user);
 
@@ -52,7 +61,7 @@ class AuthController extends Controller
     {
         $credentials = $request->only('email', 'password');
 
-        if (!$token = JWTAuth::attempt($credentials)) {
+        if (! $token = JWTAuth::attempt($credentials)) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/401',
                 'title' => 'Unauthorized',
@@ -76,7 +85,15 @@ class AuthController extends Controller
 
     public function me(): JsonResponse
     {
-        $user = auth()->user();
+        $user = auth('api')->user();
+        if (! $user) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/401',
+                'title' => 'Unauthorized',
+                'status' => 401,
+                'detail' => 'Unauthenticated.',
+            ], 401);
+        }
         $user->load('player');
 
         return response()->json([
@@ -86,7 +103,10 @@ class AuthController extends Controller
 
     public function logout(): JsonResponse
     {
-        JWTAuth::invalidate(JWTAuth::getToken());
+        $token = JWTAuth::getToken();
+        if ($token) {
+            JWTAuth::invalidate($token);
+        }
 
         return response()->json([
             'message' => 'Successfully logged out.',
@@ -95,7 +115,17 @@ class AuthController extends Controller
 
     public function refresh(): JsonResponse
     {
-        $token = JWTAuth::refresh(JWTAuth::getToken());
+        $currentToken = JWTAuth::getToken();
+        if (! $currentToken) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/401',
+                'title' => 'Unauthorized',
+                'status' => 401,
+                'detail' => 'Token not provided.',
+            ], 401);
+        }
+
+        $token = JWTAuth::refresh($currentToken);
 
         return response()->json([
             'data' => [
@@ -109,7 +139,7 @@ class AuthController extends Controller
     private function formatUser(User $user): array
     {
         // Load roles if not already loaded
-        if (!$user->relationLoaded('roles')) {
+        if (! $user->relationLoaded('roles')) {
             $user->load('roles');
         }
 

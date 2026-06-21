@@ -19,6 +19,7 @@ class Waiver extends Model
         'league_id',
         'title',
         'content',
+        'document_url',
         'is_required',
         'is_active',
         'version',

@@ -50,6 +50,7 @@ export interface RegisterData {
   password: string;
   password_confirmation: string;
   phone?: string;
+  roles?: string[];
 }
 
 // Player types
@@ -184,9 +185,9 @@ export interface Camp {
 // Game types
 export interface Game {
   id: string;
-  league_id: string;
-  team1_id: string;
-  team2_id: string;
+  league_id: string | null;
+  team1_id: string | null;
+  team2_id: string | null;
   facility_id: string | null;
   space_id: string | null;
   scheduled_at: string;
@@ -195,10 +196,62 @@ export interface Game {
   team2_score: number | null;
   winner_team_id: string | null;
   game_type: 'regular' | 'playoff' | 'friendly';
+  is_open_play?: boolean;
+  max_players?: number | null;
+  current_players?: number;
+  referee_required?: boolean;
   league?: League;
   team1?: Team;
   team2?: Team;
   facility?: Facility;
+}
+
+// Referee types
+export interface Referee {
+  id: string;
+  user_id: number;
+  league_id: string | null;
+  sport_types: string[];
+  experience_level: string;
+  certification: string | null;
+  hourly_rate: number;
+  rating: number;
+  total_games: number;
+  is_available: boolean;
+  bio: string | null;
+  radius_miles?: number | null;
+  created_at: string;
+  user?: User;
+  league?: League;
+}
+
+export interface RefereeAssignment {
+  id: string;
+  referee_id: string;
+  game_id: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'completed';
+  assigned_rate: number;
+  is_bidding: boolean;
+  bid_amount: number | null;
+  admin_approved: boolean;
+  report: string | null;
+  rating_given: number | null;
+  referee?: Referee;
+  game?: Game;
+}
+
+export interface RefereeEarnings {
+  total_earned: number;
+  pending_payouts: number;
+  completed_games: number;
+  average_rating: number;
+  recent_earnings: Array<{
+    id: string;
+    game_id: string;
+    amount: number;
+    date: string;
+    game?: Game;
+  }>;
 }
 
 // Chat types
@@ -274,4 +327,60 @@ export interface Notification {
   action_url: string | null;
   read_at: string | null;
   created_at: string;
+}
+
+// Highlight types
+export interface HighlightClip {
+  id: string;
+  highlight_id: string;
+  clip_path: string;
+  thumbnail_path: string | null;
+  clip_url: string;
+  thumbnail_url: string | null;
+  title: string;
+  description: string;
+  start_time: number;
+  end_time: number;
+  excitement_score: number;
+  sort_order: number;
+}
+
+export interface HighlightSummary {
+  id: string;
+  user_id: number;
+  post_id: string | null;
+  status: 'pending_payment' | 'processing' | 'completed' | 'failed';
+  source_video_path: string;
+  source_video_duration: number | null;
+  ai_cost: string;
+  error_message: string | null;
+  completed_at: string | null;
+  created_at: string;
+  clips_count: number;
+}
+
+// Waiver types
+export interface Waiver {
+  id: string;
+  league_id: string;
+  title: string;
+  content: string;
+  is_required: boolean;
+  is_signed?: boolean;
+  signed_at?: string | null;
+  league?: League;
+}
+
+export interface HighlightDetail extends HighlightSummary {
+  analysis: {
+    highlights: Array<{
+      title: string;
+      description: string;
+      start_time: number;
+      end_time: number;
+      excitement_score: number;
+    }>;
+    summary: string;
+  } | null;
+  clips: HighlightClip[];
 }

@@ -1,672 +1,664 @@
-import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { COLORS, SPACING, FONT_SIZES } from '../../constants';
-import { api } from '../../services/api';
-import type { Team, League, PaginationMeta } from '../../types';
-import type { MainStackParamList } from '../../navigation/MainNavigator';
+import {
+  CheckCircle2,
+  ClipboardList,
+  Coins,
+  MailPlus,
+  MessageCircle,
+  MoreVertical,
+  Plus,
+  Users,
+  XCircle,
+} from 'lucide-react-native';
+import {
+  BulkActionBar,
+  DataTable,
+  PageHeader,
+  PageScroll,
+  StatCard,
+  type AdminRouteName,
+  type DataTableColumn,
+} from '../../admin';
+import {
+  Avatar,
+  Button,
+  Card,
+  Input,
+  Select,
+  Tabs,
+  Tag,
+  Text,
+  useToast,
+} from '../../ui';
+import { type WebPressableState } from '../../lib/pressable';
+import { colors, radii, shadows, spacing } from '../../theme';
+import {
+  STATUS_LABEL,
+  TEAMS,
+  type Team,
+  type TeamStatus,
+} from '../../mocks/teams';
+import { LEAGUES } from '../../mocks/leagues';
+import { peopleByKind } from '../../mocks/people';
+import { formatCurrency, formatRelative } from '../../lib/format';
 
-type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
-
-interface TeamCardProps {
-  team: Team;
-  onPress: () => void;
-  onDelete: () => void;
+interface ScreenNavigation {
+  navigate: (route: AdminRouteName, params?: { id?: string }) => void;
 }
 
-function TeamCard({ team, onPress, onDelete }: TeamCardProps) {
-  const statusColors: Record<string, string> = {
-    approved: COLORS.success,
-    pending: COLORS.warning,
-    rejected: COLORS.error,
-    inactive: COLORS.textMuted,
-  };
+const STATUS_TONE: Record<TeamStatus, 'success' | 'warning' | 'live' | 'neutral'> = {
+  approved: 'success',
+  pending: 'warning',
+  rejected: 'live',
+  archived: 'neutral',
+};
+
+const TABS = [
+  { key: 'all', label: 'All teams' },
+  { key: 'pending', label: 'Approvals' },
+  { key: 'approved', label: 'Active' },
+  { key: 'archived', label: 'Archived' },
+];
+
+const VIEW_TABS = [
+  { key: 'cards', label: 'Cards' },
+  { key: 'table', label: 'Table' },
+];
+
+export function TeamListScreen() {
+  const navigation = useNavigation() as unknown as ScreenNavigation;
+  const toast = useToast();
+  const [tab, setTab] = useState<string>('all');
+  const [search, setSearch] = useState('');
+  const [leagueFilter, setLeagueFilter] = useState<string>('all');
+  const [view, setView] = useState<string>('cards');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return TEAMS.filter((t) => {
+      if (tab !== 'all' && t.status !== tab) return false;
+      if (leagueFilter !== 'all' && t.leagueId !== leagueFilter) return false;
+      if (q && !`${t.name} ${t.leagueName} ${t.abbreviation}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [tab, leagueFilter, search]);
+
+  // Per-league filter pills (Stitch reference: All Divisions / Premier
+  // / Division 1 / Rec League).
+  const leagueChips = useMemo(
+    () => [
+      { key: 'all', label: 'All divisions' },
+      ...LEAGUES.slice(0, 4).map((l) => ({ key: l.id, label: l.name })),
+    ],
+    [],
+  );
+
+  // Stat-card row at the top — JTBD for league operators is "what
+  // needs my attention right now". Total / Pending / Revenue mirrors
+  // the Stitch Teams Management hero stats.
+  const totals = useMemo(() => {
+    const all = TEAMS;
+    const pending = all.filter((t) => t.status === 'pending').length;
+    const revenueCollected = all.reduce(
+      (acc, t) => acc + t.feeCollectedCents,
+      0,
+    );
+    const revenueTotal = all.reduce((acc, t) => acc + t.feeTotalCents, 0);
+    const collectionPct =
+      revenueTotal === 0 ? 1 : revenueCollected / revenueTotal;
+    return {
+      total: all.length,
+      pending,
+      revenueCollected,
+      revenueTotal,
+      collectionPct,
+    };
+  }, []);
+
+  const columns: DataTableColumn<Team>[] = [
+    {
+      id: 'name',
+      header: 'Team',
+      width: 280,
+      sortable: true,
+      accessor: (t) => (
+        <View style={styles.cellRow}>
+          <Avatar initials={t.abbreviation} size={28} />
+          <View style={styles.cellBody}>
+            <Text variant="bodySm" color={colors.text.primary} weight="600">
+              {t.name}
+            </Text>
+            <Text variant="caption" color={colors.text.muted}>
+              {t.leagueName}
+            </Text>
+          </View>
+        </View>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      width: 120,
+      accessor: (t) => (
+        <Tag size="sm" tone={STATUS_TONE[t.status]} leadingDot label={STATUS_LABEL[t.status]} />
+      ),
+    },
+    {
+      id: 'roster',
+      header: 'Roster',
+      width: 110,
+      align: 'right',
+      sortable: true,
+      accessor: (t) => (
+        <Text variant="bodySm" color={colors.text.primary}>
+          {t.roster.length} / {t.rosterMax}
+        </Text>
+      ),
+    },
+    {
+      id: 'record',
+      header: 'Record',
+      width: 110,
+      accessor: (t) => (
+        <Text variant="bodySm" color={colors.text.secondary}>
+          {t.wins}-{t.losses}-{t.ties} · {t.streak}
+        </Text>
+      ),
+    },
+    {
+      id: 'collected',
+      header: 'Fees collected',
+      width: 160,
+      align: 'right',
+      sortable: true,
+      accessor: (t) => (
+        <View style={styles.feeCell}>
+          <Text variant="bodySm" color={colors.text.primary}>
+            {formatCurrency(t.feeCollectedCents)}
+          </Text>
+          <Text variant="caption" color={colors.text.muted}>
+            of {formatCurrency(t.feeTotalCents)}
+          </Text>
+        </View>
+      ),
+    },
+    {
+      id: 'applied',
+      header: 'Applied',
+      width: 130,
+      sortable: true,
+      accessor: (t) => (
+        <Text variant="bodySm" color={colors.text.muted}>
+          {formatRelative(t.appliedAtIso)}
+        </Text>
+      ),
+    },
+  ];
+
+  const toggleAll = () =>
+    setSelected((prev) =>
+      prev.size === visible.length ? new Set() : new Set(visible.map((t) => t.id)),
+    );
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
-      <View style={styles.cardHeader}>
-        <View style={styles.teamAvatarContainer}>
-          {team.logo_url ? (
-            <View style={styles.teamAvatar}>
-              <Text style={styles.teamAvatarText}>
-                {team.name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.teamAvatar}>
-              <Text style={styles.teamAvatarText}>
-                {team.name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.cardTitleSection}>
-          <Text style={styles.cardTitle}>{team.name}</Text>
-          <Text style={styles.leagueName}>{team.league?.name ?? 'No League'}</Text>
-        </View>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: (statusColors[team.status] || COLORS.textMuted) + '20' },
-          ]}
-        >
-          <Text
-            style={[
-              styles.statusText,
-              { color: statusColors[team.status] || COLORS.textMuted },
-            ]}
-          >
-            {team.status}
-          </Text>
+    <PageScroll>
+      <PageHeader
+        variant="hero"
+        eyebrow="ROSTER MANAGEMENT"
+        heroImage={{
+          uri: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&w=1600&q=70',
+        }}
+        title="Teams Management"
+        subtitle="Approvals, rosters, dues, and division standings."
+        meta={`${totals.pending} awaiting your review`}
+        trailing={
+          <Button
+            label="Invite players"
+            variant="ghost"
+            size="sm"
+            leadingIcon={<MailPlus size={14} color={colors.text.inverse} strokeWidth={2.5} />}
+            onPress={() => navigation.navigate('Players')}
+          />
+        }
+      />
+
+      <View style={styles.statsRow}>
+        <StatCard
+          label="Total Teams"
+          value={String(totals.total)}
+          tone="brand"
+          icon={<Users size={18} color={colors.brand.primary} strokeWidth={2.25} />}
+          trendCopy="+3 from last season"
+        />
+        <StatCard
+          label="Pending Rosters"
+          value={String(totals.pending)}
+          tone="alpine"
+          icon={
+            <ClipboardList
+              size={18}
+              color={colors.brand.alpine}
+              strokeWidth={2.25}
+            />
+          }
+          progress={totals.total === 0 ? 0 : totals.pending / totals.total}
+          urgent={totals.pending > 0}
+        />
+        <StatCard
+          label="Revenue Collected"
+          value={formatCurrency(totals.revenueCollected)}
+          tone="neutral"
+          icon={
+            <Coins
+              size={18}
+              color={colors.text.primary}
+              strokeWidth={2.25}
+            />
+          }
+          trendCopy={`${Math.round(totals.collectionPct * 100)}% of projected total`}
+        />
+      </View>
+
+      <Tabs items={TABS} value={tab} onChange={setTab} variant="segmented" />
+
+      <View style={styles.filterPillsRow}>
+        <Tabs
+          items={leagueChips}
+          value={leagueChips.some((c) => c.key === leagueFilter) ? leagueFilter : 'all'}
+          onChange={setLeagueFilter}
+          variant="pillDark"
+        />
+        <View style={styles.filterRight}>
+          <Tabs
+            items={VIEW_TABS}
+            value={view}
+            onChange={setView}
+            variant="segmented"
+          />
+          <Button
+            label="New Team"
+            variant="solid"
+            size="sm"
+            leadingIcon={<Plus size={14} color={colors.text.inverse} strokeWidth={2.5} />}
+            onPress={() =>
+              toast.show({ variant: 'info', title: 'Team creator coming soon' })
+            }
+          />
         </View>
       </View>
 
-      {team.description && (
-        <Text style={styles.cardDescription} numberOfLines={2}>
-          {team.description}
-        </Text>
+      <View style={styles.toolbar}>
+        <Input
+          variant="search"
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search teams or league…"
+          containerStyle={styles.searchField}
+        />
+        <Select
+          options={[
+            { value: 'all', label: 'All leagues' },
+            ...LEAGUES.map((l) => ({ value: l.id, label: l.name })),
+          ]}
+          value={leagueFilter}
+          onChange={setLeagueFilter}
+          width={220}
+        />
+      </View>
+
+      {view === 'cards' ? (
+        <View style={styles.bentoGrid}>
+          {visible.map((t) => (
+            <TeamBentoCard
+              key={t.id}
+              team={t}
+              onPress={() => navigation.navigate('TeamDetail', { id: t.id })}
+              onMessage={() =>
+                toast.show({
+                  variant: 'info',
+                  title: `Captain message draft for ${t.name}`,
+                })
+              }
+            />
+          ))}
+        </View>
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={visible}
+          rowKey={(t) => t.id}
+          selectable
+          selectedIds={selected}
+          onToggleSelect={(id) =>
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            })
+          }
+          onToggleSelectAll={toggleAll}
+          onRowPress={(t) => navigation.navigate('TeamDetail', { id: t.id })}
+          emptyTitle="No teams match"
+          emptyDescription="Try widening filters or check the Approvals tab."
+          emptyIcon={<Users size={20} color={colors.brand.primary} strokeWidth={2.25} />}
+        />
       )}
 
-      <View style={styles.cardStats}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{team.players_count ?? 0}</Text>
-          <Text style={styles.statLabel}>Players</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{team.max_roster_size}</Text>
-          <Text style={styles.statLabel}>Max Roster</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>
-            {team.captain?.user?.name?.split(' ')[0] ?? 'N/A'}
-          </Text>
-          <Text style={styles.statLabel}>Captain</Text>
-        </View>
-      </View>
-
-      <View style={styles.cardActions}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.viewButton]}
-          onPress={(e) => {
-            e.stopPropagation();
-            onPress();
-          }}
-        >
-          <Text style={styles.viewButtonText}>View Details</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-        >
-          <Text style={styles.deleteButtonText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+      <BulkActionBar
+        selectedCount={selected.size}
+        onClear={() => setSelected(new Set())}
+        actions={[
+          {
+            label: 'Approve',
+            onPress: () => {
+              toast.show({
+                variant: 'success',
+                title: `Approved ${selected.size} team${selected.size === 1 ? '' : 's'}`,
+              });
+              setSelected(new Set());
+            },
+          },
+          {
+            label: 'Reject',
+            tone: 'destructive',
+            onPress: () => {
+              toast.show({
+                variant: 'info',
+                title: `Rejected ${selected.size}`,
+              });
+              setSelected(new Set());
+            },
+          },
+        ]}
+      />
+    </PageScroll>
   );
 }
 
-export function TeamListScreen() {
-  const navigation = useNavigation<NavigationProp>();
-  const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLeague, setSelectedLeague] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [page, setPage] = useState(1);
-  const [refreshing, setRefreshing] = useState(false);
+interface TeamBentoCardProps {
+  team: Team;
+  onPress: () => void;
+  onMessage: () => void;
+}
 
-  // Fetch leagues for filter
-  const { data: leaguesData } = useQuery({
-    queryKey: ['leagues', { per_page: 100 }],
-    queryFn: () => api.getLeagues({ per_page: 100 }),
-  });
-  const leagues = leaguesData?.data ?? [];
+function TeamBentoCard({ team, onPress, onMessage }: TeamBentoCardProps) {
+  const captain = team.roster.find((m) => m.role === 'captain');
+  const captainName =
+    captain?.name ?? peopleByKind('player').find((p) => p.id === team.captainId)?.name ?? 'Captain TBD';
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['teams', { search: searchQuery, league_id: selectedLeague, status: statusFilter, page }],
-    queryFn: async () => {
-      const params: Record<string, unknown> = {
-        page,
-        per_page: 15,
-      };
-      if (searchQuery) params.search = searchQuery;
-      if (selectedLeague) params.league_id = selectedLeague;
-      if (statusFilter) params.status = statusFilter;
-      return api.getTeams(params);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.deleteTeam(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
-    },
-  });
-
-  const teams = data?.data ?? [];
-  const meta: PaginationMeta | undefined = data?.meta;
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  }, [refetch]);
-
-  const handleSearch = (text: string) => {
-    setSearchQuery(text);
-    setPage(1);
-  };
-
-  const handleTeamPress = (team: Team) => {
-    navigation.navigate('TeamDetail', { id: team.id });
-  };
-
-  const handleDeleteTeam = async (team: Team) => {
-    if (confirm(`Are you sure you want to delete "${team.name}"?`)) {
-      await deleteMutation.mutateAsync(team.id);
-    }
-  };
-
-  const statuses = ['pending', 'approved', 'rejected', 'inactive'];
+  const rosterApproved = team.roster.length;
+  const isFull = rosterApproved === team.rosterMax && team.status === 'approved';
+  const isPending = team.status === 'pending';
+  const balanceCents = Math.max(
+    0,
+    team.feeTotalCents - team.feeCollectedCents,
+  );
+  const duesPaid = balanceCents === 0;
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Teams</Text>
-          <Text style={styles.subtitle}>
-            Manage all teams across your leagues
-          </Text>
-        </View>
-      </View>
-
-      {/* Search and Filters */}
-      <View style={styles.filtersContainer}>
-        <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search teams..."
-            placeholderTextColor={COLORS.textMuted}
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => handleSearch('')}>
-              <Text style={styles.clearIcon}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.filterRow}>
-          {/* League Filter */}
-          <View style={styles.filterDropdown}>
-            <Text style={styles.filterLabel}>League:</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterScroll}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  !selectedLeague && styles.filterChipActive,
-                ]}
-                onPress={() => setSelectedLeague('')}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    !selectedLeague && styles.filterChipTextActive,
-                  ]}
-                >
-                  All Leagues
-                </Text>
-              </TouchableOpacity>
-              {leagues.map((league: League) => (
-                <TouchableOpacity
-                  key={league.id}
-                  style={[
-                    styles.filterChip,
-                    selectedLeague === league.id && styles.filterChipActive,
-                  ]}
-                  onPress={() =>
-                    setSelectedLeague(selectedLeague === league.id ? '' : league.id)
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      selectedLeague === league.id && styles.filterChipTextActive,
-                    ]}
-                  >
-                    {league.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Status Filter */}
-          <View style={styles.filterDropdown}>
-            <Text style={styles.filterLabel}>Status:</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterScroll}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  !statusFilter && styles.filterChipActive,
-                ]}
-                onPress={() => setStatusFilter('')}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    !statusFilter && styles.filterChipTextActive,
-                  ]}
-                >
-                  All
-                </Text>
-              </TouchableOpacity>
-              {statuses.map((status) => (
-                <TouchableOpacity
-                  key={status}
-                  style={[
-                    styles.filterChip,
-                    statusFilter === status && styles.filterChipActive,
-                  ]}
-                  onPress={() =>
-                    setStatusFilter(statusFilter === status ? '' : status)
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      statusFilter === status && styles.filterChipTextActive,
-                    ]}
-                  >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${team.name}, ${team.leagueName}`}
+      style={({ hovered, pressed }: WebPressableState) => [
+        styles.bentoCard,
+        isPending ? styles.bentoCardUrgent : null,
+        hovered ? styles.bentoCardHover : null,
+        pressed ? styles.bentoCardPressed : null,
+      ]}
+    >
+      <View style={styles.bentoHead}>
+        <View style={styles.bentoHeadLeft}>
+          <Avatar initials={team.abbreviation} size={48} />
+          <View style={styles.bentoHeadBody}>
+            <Text variant="h3" color={colors.text.primary}>
+              {team.name}
+            </Text>
+            <View style={styles.bentoLeagueChip}>
+              <Text variant="caption" color={colors.brand.primary} weight="600">
+                {team.leagueName.toUpperCase()}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
-
-      {/* Content */}
-      {isLoading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-        </View>
-      ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load teams</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <ScrollView
-          style={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`More options for ${team.name}`}
+          hitSlop={6}
+          style={styles.moreBtn}
         >
-          {teams.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>👥</Text>
-              <Text style={styles.emptyTitle}>No teams found</Text>
-              <Text style={styles.emptyText}>
-                {searchQuery || selectedLeague || statusFilter
-                  ? 'Try adjusting your search or filters'
-                  : 'Teams will appear here when players create them'}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.gridContainer}>
-              {teams.map((team) => (
-                <TeamCard
-                  key={team.id}
-                  team={team}
-                  onPress={() => handleTeamPress(team)}
-                  onDelete={() => handleDeleteTeam(team)}
-                />
-              ))}
-            </View>
-          )}
+          <MoreVertical
+            size={16}
+            color={colors.text.muted}
+            strokeWidth={2.25}
+          />
+        </Pressable>
+      </View>
 
-          {/* Pagination */}
-          {meta && meta.last_page > 1 && (
-            <View style={styles.pagination}>
-              <TouchableOpacity
-                style={[styles.pageButton, page === 1 && styles.pageButtonDisabled]}
-                onPress={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
-              >
-                <Text style={styles.pageButtonText}>Previous</Text>
-              </TouchableOpacity>
-              <Text style={styles.pageInfo}>
-                Page {meta.current_page} of {meta.last_page}
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.pageButton,
-                  page === meta.last_page && styles.pageButtonDisabled,
-                ]}
-                onPress={() => setPage(Math.min(meta.last_page, page + 1))}
-                disabled={page === meta.last_page}
-              >
-                <Text style={styles.pageButtonText}>Next</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </ScrollView>
-      )}
+      <View style={styles.bentoStats}>
+        <BentoStatRow
+          label="Captain"
+          value={captainName}
+        />
+        <BentoStatRow
+          label="Roster"
+          value={`${rosterApproved}/${team.rosterMax} ${
+            isFull ? 'Approved' : isPending ? 'Pending' : 'Approved'
+          }`}
+          tone={isPending ? 'warning' : 'success'}
+        />
+        <BentoStatRow
+          label="Dues"
+          value={
+            duesPaid
+              ? 'Paid in Full'
+              : `${formatCurrency(balanceCents)} balance`
+          }
+          tone={duesPaid ? 'success' : 'neutral'}
+        />
+      </View>
+
+      <View style={styles.bentoActions}>
+        <Button
+          label="Manage"
+          variant="ghost"
+          size="sm"
+          fullWidth
+          onPress={onPress}
+        />
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation?.();
+            onMessage();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`Message captain of ${team.name}`}
+          hitSlop={4}
+          style={({ hovered }: WebPressableState) => [
+            styles.messageBtn,
+            hovered ? styles.messageBtnHover : null,
+          ]}
+        >
+          <MessageCircle
+            size={16}
+            color={colors.brand.primary}
+            strokeWidth={2.25}
+          />
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+}
+
+interface BentoStatRowProps {
+  label: string;
+  value: string;
+  tone?: 'success' | 'warning' | 'neutral';
+}
+
+function BentoStatRow({ label, value, tone = 'neutral' }: BentoStatRowProps) {
+  const valueColor =
+    tone === 'success'
+      ? colors.status.success
+      : tone === 'warning'
+      ? colors.brand.alpine
+      : colors.text.primary;
+  const valueBg =
+    tone === 'success'
+      ? '#E2F4E4'
+      : tone === 'warning'
+      ? colors.brand.alpineSoft
+      : colors.surface.containerLow;
+
+  return (
+    <View style={styles.bentoStatRow}>
+      <Text variant="bodySm" color={colors.text.muted}>
+        {label}
+      </Text>
+      <View style={[styles.bentoStatPill, { backgroundColor: valueBg }]}>
+        <Text variant="caption" color={valueColor} weight="600">
+          {value}
+        </Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
+  statsRow: {
     flexDirection: 'row',
+    gap: spacing.lg,
+    flexWrap: 'wrap',
+  },
+  filterPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: SPACING.lg,
-    paddingBottom: SPACING.md,
+    gap: spacing.lg,
+    flexWrap: 'wrap',
   },
-  title: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-  },
-  filtersContainer: {
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.md,
-  },
-  searchContainer: {
+  filterRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    gap: spacing.md,
   },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: SPACING.sm,
+  toolbar: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-end',
+    flexWrap: 'wrap',
   },
-  searchInput: {
+  searchField: {
     flex: 1,
-    paddingVertical: SPACING.sm + 2,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
+    minWidth: 240,
   },
-  clearIcon: {
-    fontSize: 16,
-    color: COLORS.textMuted,
-    padding: SPACING.xs,
-  },
-  filterRow: {
-    gap: SPACING.sm,
-  },
-  filterDropdown: {
-    marginBottom: SPACING.sm,
-  },
-  filterLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-    marginBottom: SPACING.xs,
-  },
-  filterScroll: {
-    flexGrow: 0,
-  },
-  filterChip: {
-    backgroundColor: COLORS.surface,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 20,
-    marginRight: SPACING.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  filterChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  filterChipText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  filterChipTextActive: {
-    color: COLORS.textLight,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  cellRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
   },
-  errorContainer: {
+  cellBody: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
+    gap: 2,
   },
-  errorText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.error,
-    marginBottom: SPACING.md,
+  feeCell: {
+    alignItems: 'flex-end',
+    gap: 2,
   },
-  retryButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  listContainer: {
-    flex: 1,
-    paddingHorizontal: SPACING.lg,
-  },
-  gridContainer: {
+  bentoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -SPACING.sm,
+    gap: spacing.lg,
   },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.lg,
-    margin: SPACING.sm,
-    minWidth: 320,
-    maxWidth: '48%',
-    flex: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+  bentoCard: {
+    flexBasis: 320,
+    flexGrow: 1,
+    maxWidth: 420,
+    minHeight: 260,
+    backgroundColor: colors.surface.card,
+    borderRadius: radii.cardLg,
+    padding: spacing.xl,
+    gap: spacing.lg,
+    ...shadows.glow,
   },
-  cardHeader: {
+  bentoCardUrgent: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.brand.alpine,
+  },
+  bentoCardHover: {
+    transform: [{ translateY: -2 }],
+  },
+  bentoCardPressed: {
+    opacity: 0.92,
+  },
+  bentoHead: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: SPACING.sm,
-  },
-  teamAvatarContainer: {
-    marginRight: SPACING.md,
-  },
-  teamAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  teamAvatarText: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '600',
-    color: COLORS.textLight,
-  },
-  cardTitleSection: {
-    flex: 1,
-    marginRight: SPACING.sm,
-  },
-  cardTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  leagueName: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  cardDescription: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
-    lineHeight: 20,
-  },
-  cardStats: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.md,
+    gap: spacing.md,
+  },
+  bentoHeadLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+    minWidth: 0,
+  },
+  bentoHeadBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  bentoLeagueChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.sm,
+    backgroundColor: colors.brand.soft,
+  },
+  moreBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bentoStats: {
+    gap: spacing.sm,
+  },
+  bentoStatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  bentoStatPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radii.sm,
+  },
+  bentoActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+    paddingTop: spacing.md,
+    marginTop: 'auto',
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    marginBottom: SPACING.md,
+    borderTopColor: colors.border.soft,
   },
-  statItem: {
+  messageBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.brand.soft,
     alignItems: 'center',
-  },
-  statValue: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  statLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: SPACING.sm,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  viewButton: {
-    backgroundColor: COLORS.primaryLight,
-  },
-  viewButtonText: {
-    color: COLORS.primary,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    backgroundColor: COLORS.error + '15',
-  },
-  deleteButtonText: {
-    color: COLORS.error,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: SPACING.xxl * 2,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: SPACING.lg,
-  },
-  emptyTitle: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-  },
-  emptyText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    maxWidth: 300,
-  },
-  pagination: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: SPACING.xl,
-    gap: SPACING.lg,
-  },
-  pageButton: {
-    backgroundColor: COLORS.surface,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  pageButtonDisabled: {
-    opacity: 0.5,
-  },
-  pageButtonText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.text,
-    fontWeight: '500',
-  },
-  pageInfo: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
+  messageBtnHover: {
+    backgroundColor: colors.brand.accent + '33',
   },
 });

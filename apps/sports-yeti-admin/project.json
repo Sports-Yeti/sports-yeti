@@ -1,0 +1,13 @@
+{
+  "name": "@sports-yeti/sports-yeti-admin",
+  "targets": {
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx expo start --port 19006",
+        "cwd": "apps/sports-yeti-admin"
+      },
+      "configurations": {}
+    }
+  }
+}

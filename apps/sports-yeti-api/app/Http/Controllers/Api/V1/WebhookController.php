@@ -6,6 +6,9 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\Player;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,8 +28,9 @@ class WebhookController extends Controller
         $signature = $request->header('Stripe-Signature');
         $webhookSecret = config('services.stripe.webhook_secret');
 
-        if (!$webhookSecret) {
+        if (! $webhookSecret) {
             Log::warning('Stripe webhook secret not configured');
+
             return response()->json(['error' => 'Webhook secret not configured'], 500);
         }
 
@@ -40,6 +44,7 @@ class WebhookController extends Controller
             Log::warning('Stripe webhook signature verification failed', [
                 'error' => $e->getMessage(),
             ]);
+
             return response()->json(['error' => 'Invalid signature'], 400);
         }
 
@@ -77,6 +82,7 @@ class WebhookController extends Controller
                 'type' => $event->type,
                 'error' => $e->getMessage(),
             ]);
+
             return response()->json(['error' => 'Webhook processing error'], 500);
         }
 
@@ -87,8 +93,9 @@ class WebhookController extends Controller
     {
         $payment = Payment::where('stripe_payment_intent_id', $paymentIntent->id)->first();
 
-        if (!$payment) {
+        if (! $payment) {
             Log::warning('Payment not found for intent', ['intent_id' => $paymentIntent->id]);
+
             return;
         }
 
@@ -111,6 +118,16 @@ class WebhookController extends Controller
             $payment->description ?? $payment->type
         );
 
+        // If this is a league_registration payment, mark team member as paid.
+        if ($payment->type === 'league_registration' && $payment->payable_type === Team::class) {
+            $teamMember = TeamMember::where('team_id', $payment->payable_id)
+                ->where('player_id', Player::where('user_id', $payment->user_id)->value('id'))
+                ->first();
+            if ($teamMember) {
+                $teamMember->update(['payment_status' => 'paid']);
+            }
+        }
+
         Log::info('Payment completed via webhook', ['payment_id' => $payment->id]);
     }
 
@@ -118,7 +135,7 @@ class WebhookController extends Controller
     {
         $payment = Payment::where('stripe_payment_intent_id', $paymentIntent->id)->first();
 
-        if (!$payment) {
+        if (! $payment) {
             return;
         }
 
@@ -136,7 +153,7 @@ class WebhookController extends Controller
     {
         $payment = Payment::where('stripe_charge_id', $charge->id)->first();
 
-        if (!$payment) {
+        if (! $payment) {
             return;
         }
 

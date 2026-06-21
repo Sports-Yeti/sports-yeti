@@ -6,9 +6,9 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\Game;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
-use Illuminate\Support\Facades\Storage;
 
 class QrCodeService
 {
@@ -25,13 +25,12 @@ class QrCodeService
             'user_id' => $booking->user_id,
         ]);
 
-        $qrImage = QrCode::format('png')
+        $qrImage = QrCode::format('svg')
             ->size(300)
             ->errorCorrection('H')
             ->generate($qrContent);
 
-        // Store QR code
-        $filename = "qr-codes/bookings/{$booking->id}.png";
+        $filename = "qr-codes/bookings/{$booking->id}.svg";
         Storage::disk('public')->put($filename, $qrImage);
 
         return [
@@ -51,12 +50,12 @@ class QrCodeService
             'player_id' => $playerId,
         ]);
 
-        $qrImage = QrCode::format('png')
+        $qrImage = QrCode::format('svg')
             ->size(300)
             ->errorCorrection('H')
             ->generate($qrContent);
 
-        $filename = "qr-codes/games/{$game->id}/{$playerId}.png";
+        $filename = "qr-codes/games/{$game->id}/{$playerId}.svg";
         Storage::disk('public')->put($filename, $qrImage);
 
         return [
@@ -67,13 +66,13 @@ class QrCodeService
 
     private function generateUniqueCode(string $prefix): string
     {
-        return strtoupper($prefix . '_' . Str::random(12));
+        return strtoupper($prefix.'_'.Str::random(12));
     }
 
     public function validateCode(string $code): ?array
     {
         // Validate QR code structure
-        if (!preg_match('/^(BOOKING|GAME)_[A-Z0-9]{12}$/', $code)) {
+        if (! preg_match('/^(BOOKING|GAME)_[A-Z0-9]{12}$/', $code)) {
             return null;
         }
 

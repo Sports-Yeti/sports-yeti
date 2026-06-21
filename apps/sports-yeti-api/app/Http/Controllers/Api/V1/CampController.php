@@ -152,7 +152,7 @@ class CampController extends Controller
     public function register(Request $request, Camp $camp): JsonResponse
     {
         $player = Player::where('user_id', auth()->id())->first();
-        if (!$player) {
+        if (! $player) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/400',
                 'title' => 'Bad Request',
@@ -170,7 +170,7 @@ class CampController extends Controller
             ], 400);
         }
 
-        if (!$camp->hasAvailableSpots()) {
+        if (! $camp->hasAvailableSpots()) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/400',
                 'title' => 'Bad Request',
@@ -213,7 +213,7 @@ class CampController extends Controller
     public function unregister(Camp $camp): JsonResponse
     {
         $player = Player::where('user_id', auth()->id())->first();
-        if (!$player) {
+        if (! $player) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/400',
                 'title' => 'Bad Request',
@@ -226,7 +226,7 @@ class CampController extends Controller
             ->where('player_id', $player->id)
             ->first();
 
-        if (!$registration) {
+        if (! $registration) {
             return response()->json([
                 'type' => 'https://httpstatuses.io/404',
                 'title' => 'Not Found',

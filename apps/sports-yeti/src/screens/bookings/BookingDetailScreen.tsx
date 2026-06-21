@@ -1,680 +1,410 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import {
-  View,
+  CalendarClock,
+  ChevronLeft,
+  Clock,
+  MapPin,
+  Receipt,
+  Share2,
+  Users,
+} from 'lucide-react-native';
+import { colors, radii, shadows, spacing } from '../../theme';
+import {
+  Button,
+  Card,
+  EmptyState,
+  Modal,
+  Tag,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Image,
-  Alert,
-  Dimensions,
-} from 'react-native';
-import { api } from '../../services/api';
-import { COLORS, SPACING, FONT_SIZES, BOOKING_STATUS } from '../../constants';
-import type { Booking } from '../../types';
+  useToast,
+} from '../../ui';
+import { BOOKINGS } from '../../mocks/bookings';
+import { formatCurrency } from '../../lib/format';
+import { useCheckout } from '../../lib/checkout';
+import type { RootStackParamList } from '../../navigation/MainNavigator';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const QR_SIZE = SCREEN_WIDTH * 0.6;
+type Navigation = NativeStackNavigationProp<RootStackParamList, 'BookingDetails'>;
+type Route = RouteProp<RootStackParamList, 'BookingDetails'>;
 
-interface BookingDetailScreenProps {
-  route: {
-    params: {
-      id: string;
-    };
-  };
-  navigation: {
-    navigate: (screen: string, params?: Record<string, unknown>) => void;
-    goBack: () => void;
-  };
-}
-
-const BOOKING_STATUS_COLORS: Record<string, string> = {
-  pending: COLORS.warning,
-  confirmed: COLORS.success,
-  cancelled: COLORS.error,
-  completed: COLORS.textSecondary,
+const STATUS_TONE = {
+  confirmed: 'success' as const,
+  pending: 'warning' as const,
+  cancelled: 'live' as const,
+  completed: 'neutral' as const,
 };
 
-export function BookingDetailScreen({ route, navigation }: BookingDetailScreenProps) {
-  const { id } = route.params;
-  const [booking, setBooking] = useState<Booking | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const STATUS_LABEL = {
+  confirmed: 'Confirmed',
+  pending: 'Awaiting payment',
+  cancelled: 'Cancelled',
+  completed: 'Completed',
+};
 
-  const loadBooking = async () => {
-    try {
-      setError(null);
-      const data = await api.getBooking(id);
-      setBooking(data);
-    } catch (err) {
-      console.error('Failed to load booking:', err);
-      setError('Failed to load booking details');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+export function BookingDetailScreen() {
+  const navigation = useNavigation<Navigation>();
+  const route = useRoute<Route>();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
+  const booking = BOOKINGS.find((b) => b.id === route.params.id);
+  const checkout = useCheckout();
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [paid, setPaid] = useState(false);
 
-  useEffect(() => {
-    loadBooking();
-  }, [id]);
-
-  const onRefresh = () => {
-    setIsRefreshing(true);
-    loadBooking();
-  };
-
-  const handleCancel = () => {
-    Alert.alert(
-      'Cancel Booking',
-      'Are you sure you want to cancel this booking? This action cannot be undone.',
-      [
-        { text: 'No, Keep It', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsCancelling(true);
-              await api.cancelBooking(id);
-              Alert.alert('Cancelled', 'Your booking has been cancelled.');
-              loadBooking();
-            } catch (err) {
-              console.error('Failed to cancel booking:', err);
-              Alert.alert('Error', 'Failed to cancel booking. Please try again.');
-            } finally {
-              setIsCancelling(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleViewFacility = () => {
-    if (booking?.space?.facility_id) {
-      navigation.navigate('FacilityDetails', { id: booking.space.facility_id });
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  const getDuration = (startTime: string, endTime: string) => {
-    const start = new Date(startTime);
-    const end = new Date(endTime);
-    const diffMs = end.getTime() - start.getTime();
-    const diffMins = Math.round(diffMs / 60000);
-    const hours = Math.floor(diffMins / 60);
-    const mins = diffMins % 60;
-    if (hours === 0) return `${mins} min`;
-    if (mins === 0) return `${hours} hr`;
-    return `${hours} hr ${mins} min`;
-  };
-
-  const isUpcoming = () => {
-    if (!booking) return false;
+  if (!booking) {
     return (
-      new Date(booking.start_time) > new Date() &&
-      booking.status !== 'cancelled' &&
-      booking.status !== 'completed'
-    );
-  };
-
-  const canCancel = () => {
-    if (!booking) return false;
-    return (
-      isUpcoming() &&
-      (booking.status === 'pending' || booking.status === 'confirmed')
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+      <View style={styles.root}>
+        <EmptyState
+          title="Booking not found"
+          description="This reservation may have been cancelled or expired."
+          primaryAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+        />
       </View>
     );
   }
 
-  if (error || !booking) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorEmoji}>😞</Text>
-        <Text style={styles.errorText}>{error || 'Booking not found'}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadBooking}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const balanceDueCents = paid ? 0 : booking.totalCents - booking.paidCents;
 
-  const statusColor = BOOKING_STATUS_COLORS[booking.status] || COLORS.textSecondary;
+  const handlePayBalance = async () => {
+    const result = await checkout.pay({
+      amountCents: balanceDueCents,
+      merchantLabel: `${booking.facilityName} booking`,
+      // TODO: pass createPaymentIntent once backend exposes it.
+    });
+    if (result.status === 'success') {
+      setPaid(true);
+      toast.show({
+        variant: 'success',
+        title: 'Payment confirmed',
+        description: `${formatCurrency(balanceDueCents)} captured.`,
+      });
+      return;
+    }
+    if (result.status === 'cancelled') {
+      toast.show({ variant: 'info', title: 'Payment cancelled' });
+      return;
+    }
+    toast.show({
+      variant: 'error',
+      title: 'Payment failed',
+      description: result.error,
+      action: { label: 'Retry', onPress: handlePayBalance },
+    });
+  };
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Status Header */}
-      <View
-        style={[styles.statusHeader, { backgroundColor: statusColor + '15' }]}
+    <View style={styles.root}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + 140 },
+        ]}
+        showsVerticalScrollIndicator={false}
       >
-        <View
-          style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}
-        >
-          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[styles.statusText, { color: statusColor }]}>
-            {BOOKING_STATUS[booking.status as keyof typeof BOOKING_STATUS] ||
-              booking.status}
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            hitSlop={8}
+            onPress={() => navigation.goBack()}
+            style={styles.iconBtn}
+          >
+            <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Share booking"
+            hitSlop={8}
+            onPress={async () => {
+              Haptics.selectionAsync();
+              await Share.share({
+                title: booking.facilityName,
+                message: `${booking.facilityName} · ${booking.prettyDate} · ${booking.prettyTime}`,
+              });
+            }}
+            style={styles.iconBtn}
+          >
+            <Share2 size={20} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
+        </View>
+
+        <Image source={{ uri: booking.cover }} style={styles.cover} contentFit="cover" />
+
+        <View style={styles.heroBlock}>
+          <Tag tone={STATUS_TONE[booking.status]} leadingDot label={STATUS_LABEL[booking.status]} />
+          <Text variant="h1" color={colors.text.primary}>
+            {booking.facilityName}
+          </Text>
+          <Text variant="body" color={colors.text.secondary}>
+            {booking.spaceName} · {booking.city}
           </Text>
         </View>
-        {booking.checked_in_at && (
-          <Text style={styles.checkedInText}>
-            Checked in at {formatTime(booking.checked_in_at)}
-          </Text>
-        )}
-      </View>
 
-      {/* QR Code Section */}
-      {booking.qr_code_url && booking.status !== 'cancelled' && (
-        <View style={styles.qrSection}>
-          <Text style={styles.qrTitle}>Check-in QR Code</Text>
-          <View style={styles.qrContainer}>
-            <Image
-              source={{ uri: booking.qr_code_url }}
-              style={styles.qrCode}
-              resizeMode="contain"
+        <Card style={styles.detailsCard}>
+          <View style={styles.detailRow}>
+            <CalendarClock size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <View style={styles.detailBody}>
+              <Text variant="button" color={colors.text.primary}>
+                {booking.prettyDate}
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {booking.prettyTime}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.detailDivider} />
+          <View style={styles.detailRow}>
+            <Clock size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <View style={styles.detailBody}>
+              <Text variant="button" color={colors.text.primary}>
+                {booking.sport}
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                Hosted by {booking.hostName} · {booking.hostHandle}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.detailDivider} />
+          <View style={styles.detailRow}>
+            <Users size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <View style={styles.detailBody}>
+              <Text variant="button" color={colors.text.primary}>
+                {booking.partySize} players
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                Capacity per space.
+              </Text>
+            </View>
+          </View>
+        </Card>
+
+        {booking.notes ? (
+          <Card style={styles.notesCard}>
+            <Text variant="eyebrow" color={colors.brand.primary}>
+              Notes
+            </Text>
+            <Text variant="body" color={colors.text.primary}>
+              {booking.notes}
+            </Text>
+          </Card>
+        ) : null}
+
+        <Card style={styles.receiptCard}>
+          <View style={styles.receiptHead}>
+            <Receipt size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <Text variant="h3" color={colors.text.primary}>
+              Receipt
+            </Text>
+          </View>
+          <View style={styles.receiptRow}>
+            <Text variant="body" color={colors.text.secondary}>
+              Total
+            </Text>
+            <Text variant="button" color={colors.text.primary}>
+              {formatCurrency(booking.totalCents)}
+            </Text>
+          </View>
+          <View style={styles.receiptRow}>
+            <Text variant="body" color={colors.text.secondary}>
+              Paid
+            </Text>
+            <Text variant="button" color={colors.text.primary}>
+              {formatCurrency(booking.paidCents)}
+            </Text>
+          </View>
+          <View style={styles.receiptDivider} />
+          <View style={styles.receiptRow}>
+            <Text variant="body" color={colors.text.primary}>
+              {balanceDueCents > 0 ? 'Balance due' : 'Balance'}
+            </Text>
+            <Text
+              variant="h3"
+              color={balanceDueCents > 0 ? colors.status.live : colors.brand.primary}
+            >
+              {formatCurrency(Math.max(0, balanceDueCents))}
+            </Text>
+          </View>
+        </Card>
+
+        <View style={styles.section}>
+          <Text variant="eyebrow" color={colors.text.secondary}>
+            VENUE
+          </Text>
+          <Pressable
+            onPress={() =>
+              navigation.navigate('FacilityDetails', { id: booking.facilityId })
+            }
+            style={styles.venueLink}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${booking.facilityName} details`}
+          >
+            <MapPin size={18} color={colors.brand.primary} strokeWidth={2.25} />
+            <Text variant="button" color={colors.brand.primary}>
+              View facility
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        {booking.status === 'pending' && !paid ? (
+          <Button
+            label={
+              checkout.isPaying
+                ? 'Processing…'
+                : `Pay balance · ${formatCurrency(balanceDueCents)}`
+            }
+            variant="gradient"
+            size="lg"
+            fullWidth
+            disabled={checkout.isPaying}
+            onPress={handlePayBalance}
+          />
+        ) : booking.status === 'confirmed' || paid ? (
+          <View style={styles.actionRow}>
+            <Button
+              label="Cancel"
+              variant="ghost"
+              size="md"
+              onPress={() => setConfirmCancel(true)}
+            />
+            <Button
+              label="Open team chat"
+              variant="gradient"
+              size="md"
+              onPress={() =>
+                navigation.navigate('Chat', {
+                  chatId: 'chat-friday-night',
+                  title: 'Booking chat',
+                })
+              }
             />
           </View>
-          <Text style={styles.qrHint}>
-            Show this code at the facility for check-in
-          </Text>
-          {booking.qr_code && (
-            <View style={styles.bookingCodeContainer}>
-              <Text style={styles.bookingCodeLabel}>Booking Code</Text>
-              <Text style={styles.bookingCode}>{booking.qr_code}</Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Booking Details */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Booking Details</Text>
-        <View style={styles.detailsCard}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>📅</Text>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Date</Text>
-              <Text style={styles.detailValue}>{formatDate(booking.start_time)}</Text>
-            </View>
-          </View>
-          <View style={styles.detailDivider} />
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>🕐</Text>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Time</Text>
-              <Text style={styles.detailValue}>
-                {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.detailDivider} />
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>⏱️</Text>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Duration</Text>
-              <Text style={styles.detailValue}>
-                {getDuration(booking.start_time, booking.end_time)}
-              </Text>
-            </View>
-          </View>
-        </View>
+        ) : null}
       </View>
 
-      {/* Space & Facility */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Location</Text>
-        <TouchableOpacity
-          style={styles.locationCard}
-          onPress={handleViewFacility}
-          disabled={!booking.space?.facility_id}
-        >
-          <View style={styles.locationIcon}>
-            <Text style={styles.locationIconText}>🏟️</Text>
-          </View>
-          <View style={styles.locationInfo}>
-            <Text style={styles.spaceName}>
-              {booking.space?.name || 'Unknown Space'}
-            </Text>
-            <Text style={styles.facilityName}>
-              {booking.space?.facility?.name || 'Unknown Facility'}
-            </Text>
-            {booking.space?.sport_type && (
-              <View style={styles.sportTag}>
-                <Text style={styles.sportTagText}>
-                  {booking.space.sport_type}
-                </Text>
-              </View>
-            )}
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Purpose & Notes */}
-      {(booking.purpose || booking.notes) && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Additional Info</Text>
-          <View style={styles.notesCard}>
-            {booking.purpose && (
-              <View style={styles.noteItem}>
-                <Text style={styles.noteLabel}>Purpose</Text>
-                <Text style={styles.noteValue}>{booking.purpose}</Text>
-              </View>
-            )}
-            {booking.notes && (
-              <View style={styles.noteItem}>
-                <Text style={styles.noteLabel}>Notes</Text>
-                <Text style={styles.noteValue}>{booking.notes}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      )}
-
-      {/* Payment Info */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Payment</Text>
-        <View style={styles.paymentCard}>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Total Amount</Text>
-            <Text style={styles.paymentAmount}>
-              ${booking.amount.toFixed(2)}
-            </Text>
-          </View>
-          {booking.status === 'confirmed' && (
-            <View style={styles.paidBadge}>
-              <Text style={styles.paidBadgeIcon}>✓</Text>
-              <Text style={styles.paidBadgeText}>Paid</Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Actions */}
-      {canCancel() && (
-        <View style={styles.actionsSection}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={handleCancel}
-            disabled={isCancelling}
-          >
-            {isCancelling ? (
-              <ActivityIndicator size="small" color={COLORS.error} />
-            ) : (
-              <Text style={styles.cancelButtonText}>Cancel Booking</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Already Passed Notice */}
-      {!isUpcoming() && booking.status !== 'cancelled' && (
-        <View style={styles.pastNotice}>
-          <Text style={styles.pastNoticeIcon}>📋</Text>
-          <Text style={styles.pastNoticeText}>
-            {booking.status === 'completed'
-              ? 'This booking has been completed.'
-              : 'This booking has already passed.'}
-          </Text>
-        </View>
-      )}
-
-      <View style={styles.bottomPadding} />
-    </ScrollView>
+      <Modal
+        visible={confirmCancel}
+        onRequestClose={() => setConfirmCancel(false)}
+        variant="destructive"
+        title="Cancel this booking?"
+        description="A full refund is possible up to 24 hours before the start time."
+        primaryAction={{
+          label: 'Cancel booking',
+          onPress: () => {
+            setConfirmCancel(false);
+            toast.show({
+              variant: 'info',
+              title: 'Booking cancelled',
+              description: `${formatCurrency(booking.paidCents)} refund pending.`,
+            });
+            navigation.goBack();
+          },
+        }}
+        secondaryAction={{
+          label: 'Keep booking',
+          onPress: () => setConfirmCancel(false),
+        }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface.bg,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
+  content: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.lg,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    padding: SPACING.lg,
-  },
-  errorEmoji: {
-    fontSize: 64,
-    marginBottom: SPACING.md,
-  },
-  errorText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.lg,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: COLORS.textLight,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  statusHeader: {
-    padding: SPACING.md,
-    alignItems: 'center',
-  },
-  statusBadge: {
+  topBar: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface.card,
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: 20,
-    gap: SPACING.xs,
+    justifyContent: 'center',
+    ...shadows.soft,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  cover: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface.chip,
   },
-  statusText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-  },
-  checkedInText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.success,
-    marginTop: SPACING.xs,
-  },
-  qrSection: {
-    backgroundColor: COLORS.surface,
-    margin: SPACING.md,
-    borderRadius: 16,
-    padding: SPACING.lg,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  qrTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-  },
-  qrContainer: {
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.background,
-  },
-  qrCode: {
-    width: QR_SIZE,
-    height: QR_SIZE,
-  },
-  qrHint: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.md,
-    textAlign: 'center',
-  },
-  bookingCodeContainer: {
-    marginTop: SPACING.md,
-    alignItems: 'center',
-  },
-  bookingCodeLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
-  },
-  bookingCode: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.primary,
-    letterSpacing: 2,
-    fontFamily: 'monospace',
-  },
-  section: {
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
+  heroBlock: {
+    gap: spacing.sm,
   },
   detailsCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: spacing.md,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
-    paddingVertical: SPACING.sm,
+    gap: spacing.md,
   },
-  detailIcon: {
-    fontSize: 24,
-  },
-  detailContent: {
+  detailBody: {
     flex: 1,
-  },
-  detailLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    fontWeight: '500',
+    gap: 2,
   },
   detailDivider: {
     height: 1,
-    backgroundColor: COLORS.background,
-    marginLeft: 48,
-  },
-  locationCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  locationIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  locationIconText: {
-    fontSize: 24,
-  },
-  locationInfo: {
-    flex: 1,
-  },
-  spaceName: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  facilityName: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
-  },
-  sportTag: {
-    backgroundColor: COLORS.primaryLight,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-  },
-  sportTagText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.primary,
-    textTransform: 'capitalize',
-  },
-  chevron: {
-    fontSize: 24,
-    color: COLORS.textSecondary,
+    backgroundColor: colors.border.soft,
   },
   notesCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: spacing.sm,
   },
-  noteItem: {
-    marginBottom: SPACING.sm,
+  receiptCard: {
+    gap: spacing.md,
   },
-  noteLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
+  receiptHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  noteValue: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-    lineHeight: 22,
-  },
-  paymentCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  paymentRow: {
+  receiptRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  paymentLabel: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
+  receiptDivider: {
+    height: 1,
+    backgroundColor: colors.border.soft,
   },
-  paymentAmount: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: 'bold',
-    color: COLORS.text,
+  section: {
+    gap: spacing.sm,
   },
-  paidBadge: {
+  venueLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    backgroundColor: COLORS.success + '15',
-    paddingVertical: SPACING.sm,
-    borderRadius: 8,
-    marginTop: SPACING.md,
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.brand.soft,
+    borderRadius: radii.lg,
   },
-  paidBadgeIcon: {
-    fontSize: 16,
-    color: COLORS.success,
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: spacing.lg,
+    backgroundColor: colors.surface.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
-  paidBadgeText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.success,
-  },
-  actionsSection: {
-    paddingHorizontal: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  cancelButton: {
-    backgroundColor: COLORS.error + '15',
-    paddingVertical: SPACING.md,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  cancelButtonText: {
-    color: COLORS.error,
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-  },
-  pastNotice: {
+  actionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    margin: SPACING.md,
-    padding: SPACING.md,
-    borderRadius: 12,
-  },
-  pastNoticeIcon: {
-    fontSize: 20,
-  },
-  pastNoticeText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  bottomPadding: {
-    height: SPACING.xl,
+    gap: spacing.md,
   },
 });

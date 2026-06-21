@@ -20,16 +20,14 @@ class MetricsController extends Controller
 
     /**
      * Expose Prometheus metrics endpoint.
-     *
-     * @return Response
      */
     public function __invoke(): Response
     {
-        if (!config('prometheus.enabled')) {
+        if (! config('prometheus.enabled')) {
             return response('Metrics disabled', 503);
         }
 
-        $renderer = new RenderTextFormat();
+        $renderer = new RenderTextFormat;
         $result = $renderer->render($this->registry->getMetricFamilySamples());
 
         return response($result, 200, [

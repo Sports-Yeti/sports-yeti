@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Facility;
+use App\Models\Space;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -23,7 +24,7 @@ class FacilityController extends Controller
         }
 
         if ($request->has('city')) {
-            $query->where('city', 'like', '%' . $request->city . '%');
+            $query->where('city', 'like', '%'.$request->city.'%');
         }
 
         $perPage = min($request->get('per_page', 15), 100);
@@ -130,6 +131,106 @@ class FacilityController extends Controller
         $this->authorize('delete', $facility);
 
         $facility->delete();
+
+        return response()->json(null, 204);
+    }
+
+    public function spaces(Facility $facility): JsonResponse
+    {
+        $spaces = $facility->spaces()
+            ->where('is_active', true)
+            ->get();
+
+        return response()->json([
+            'data' => $spaces,
+        ]);
+    }
+
+    public function storeSpace(Request $request, Facility $facility): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'sport_type' => ['required', 'string', 'max:100'],
+            'capacity' => ['nullable', 'integer', 'min:1'],
+            'hourly_rate' => ['nullable', 'numeric', 'min:0'],
+            'surface_type' => ['nullable', 'string', 'max:100'],
+            'is_indoor' => ['nullable', 'boolean'],
+            'features' => ['nullable', 'array'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/422',
+                'title' => 'Validation Error',
+                'status' => 422,
+                'detail' => 'The given data was invalid.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $space = $facility->spaces()->create(array_merge(
+            $request->all(),
+            ['is_active' => true],
+        ));
+
+        return response()->json([
+            'data' => $space,
+        ], 201);
+    }
+
+    public function updateSpace(Request $request, Facility $facility, Space $space): JsonResponse
+    {
+        if ($space->facility_id !== $facility->id) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/404',
+                'title' => 'Not Found',
+                'status' => 404,
+                'detail' => 'Space does not belong to this facility.',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['sometimes', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'sport_type' => ['sometimes', 'string', 'max:100'],
+            'capacity' => ['nullable', 'integer', 'min:1'],
+            'hourly_rate' => ['nullable', 'numeric', 'min:0'],
+            'surface_type' => ['nullable', 'string', 'max:100'],
+            'is_indoor' => ['nullable', 'boolean'],
+            'is_active' => ['nullable', 'boolean'],
+            'features' => ['nullable', 'array'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/422',
+                'title' => 'Validation Error',
+                'status' => 422,
+                'detail' => 'The given data was invalid.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $space->update($request->all());
+
+        return response()->json([
+            'data' => $space,
+        ]);
+    }
+
+    public function destroySpace(Facility $facility, Space $space): JsonResponse
+    {
+        if ($space->facility_id !== $facility->id) {
+            return response()->json([
+                'type' => 'https://httpstatuses.io/404',
+                'title' => 'Not Found',
+                'status' => 404,
+                'detail' => 'Space does not belong to this facility.',
+            ], 404);
+        }
+
+        $space->delete();
 
         return response()->json(null, 204);
     }
