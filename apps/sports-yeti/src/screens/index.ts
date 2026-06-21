@@ -23,6 +23,7 @@ export { ProfileTabScreen } from './profile/ProfileTabScreen';
 // Discover stack
 export { GameDetailScreen } from './games/GameDetailScreen';
 export { CreateGameScreen } from './games/CreateGameScreen';
+export { CampDetailScreen } from './camps/CampDetailScreen';
 
 // Teams stack
 export { TeamDetailScreen } from './teams/TeamDetailScreen';

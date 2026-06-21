@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
   BookingDetailScreen,
   BookingsScreen,
+  CampDetailScreen,
   ChatScreen,
   ComponentShowcaseScreen,
   CreateGameScreen,
@@ -78,6 +79,7 @@ export type RootStackParamList = {
   // Discover / Schedule stack
   GameDetails: { id: string };
   CreateGame: undefined;
+  CampDetails: { id: string };
   ScheduledEventDetail: { id: string };
   // Schedule moved off the tab bar — now reachable from Profile -> More.
   Schedule: undefined;
@@ -289,6 +291,7 @@ export function MainNavigator() {
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="GameDetails" component={GameDetailScreen} />
       <Stack.Screen name="CreateGame" component={CreateGameScreen} />
+      <Stack.Screen name="CampDetails" component={CampDetailScreen} />
       <Stack.Screen name="Schedule" component={ScheduleScreen} />
       <Stack.Screen
         name="ScheduledEventDetail"

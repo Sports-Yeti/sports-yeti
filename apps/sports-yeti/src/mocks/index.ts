@@ -1,5 +1,6 @@
 export * from './avatars';
 export * from './games';
+export * from './camps';
 export * from './teams';
 export * from './highlights';
 export * from './schedule';

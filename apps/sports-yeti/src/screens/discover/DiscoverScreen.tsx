@@ -3,7 +3,16 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Plus, SlidersHorizontal } from 'lucide-react-native';
+import {
+  CalendarDays,
+  ChevronDown,
+  MapPin,
+  Plus,
+  SlidersHorizontal,
+  Tent,
+  Trophy,
+  X,
+} from 'lucide-react-native';
 import { useAuthStore } from '../../stores';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
@@ -12,7 +21,6 @@ import {
   type DateRange,
   DateRangeField,
   EmptyState,
-  FilterPill,
   RadiusMapPicker,
   type RadiusCenter,
   ScreenHeader,
@@ -27,6 +35,9 @@ import {
   toMinutes,
 } from '../../ui';
 import { EventCard } from '../../components/EventCard';
+import { CampCard } from '../../components/CampCard';
+import { DiscoverLeagueCard } from '../../components/DiscoverLeagueCard';
+import { ShareToTeamSheet } from '../../components/ShareToTeamSheet';
 import {
   DISCOVER_GAMES,
   gameCoords,
@@ -37,6 +48,8 @@ import {
   type GameSkillLevel,
   type OpenStatusFilter,
 } from '../../mocks/games';
+import { DISCOVER_CAMPS, campCoords, type DiscoverCamp } from '../../mocks/camps';
+import { OPEN_LEAGUES, CITY_COORDS, type OpenLeague } from '../../mocks/teams';
 import {
   DEFAULT_MAP_CENTER,
   distanceMilesBetween,
@@ -44,6 +57,14 @@ import {
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
+
+type ContentType = 'games' | 'camps' | 'leagues';
+
+const CONTENT_TABS: { key: ContentType; label: string }[] = [
+  { key: 'games', label: 'Games' },
+  { key: 'camps', label: 'Camps' },
+  { key: 'leagues', label: 'Leagues' },
+];
 
 interface FilterState {
   /** Multi-select sport keys from `SPORT_CATALOG`. Empty = match all sports. */
@@ -72,9 +93,38 @@ function initialFilters(): FilterState {
   };
 }
 
-function applyFilters(games: DiscoverGame[], f: FilterState): DiscoverGame[] {
+/** Per content type, which filter sections / pills apply. */
+const CONTENT_CONFIG: Record<
+  ContentType,
+  { status: boolean; skill: boolean; date: boolean; time: boolean }
+> = {
+  games: { status: true, skill: true, date: true, time: true },
+  camps: { status: true, skill: true, date: true, time: false },
+  leagues: { status: false, skill: false, date: false, time: false },
+};
+
+function resolveAllowedBuckets(sports: Set<string>): Set<string> | null {
+  if (sports.size === 0) return null;
+  return new Set(
+    [...sports]
+      .map((k) => sportCatalogEntry(k)?.bucket)
+      .filter((b): b is NonNullable<typeof b> => !!b),
+  );
+}
+
+function withinRadius(
+  coords: { latitude: number; longitude: number } | null,
+  center: RadiusCenter,
+  radiusMiles: number,
+): boolean {
+  if (!coords) return true;
+  return distanceMilesBetween(center, coords) <= radiusMiles;
+}
+
+function filterGames(f: FilterState): DiscoverGame[] {
   const search = f.search.trim().toLowerCase();
   const center = f.center ?? { ...DEFAULT_MAP_CENTER, label: 'Default' };
+  const buckets = resolveAllowedBuckets(f.sports);
   const rangeStart = f.dateRange.start
     ? new Date(f.dateRange.start).setHours(0, 0, 0, 0)
     : null;
@@ -84,22 +134,9 @@ function applyFilters(games: DiscoverGame[], f: FilterState): DiscoverGame[] {
   const timeStart = f.timeRange.start ? toMinutes(f.timeRange.start) : null;
   const timeEnd = f.timeRange.end ? toMinutes(f.timeRange.end) : null;
 
-  // Resolve selected catalogue entries back to the canonical buckets that
-  // discover-games are tagged with. Selections that bucket to `null` (e.g.
-  // pickleball, BJJ — sports we don't yet have fixtures for) just don't
-  // match anything, which is the correct behaviour.
-  const allowedBuckets =
-    f.sports.size > 0
-      ? new Set(
-          [...f.sports]
-            .map((k) => sportCatalogEntry(k)?.bucket)
-            .filter((b): b is NonNullable<typeof b> => !!b),
-        )
-      : null;
-
-  return games.filter((g) => {
+  return DISCOVER_GAMES.filter((g) => {
     if (f.status !== 'all' && g.openStatus !== f.status) return false;
-    if (allowedBuckets && !allowedBuckets.has(g.sport as never)) return false;
+    if (buckets && !buckets.has(g.sport)) return false;
     if (f.skill !== 'all' && g.skillLevel !== 'all' && g.skillLevel !== f.skill)
       return false;
     if (rangeStart !== null || rangeEnd !== null) {
@@ -108,31 +145,82 @@ function applyFilters(games: DiscoverGame[], f: FilterState): DiscoverGame[] {
       if (rangeEnd !== null && startsAt > rangeEnd) return false;
     }
     if (timeStart !== null || timeEnd !== null) {
-      const startsAt = new Date(g.startsAt);
-      const m = startsAt.getHours() * 60 + startsAt.getMinutes();
+      const d = new Date(g.startsAt);
+      const m = d.getHours() * 60 + d.getMinutes();
       if (timeStart !== null && m < timeStart) return false;
       if (timeEnd !== null && m > timeEnd) return false;
     }
-    const coords = gameCoords(g);
-    if (coords) {
-      const d = distanceMilesBetween(center, coords);
-      if (d > f.radiusMiles) return false;
-    }
+    if (!withinRadius(gameCoords(g), center, f.radiusMiles)) return false;
     if (search) {
-      const haystack = `${g.title} ${g.location} ${g.sport}`.toLowerCase();
-      if (!haystack.includes(search)) return false;
+      const hay = `${g.title} ${g.location} ${g.sport}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function filterCamps(f: FilterState): DiscoverCamp[] {
+  const search = f.search.trim().toLowerCase();
+  const center = f.center ?? { ...DEFAULT_MAP_CENTER, label: 'Default' };
+  const buckets = resolveAllowedBuckets(f.sports);
+  const rangeStart = f.dateRange.start
+    ? new Date(f.dateRange.start).setHours(0, 0, 0, 0)
+    : null;
+  const rangeEnd = f.dateRange.end
+    ? new Date(f.dateRange.end).setHours(23, 59, 59, 999)
+    : null;
+
+  return DISCOVER_CAMPS.filter((c) => {
+    if (f.status !== 'all' && c.status !== f.status) return false;
+    if (buckets && !buckets.has(c.sport)) return false;
+    if (f.skill !== 'all' && c.skillLevel !== 'all' && c.skillLevel !== f.skill)
+      return false;
+    if (rangeStart !== null || rangeEnd !== null) {
+      const startsAt = new Date(c.startsAt).getTime();
+      if (rangeStart !== null && startsAt < rangeStart) return false;
+      if (rangeEnd !== null && startsAt > rangeEnd) return false;
+    }
+    if (!withinRadius(campCoords(c), center, f.radiusMiles)) return false;
+    if (search) {
+      const hay = `${c.title} ${c.city} ${c.sport} ${c.organizer}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function filterLeagues(f: FilterState): OpenLeague[] {
+  const search = f.search.trim().toLowerCase();
+  const center = f.center ?? { ...DEFAULT_MAP_CENTER, label: 'Default' };
+  const buckets = resolveAllowedBuckets(f.sports);
+
+  return OPEN_LEAGUES.filter((l) => {
+    if (buckets && !buckets.has(l.sportKey)) return false;
+    if (!withinRadius(CITY_COORDS[l.city] ?? null, center, f.radiusMiles))
+      return false;
+    if (search) {
+      const hay = `${l.name} ${l.sport} ${l.city}`.toLowerCase();
+      if (!hay.includes(search)) return false;
     }
     return true;
   });
 }
 
 function distanceLabel(f: FilterState): string {
-  const where = f.center?.label ?? 'Default area';
-  return `${f.radiusMiles} mi · ${where}`;
+  return `${f.radiusMiles} mi · ${f.center?.label ?? 'Default area'}`;
 }
 
 function statusLabel(status: OpenStatusFilter): string {
   return OPEN_STATUS_FILTERS.find((s) => s.key === status)?.label ?? 'Open';
+}
+
+function dateRangeLabel(range: DateRange): string | null {
+  if (!range.start && !range.end) return null;
+  const fmt = (d: Date) =>
+    d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (range.start && range.end) return `${fmt(range.start)} → ${fmt(range.end)}`;
+  if (range.start) return `From ${fmt(range.start)}`;
+  return `Until ${fmt(range.end!)}`;
 }
 
 function hasNonDefaultFilters(f: FilterState): boolean {
@@ -149,25 +237,110 @@ function hasNonDefaultFilters(f: FilterState): boolean {
   );
 }
 
+// ---------- Pill ----------
+
+interface PillProps {
+  label: string;
+  onPress: () => void;
+  onClose?: () => void;
+  accessibilityLabel?: string;
+  leading?: React.ReactNode;
+}
+
+function Pill({ label, onPress, onClose, accessibilityLabel, leading }: PillProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        pillStyles.base,
+        pressed ? pillStyles.pressed : null,
+      ]}
+      hitSlop={4}
+    >
+      {leading ? <View style={pillStyles.leading}>{leading}</View> : null}
+      <Text variant="caption" color={colors.brand.deep} style={pillStyles.label}>
+        {label}
+      </Text>
+      {onClose ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${label}`}
+          hitSlop={10}
+          onPress={onClose}
+          style={pillStyles.closeBtn}
+        >
+          <X size={12} color={colors.brand.deep} strokeWidth={2.5} />
+        </Pressable>
+      ) : (
+        <ChevronDown size={12} color={colors.brand.deep} strokeWidth={2.5} />
+      )}
+    </Pressable>
+  );
+}
+
+const pillStyles = StyleSheet.create({
+  base: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    minHeight: 32,
+    borderRadius: radii.pill,
+    backgroundColor: colors.brand.soft,
+  },
+  pressed: {
+    opacity: 0.8,
+  },
+  leading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  label: {
+    color: colors.brand.deep,
+  },
+  closeBtn: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface.card,
+  },
+});
+
 // ---------- Screen ----------
 
 export function DiscoverScreen() {
   const navigation = useNavigation<Navigation>();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
+  const [content, setContent] = useState<ContentType>('games');
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
+  const [shareLeague, setShareLeague] = useState<OpenLeague | null>(null);
 
+  const config = CONTENT_CONFIG[content];
   const initials = (user?.name?.charAt(0) ?? 'S').toUpperCase();
-  const visibleGames = useMemo(
-    () => applyFilters(DISCOVER_GAMES, filters),
-    [filters],
-  );
-  const featuredGame = visibleGames.find((g) => g.featured);
-  const regularGames = visibleGames.filter(
+
+  const games = useMemo(() => filterGames(filters), [filters]);
+  const camps = useMemo(() => filterCamps(filters), [filters]);
+  const leagues = useMemo(() => filterLeagues(filters), [filters]);
+
+  const featuredGame = content === 'games' ? games.find((g) => g.featured) : undefined;
+  const regularGames = games.filter(
     (g) => !g.featured || g.id !== featuredGame?.id,
   );
+
+  const resultCount =
+    content === 'games'
+      ? games.length
+      : content === 'camps'
+      ? camps.length
+      : leagues.length;
 
   const selectedSportEntries = useMemo(
     () =>
@@ -183,6 +356,15 @@ export function DiscoverScreen() {
       next.delete(key);
       return { ...p, sports: next };
     });
+
+  const dateLabel = dateRangeLabel(filters.dateRange);
+
+  const sectionTitle =
+    content === 'games'
+      ? `${resultCount} ${filters.status === 'closed' ? 'closed' : 'open'} game${resultCount === 1 ? '' : 's'}`
+      : content === 'camps'
+      ? `${resultCount} camp${resultCount === 1 ? '' : 's'}`
+      : `${resultCount} league${resultCount === 1 ? '' : 's'}`;
 
   return (
     <View style={styles.root}>
@@ -200,16 +382,31 @@ export function DiscoverScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.contentSwitch}>
+          <Tabs
+            variant="segmented"
+            items={CONTENT_TABS}
+            value={content}
+            onChange={(k) => setContent(k as ContentType)}
+          />
+        </View>
+
         <SearchBar
           value={filters.search}
           onChangeText={(v) => setFilters((p) => ({ ...p, search: v }))}
-          placeholder="Search games, sports, locations…"
+          placeholder={
+            content === 'games'
+              ? 'Search games, sports, locations…'
+              : content === 'camps'
+              ? 'Search camps, coaches, cities…'
+              : 'Search leagues, sports, cities…'
+          }
           onFilterPress={() => setFilterSheetOpen(true)}
         />
 
         <View style={styles.pillRow}>
           {selectedSportEntries.map((entry) => (
-            <FilterPill
+            <Pill
               key={entry.key}
               label={entry.label}
               onPress={() => setSportSheetOpen(true)}
@@ -218,34 +415,43 @@ export function DiscoverScreen() {
             />
           ))}
           {selectedSportEntries.length === 0 ? (
-            <FilterPill
-              label="Sports · Any"
-              onPress={() => setSportSheetOpen(true)}
+            <Pill label="Sports · Any" onPress={() => setSportSheetOpen(true)} />
+          ) : null}
+
+          {config.status ? (
+            <Pill
+              label={`Status · ${statusLabel(filters.status)}`}
+              onPress={() => setFilterSheetOpen(true)}
             />
           ) : null}
-          <FilterPill
-            label={`Status · ${statusLabel(filters.status)}`}
-            onPress={() => setFilterSheetOpen(true)}
-          />
-          <FilterPill
-            label={
-              filters.skill === 'all'
-                ? 'Skill · All'
-                : `Skill · ${SKILL_LABELS[filters.skill]}`
-            }
-            onPress={() => setFilterSheetOpen(true)}
-          />
-          <FilterPill
+
+          {config.skill ? (
+            <Pill
+              label={
+                filters.skill === 'all'
+                  ? 'Skill · All'
+                  : `Skill · ${SKILL_LABELS[filters.skill]}`
+              }
+              onPress={() => setFilterSheetOpen(true)}
+            />
+          ) : null}
+
+          {config.date && dateLabel ? (
+            <Pill
+              label={dateLabel}
+              onPress={() => setFilterSheetOpen(true)}
+              leading={
+                <CalendarDays size={12} color={colors.brand.deep} strokeWidth={2.5} />
+              }
+            />
+          ) : null}
+
+          <Pill
             label={distanceLabel(filters)}
             onPress={() => setFilterSheetOpen(true)}
-            leading={
-              <MapPin
-                size={12}
-                color={colors.brand.deep}
-                strokeWidth={2.5}
-              />
-            }
+            leading={<MapPin size={12} color={colors.brand.deep} strokeWidth={2.5} />}
           />
+
           {hasNonDefaultFilters(filters) ? (
             <Pressable
               accessibilityRole="button"
@@ -277,45 +483,80 @@ export function DiscoverScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <SectionHeader
-            title={`${regularGames.length} ${
-              filters.status === 'closed' ? 'closed' : 'open'
-            } event${regularGames.length === 1 ? '' : 's'}`}
-          />
-          {regularGames.length === 0 ? (
+          <SectionHeader title={sectionTitle} />
+          {resultCount === 0 ? (
             <EmptyState
               icon={
-                <SlidersHorizontal
-                  size={28}
-                  color={colors.brand.primary}
-                  strokeWidth={2.25}
-                />
+                content === 'games' ? (
+                  <SlidersHorizontal size={28} color={colors.brand.primary} strokeWidth={2.25} />
+                ) : content === 'camps' ? (
+                  <Tent size={28} color={colors.brand.primary} strokeWidth={2.25} />
+                ) : (
+                  <Trophy size={28} color={colors.brand.primary} strokeWidth={2.25} />
+                )
               }
-              title="No games match your filters"
-              description="Try expanding the date range, distance, or skill — or host your own scrimmage."
-              primaryAction={{
-                label: 'Host a scrimmage',
-                onPress: () => navigation.navigate('CreateGame'),
-              }}
-              secondaryAction={{
-                label: 'Reset filters',
-                onPress: () => setFilters(initialFilters),
-              }}
+              title={
+                content === 'games'
+                  ? 'No games match your filters'
+                  : content === 'camps'
+                  ? 'No camps match your filters'
+                  : 'No leagues match your filters'
+              }
+              description={
+                content === 'leagues'
+                  ? 'Try a different sport or widen the distance — or check back as new seasons open.'
+                  : 'Try expanding the date range, distance, or skill.'
+              }
+              primaryAction={
+                content === 'games'
+                  ? {
+                      label: 'Host a scrimmage',
+                      onPress: () => navigation.navigate('CreateGame'),
+                    }
+                  : { label: 'Reset filters', onPress: () => setFilters(initialFilters) }
+              }
+              secondaryAction={
+                content === 'games'
+                  ? { label: 'Reset filters', onPress: () => setFilters(initialFilters) }
+                  : undefined
+              }
             />
           ) : (
             <View style={styles.cardsColumn}>
-              {regularGames.map((game) => (
-                <EventCard
-                  key={game.id}
-                  game={game}
-                  onPress={() =>
-                    navigation.navigate('GameDetails', { id: game.id })
-                  }
-                  onJoinPress={() =>
-                    navigation.navigate('GameDetails', { id: game.id })
-                  }
-                />
-              ))}
+              {content === 'games'
+                ? regularGames.map((game) => (
+                    <EventCard
+                      key={game.id}
+                      game={game}
+                      onPress={() => navigation.navigate('GameDetails', { id: game.id })}
+                      onJoinPress={() => navigation.navigate('GameDetails', { id: game.id })}
+                    />
+                  ))
+                : null}
+              {content === 'camps'
+                ? camps.map((camp) => (
+                    <CampCard
+                      key={camp.id}
+                      camp={camp}
+                      onPress={() => navigation.navigate('CampDetails', { id: camp.id })}
+                      onRegisterPress={() =>
+                        navigation.navigate('CampDetails', { id: camp.id })
+                      }
+                    />
+                  ))
+                : null}
+              {content === 'leagues'
+                ? leagues.map((league) => (
+                    <DiscoverLeagueCard
+                      key={league.id}
+                      league={league}
+                      onPress={() =>
+                        navigation.navigate('LeagueDetails', { leagueId: league.id })
+                      }
+                      onSharePress={() => setShareLeague(league)}
+                    />
+                  ))
+                : null}
             </View>
           )}
         </View>
@@ -325,11 +566,7 @@ export function DiscoverScreen() {
         accessibilityRole="button"
         accessibilityLabel="Host a new game"
         onPress={() => navigation.navigate('CreateGame')}
-        style={[
-          styles.fab,
-          shadows.card,
-          { bottom: insets.bottom + 110 },
-        ]}
+        style={[styles.fab, shadows.card, { bottom: insets.bottom + 110 }]}
       >
         <Plus size={20} color={colors.text.inverse} strokeWidth={2.5} />
         <Text variant="button" color={colors.text.inverse}>
@@ -337,10 +574,11 @@ export function DiscoverScreen() {
         </Text>
       </Pressable>
 
+      {/* ---------- Filter sheet ---------- */}
       <BottomSheet
         visible={filterSheetOpen}
         onRequestClose={() => setFilterSheetOpen(false)}
-        title="Filter games"
+        title={`Filter ${content}`}
         snapPoints={['92%']}
       >
         <ScrollView
@@ -348,44 +586,47 @@ export function DiscoverScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.sheetGroup}>
-            <Text variant="eyebrow" color={colors.text.secondary}>
-              Status
-            </Text>
-            <Tabs
-              variant="segmented"
-              items={OPEN_STATUS_FILTERS.map((s) => ({
-                key: s.key,
-                label: s.label,
-              }))}
-              value={filters.status}
-              onChange={(k) =>
-                setFilters((p) => ({ ...p, status: k as OpenStatusFilter }))
-              }
-            />
-          </View>
+          {config.status ? (
+            <View style={styles.sheetGroup}>
+              <Text variant="eyebrow" color={colors.text.secondary}>
+                Status
+              </Text>
+              <Tabs
+                variant="segmented"
+                items={OPEN_STATUS_FILTERS.map((s) => ({ key: s.key, label: s.label }))}
+                value={filters.status}
+                onChange={(k) =>
+                  setFilters((p) => ({ ...p, status: k as OpenStatusFilter }))
+                }
+              />
+            </View>
+          ) : null}
 
-          <View style={styles.sheetGroup}>
-            <DateRangeField
-              label="Date range"
-              value={filters.dateRange}
-              onChange={(dateRange) =>
-                setFilters((p) => ({ ...p, dateRange }))
-              }
-              helpText="Filter by when games are scheduled."
-            />
-          </View>
+          {config.date ? (
+            <View style={styles.sheetGroup}>
+              <DateRangeField
+                label="Date range"
+                value={filters.dateRange}
+                onChange={(dateRange) => setFilters((p) => ({ ...p, dateRange }))}
+                helpText={
+                  content === 'camps'
+                    ? 'Filter by when camps run.'
+                    : 'Filter by when games are scheduled.'
+                }
+              />
+            </View>
+          ) : null}
 
-          <View style={styles.sheetGroup}>
-            <TimeRangeField
-              label="Time of day"
-              value={filters.timeRange}
-              onChange={(timeRange) =>
-                setFilters((p) => ({ ...p, timeRange }))
-              }
-              helpText="Useful for lunch-hour pickup or after-work games."
-            />
-          </View>
+          {config.time ? (
+            <View style={styles.sheetGroup}>
+              <TimeRangeField
+                label="Time of day"
+                value={filters.timeRange}
+                onChange={(timeRange) => setFilters((p) => ({ ...p, timeRange }))}
+                helpText="Useful for lunch-hour pickup or after-work games."
+              />
+            </View>
+          ) : null}
 
           <View style={styles.sheetGroup}>
             <Text variant="eyebrow" color={colors.text.secondary}>
@@ -406,9 +647,7 @@ export function DiscoverScreen() {
             </Text>
             <RadiusMapPicker
               center={filters.center}
-              onChangeCenter={(center) =>
-                setFilters((p) => ({ ...p, center }))
-              }
+              onChangeCenter={(center) => setFilters((p) => ({ ...p, center }))}
               radiusMiles={filters.radiusMiles}
               onChangeRadius={(radiusMiles) =>
                 setFilters((p) => ({ ...p, radiusMiles }))
@@ -416,21 +655,24 @@ export function DiscoverScreen() {
             />
           </View>
 
-          <View style={styles.sheetGroup}>
-            <Text variant="eyebrow" color={colors.text.secondary}>
-              Skill level
-            </Text>
-            <Tabs
-              variant="segmented"
-              items={(Object.keys(SKILL_LABELS) as GameSkillLevel[]).map(
-                (k) => ({ key: k, label: SKILL_LABELS[k] }),
-              )}
-              value={filters.skill}
-              onChange={(key) =>
-                setFilters((p) => ({ ...p, skill: key as GameSkillLevel }))
-              }
-            />
-          </View>
+          {config.skill ? (
+            <View style={styles.sheetGroup}>
+              <Text variant="eyebrow" color={colors.text.secondary}>
+                Skill level
+              </Text>
+              <Tabs
+                variant="segmented"
+                items={(Object.keys(SKILL_LABELS) as GameSkillLevel[]).map((k) => ({
+                  key: k,
+                  label: SKILL_LABELS[k],
+                }))}
+                value={filters.skill}
+                onChange={(key) =>
+                  setFilters((p) => ({ ...p, skill: key as GameSkillLevel }))
+                }
+              />
+            </View>
+          ) : null}
 
           <View style={styles.sheetActions}>
             <Button
@@ -441,11 +683,7 @@ export function DiscoverScreen() {
             />
             <Button
               label={
-                visibleGames.length === 0
-                  ? 'No matches'
-                  : `Show ${visibleGames.length} result${
-                      visibleGames.length === 1 ? '' : 's'
-                    }`
+                resultCount === 0 ? 'No matches' : `Show ${resultCount} result${resultCount === 1 ? '' : 's'}`
               }
               variant="gradient"
               onPress={() => setFilterSheetOpen(false)}
@@ -455,11 +693,18 @@ export function DiscoverScreen() {
         </ScrollView>
       </BottomSheet>
 
+      {/* ---------- Sport multi-select ---------- */}
       <SportMultiSelectSheet
         visible={sportSheetOpen}
         onRequestClose={() => setSportSheetOpen(false)}
         value={filters.sports}
         onApply={(sports) => setFilters((p) => ({ ...p, sports }))}
+      />
+
+      {/* ---------- League share-to-team sheet ---------- */}
+      <ShareToTeamSheet
+        league={shareLeague}
+        onRequestClose={() => setShareLeague(null)}
       />
     </View>
   );
@@ -477,6 +722,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     gap: spacing.lg,
+  },
+  contentSwitch: {
+    width: '100%',
   },
   pillRow: {
     flexDirection: 'row',
