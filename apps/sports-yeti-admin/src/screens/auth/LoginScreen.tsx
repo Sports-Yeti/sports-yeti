@@ -63,8 +63,8 @@ export function LoginScreen() {
   const handleSSO = (provider: 'google' | 'microsoft' | 'saml') => {
     toast.show({
       variant: 'info',
-      title: `${provider === 'google' ? 'Google Workspace' : provider === 'microsoft' ? 'Microsoft Entra' : 'SAML'} sign-in coming soon`,
-      description: 'Use email + password while we wire OAuth.',
+      title: `${provider === 'google' ? 'Google Workspace' : provider === 'microsoft' ? 'Microsoft Entra' : 'SAML'} SSO (mock)`,
+      description: 'OAuth handshake connects in the backend phase. Use email + password for now.',
     });
   };
 

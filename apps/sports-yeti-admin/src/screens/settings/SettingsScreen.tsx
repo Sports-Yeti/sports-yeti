@@ -49,6 +49,7 @@ export function SettingsScreen() {
   const [confirmName, setConfirmName] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [slackConnected, setSlackConnected] = useState(false);
 
   // Watch every editable surface so the StickyActionBar can render
   // only when the page actually has unsaved changes.
@@ -276,17 +277,33 @@ export function SettingsScreen() {
                     Slack
                   </Text>
                   <Text variant="caption" color={colors.text.muted}>
-                    Notify #ops on failed payments
+                    {slackConnected
+                      ? 'Connected · #ops on failed payments'
+                      : 'Notify #ops on failed payments'}
                   </Text>
                 </View>
-                <Button
-                  label="Connect"
-                  variant="ghost"
-                  size="sm"
-                  onPress={() =>
-                    toast.show({ variant: 'info', title: 'Slack OAuth coming soon' })
-                  }
-                />
+                <View style={styles.intRowActions}>
+                  {slackConnected ? (
+                    <Tag size="sm" tone="success" leadingDot label="Connected (mock)" />
+                  ) : null}
+                  <Button
+                    label={slackConnected ? 'Disconnect' : 'Connect'}
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => {
+                      setSlackConnected((prev) => !prev);
+                      toast.show({
+                        variant: slackConnected ? 'info' : 'success',
+                        title: slackConnected
+                          ? 'Slack disconnected (mock)'
+                          : 'Slack connected (mock)',
+                        description: slackConnected
+                          ? undefined
+                          : 'OAuth handshake lands with backend wiring.',
+                      });
+                    }}
+                  />
+                </View>
               </View>
             </Card>
           ) : null}
@@ -494,5 +511,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border.soft,
+  },
+  intRowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
 });
