@@ -6,6 +6,7 @@ import {
   Check,
   CreditCard,
   MessageCircle,
+  Pencil,
   Trophy,
   X,
 } from 'lucide-react-native';
@@ -114,6 +115,15 @@ export function TeamDetailScreen() {
                 <MessageCircle size={14} color={colors.brand.primary} strokeWidth={2.25} />
               }
               onPress={() => toast.show({ variant: 'info', title: 'Chat opens in mobile app' })}
+            />
+            <Button
+              label="Edit"
+              variant="ghost"
+              size="sm"
+              leadingIcon={
+                <Pencil size={14} color={colors.brand.primary} strokeWidth={2.25} />
+              }
+              onPress={() => navigation.navigate('TeamForm', { id: team.id })}
             />
             {status === 'pending' ? (
               <>
