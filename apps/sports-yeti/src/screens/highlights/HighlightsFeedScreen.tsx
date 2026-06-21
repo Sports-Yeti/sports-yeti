@@ -58,6 +58,7 @@ import {
 import {
   HIGHLIGHT_REELS,
   type HighlightReel,
+  type ReelComment,
 } from '../../mocks/highlights';
 import { SARAH_AVATAR } from '../../mocks/avatars';
 import { formatCount } from '../../lib/format';
@@ -389,6 +390,12 @@ const VIEWABILITY_CONFIG = {
   itemVisiblePercentThreshold: 60,
 };
 
+// Stable empty reference. Returning a fresh `[]` from a Zustand v5 selector
+// makes `useSyncExternalStore` see a new snapshot on every render, which
+// throws "getSnapshot should be cached" and loops to "Maximum update depth
+// exceeded". Sharing one frozen array keeps the snapshot referentially stable.
+const EMPTY_COMMENTS: ReelComment[] = [];
+
 interface ShareTargetProps {
   Icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
   label: string;
@@ -441,7 +448,9 @@ export function HighlightsFeedScreen() {
   const addComment = useSavedHighlights((s) => s.addComment);
   const toggleBookmark = useSavedHighlights((s) => s.toggleBookmark);
   const liveComments = useSavedHighlights((s) =>
-    activeComments ? s.commentsByReel[activeComments.id] ?? [] : [],
+    activeComments
+      ? s.commentsByReel[activeComments.id] ?? EMPTY_COMMENTS
+      : EMPTY_COMMENTS,
   );
 
   const onViewableItemsChanged = useRef(
