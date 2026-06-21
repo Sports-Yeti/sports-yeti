@@ -9,7 +9,7 @@ import {
   type AdminRouteName,
   type DataTableColumn,
 } from '../../admin';
-import { Button, Input, Tag, Text, useToast } from '../../ui';
+import { Button, Input, Tag, Text } from '../../ui';
 import { colors, spacing } from '../../theme';
 import { WAIVERS, type Waiver } from '../../mocks/waivers';
 import { formatDate, formatPercent } from '../../lib/format';
@@ -20,7 +20,6 @@ interface ScreenNavigation {
 
 export function WaiverListScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
-  const toast = useToast();
   const [search, setSearch] = useState('');
 
   const visible = useMemo(() => {

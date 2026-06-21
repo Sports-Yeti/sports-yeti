@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { type WebPressableState } from '../../lib/pressable';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -22,7 +22,6 @@ import {
   type Game,
   type GameStatus,
 } from '../../mocks/games';
-import { LEAGUES } from '../../mocks/leagues';
 import { useAllGames } from '../../stores';
 import { formatDate, formatTime } from '../../lib/format';
 import {
@@ -69,7 +68,7 @@ export function ScheduleScreen() {
   const allGames = useAllGames();
   const [view, setView] = useState('week');
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date('2026-04-19')));
-  const [leagueFilter, setLeagueFilter] = useState<string>('all');
+  const [leagueFilter] = useState<string>('all');
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const drag = useCalendarDrag<DragItem>();

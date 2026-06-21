@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Inbox } from 'lucide-react-native';
+import { Check, Inbox, Square } from 'lucide-react-native';
 import { SkillLevelPill } from '@sports-yeti/ui';
 import {
   divisionById,
@@ -116,8 +116,16 @@ export function ApprovalsInboxScreen() {
                 <View key={t.id} style={[styles.row, { gap: spacing.sm }]}>
                   <Button
                     size="sm"
-                    variant={checked ? 'solid' : 'ghost'}
-                    label={checked ? '✓' : ' '}
+                    variant={checked ? 'solid' : 'outline'}
+                    label=""
+                    leadingIcon={
+                      checked ? (
+                        <Check size={14} color={colors.text.inverse} strokeWidth={2.75} />
+                      ) : (
+                        <Square size={14} color={colors.text.muted} strokeWidth={2.25} />
+                      )
+                    }
+                    accessibilityLabel={`${checked ? 'Deselect' : 'Select'} ${t.name}`}
                     onPress={() => toggleSelect(t.id)}
                   />
                   <View style={{ flex: 1, gap: 4 }}>

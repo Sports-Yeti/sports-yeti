@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { CalendarRange, Inbox, Plus, Warehouse } from 'lucide-react-native';
-import { OrgAvatar, Tag } from '@sports-yeti/ui';
+import { OrgAvatar } from '@sports-yeti/ui';
 import {
   bookingsForSpace,
   DEMO_USER_ID,
@@ -20,7 +20,7 @@ import {
 } from '../../admin';
 import { Button, Card, Tag as UITag, Text } from '../../ui';
 import { OrgBrandingProvider } from '../../features/org-branding';
-import { colors, radii, spacing } from '../../theme';
+import { colors, spacing } from '../../theme';
 import {
   formatCurrency,
   formatRange,

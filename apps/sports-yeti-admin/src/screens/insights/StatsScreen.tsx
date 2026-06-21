@@ -18,7 +18,7 @@ import {
   Text,
   useToast,
 } from '../../ui';
-import { colors, radii, spacing } from '../../theme';
+import { colors, spacing } from '../../theme';
 import { TEAMS, type Team } from '../../mocks/teams';
 import { peopleByKind, type Person } from '../../mocks/people';
 import { LEAGUES } from '../../mocks/leagues';

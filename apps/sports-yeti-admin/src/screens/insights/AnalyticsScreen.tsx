@@ -185,7 +185,7 @@ export function AnalyticsScreen() {
             Facility Utilization
           </Text>
           <View style={styles.utilizationList}>
-            {utilization.map((u, i) => {
+            {utilization.map((u) => {
               const isUrgent = u.pct >= 0.9;
               return (
                 <View key={u.id} style={styles.utilizationRow}>

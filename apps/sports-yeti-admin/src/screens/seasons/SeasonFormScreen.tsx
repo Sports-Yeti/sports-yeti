@@ -84,8 +84,6 @@ export function SeasonFormScreen() {
         defaultValues={defaultValues}
         resolver={zodResolver(seasonFormSchema)}
         onSubmit={async (values) => {
-          // eslint-disable-next-line no-console
-          console.log('Season form submit (mock)', values);
           toast.show({
             variant: 'success',
             title: editing ? 'Season updated' : 'Season created',

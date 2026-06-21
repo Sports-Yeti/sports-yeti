@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
-  CheckCircle2,
   ClipboardList,
   Coins,
   MailPlus,
@@ -10,7 +9,6 @@ import {
   MoreVertical,
   Plus,
   Users,
-  XCircle,
 } from 'lucide-react-native';
 import {
   BulkActionBar,
@@ -24,7 +22,6 @@ import {
 import {
   Avatar,
   Button,
-  Card,
   Input,
   Select,
   Tabs,

@@ -8,7 +8,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Apple, KeyRound, Mail, ShieldCheck } from 'lucide-react-native';
+import { KeyRound, Mail, ShieldCheck } from 'lucide-react-native';
 import { useAuthStore } from '../../stores';
 import { colors, radii, shadows, spacing } from '../../theme';
 import { Button, Card, Input, Text, useToast, type InputRef } from '../../ui';

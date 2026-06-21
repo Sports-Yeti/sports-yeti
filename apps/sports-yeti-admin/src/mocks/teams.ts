@@ -1,5 +1,5 @@
 import { peopleByKind, type Person } from './people';
-import { LEAGUES, type SportKey } from './leagues';
+import { type SportKey } from './leagues';
 
 export type TeamStatus = 'pending' | 'approved' | 'rejected' | 'archived';
 export type PaymentStatus = 'paid' | 'pending' | 'overdue';

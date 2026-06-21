@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Users } from 'lucide-react-native';
+import { Star, Users } from 'lucide-react-native';
 import { RoleBadge, SkillLevelPill, Tabs, Tag } from '@sports-yeti/ui';
 import {
   facilitiesByOrg,
@@ -164,7 +164,19 @@ export function OrgPeopleScreen() {
       align: 'right',
       accessor: (p) =>
         typeof p.rating === 'number' ? (
-          <Tag size="sm" tone="warning" label={`${p.rating.toFixed(1)} ★`} />
+          <Tag
+            size="sm"
+            tone="warning"
+            icon={
+              <Star
+                size={11}
+                color={colors.status.warning}
+                fill={colors.status.warning}
+                strokeWidth={2.25}
+              />
+            }
+            label={p.rating.toFixed(1)}
+          />
         ) : (
           <Text variant="caption" color={colors.text.muted}>—</Text>
         ),
