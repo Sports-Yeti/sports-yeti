@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { colors, spacing } from '../theme';
 import { BottomSheet } from './BottomSheet';
 import { Button } from './Button';
-import { SportCombobox } from './SportCombobox';
+import { SportCombobox, type SportComboboxOption } from './SportCombobox';
 
 export interface SportMultiSelectSheetProps {
   visible: boolean;
@@ -12,6 +12,8 @@ export interface SportMultiSelectSheetProps {
   value: ReadonlySet<string>;
   /** Fired on Apply with the new selection. */
   onApply: (value: Set<string>) => void;
+  /** Optional custom sport list (defaults to the games catalog). */
+  options?: SportComboboxOption[];
 }
 
 /**
@@ -26,6 +28,7 @@ export function SportMultiSelectSheet({
   onRequestClose,
   value,
   onApply,
+  options,
 }: SportMultiSelectSheetProps) {
   const [draft, setDraft] = useState<Set<string>>(new Set(value));
 
@@ -44,6 +47,7 @@ export function SportMultiSelectSheet({
         <SportCombobox
           value={draft}
           onChange={setDraft}
+          options={options}
           scrollResults
         />
 

@@ -12,6 +12,8 @@ export { UIGalleryScreen } from './dev/UIGalleryScreen';
 
 // Tab screens (5 main navigation pages)
 export { DiscoverScreen } from './discover/DiscoverScreen';
+export { NewsScreen } from './news/NewsScreen';
+export { NewsArticleScreen } from './news/NewsArticleScreen';
 export { ScheduleScreen } from './schedule/ScheduleScreen';
 export { ScheduledEventDetailScreen } from './schedule/ScheduledEventDetailScreen';
 export { SquadsScreen } from './teams/SquadsScreen';

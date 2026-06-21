@@ -5,6 +5,7 @@ import {
   Bell,
   Bookmark,
   CalendarCheck,
+  CalendarDays,
   Clapperboard,
   Crosshair,
   Dumbbell,
@@ -485,6 +486,7 @@ export const PROFILE_MUTUAL_COUNT = 14;
 // Routes that the More section can deep-link into.
 export type ProfileMoreRoute =
   | 'ProfileEdit'
+  | 'Schedule'
   | 'Settings'
   | 'Notifications'
   | 'Waivers'
@@ -510,6 +512,13 @@ export const PROFILE_MORE_LINKS: MoreLink[] = [
     description: 'Bio, position, photo, certifications.',
     Icon: UserCog,
     route: 'ProfileEdit',
+  },
+  {
+    id: 'schedule',
+    label: 'My Schedule',
+    description: 'Games, camps, and scrimmages you committed to.',
+    Icon: CalendarDays,
+    route: 'Schedule',
   },
   {
     id: 'highlights',

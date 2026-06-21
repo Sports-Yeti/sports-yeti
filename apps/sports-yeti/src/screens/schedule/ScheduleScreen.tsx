@@ -5,19 +5,18 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CalendarPlus,
+  ChevronLeft,
   Clock,
   MapPin,
   Plus,
   Users,
 } from 'lucide-react-native';
-import { useAuthStore } from '../../stores';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   AvatarStack,
   Card,
   EmptyState,
   IconBadge,
-  ScreenHeader,
   Tag,
   Text,
 } from '../../ui';
@@ -312,7 +311,6 @@ function EventCardSwitch({
 export function ScheduleScreen() {
   const navigation = useNavigation<Navigation>();
   const insets = useSafeAreaInsets();
-  const { user } = useAuthStore();
   const todayId = WEEK_DAYS.find((d) => d.isToday)?.id ?? WEEK_DAYS[0]!.id;
   const eventDays = useMemo(() => daysWithEvents(), []);
   // Default to today, but if today has no events fall back to the first
@@ -326,7 +324,6 @@ export function ScheduleScreen() {
   }, [eventDays, todayId]);
   const [selectedDayId, setSelectedDayId] = useState<string>(initialDayId);
 
-  const initials = (user?.name?.charAt(0) ?? 'S').toUpperCase();
   const events = useMemo(() => eventsForDay(selectedDayId), [selectedDayId]);
   const selectedDay = WEEK_DAYS.find((d) => d.id === selectedDayId);
   const sectionTitle =
@@ -340,28 +337,33 @@ export function ScheduleScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader
-        initials={initials}
-        hasNotifications
-        onAvatarPress={() => navigation.navigate('Profile' as never)}
-        onBellPress={() => navigation.navigate('Notifications')}
-      />
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={8}
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
+          <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+        </Pressable>
+        <Text variant="h2" color={colors.text.primary}>
+          Schedule
+        </Text>
+        <View style={styles.backBtn} />
+      </View>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + 140 },
+          { paddingBottom: insets.bottom + 96 },
         ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.hero}>
-          <Text variant="displaySm" color={colors.brand.primary}>
-            Schedule
-          </Text>
           <Text
             variant="body"
             color={colors.text.secondary}
-            style={styles.heroSubtitle}
           >
             Games, camp sessions, and scrimmages you’re committed to.
           </Text>
@@ -401,7 +403,8 @@ export function ScheduleScreen() {
                 description="You haven’t committed to any games, camps, or scrimmages on this day."
                 primaryAction={{
                   label: 'Find a game',
-                  onPress: () => navigation.navigate('Discover' as never),
+                  onPress: () =>
+                    navigation.navigate('MainTabs', { screen: 'Discover' }),
                 }}
                 secondaryAction={{
                   label: 'Host one',
@@ -425,7 +428,7 @@ export function ScheduleScreen() {
         accessibilityRole="button"
         accessibilityLabel="Host a new game"
         onPress={() => navigation.navigate('CreateGame')}
-        style={[styles.fab, shadows.card, { bottom: insets.bottom + 110 }]}
+        style={[styles.fab, shadows.card, { bottom: insets.bottom + spacing.lg }]}
       >
         <Plus size={20} color={colors.text.inverse} strokeWidth={2.5} />
         <Text variant="button" color={colors.text.inverse}>
@@ -441,19 +444,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface.bg,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scroll: {
     flex: 1,
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xxl,
+    paddingTop: spacing.lg,
     gap: spacing.xxl,
   },
   hero: {
     gap: 4,
-  },
-  heroSubtitle: {
-    marginTop: spacing.md,
   },
   weekRow: {
     gap: spacing.md,

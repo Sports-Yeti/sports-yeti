@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import {
-  Calendar,
   Compass,
+  Newspaper,
   PlaySquare,
   User,
   Users,
@@ -17,7 +17,7 @@ const ICONS: Record<string, React.ComponentType<{ size: number; color: string; s
   Discover: Compass,
   Highlights: PlaySquare,
   Teams: Users,
-  Schedule: Calendar,
+  News: Newspaper,
   Profile: User,
 };
 
@@ -25,7 +25,7 @@ const LABELS: Record<string, string> = {
   Discover: 'Discover',
   Highlights: 'Highlights',
   Teams: 'Teams',
-  Schedule: 'Schedule',
+  News: 'News',
   Profile: 'Profile',
 };
 

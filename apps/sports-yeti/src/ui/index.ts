@@ -33,7 +33,11 @@ export type {
 } from './RadiusMapPicker';
 
 export { SportCombobox } from './SportCombobox';
-export type { SportComboboxMode, SportComboboxProps } from './SportCombobox';
+export type {
+  SportComboboxMode,
+  SportComboboxOption,
+  SportComboboxProps,
+} from './SportCombobox';
 
 export { SportMultiSelectSheet } from './SportMultiSelectSheet';
 export type { SportMultiSelectSheetProps } from './SportMultiSelectSheet';

@@ -21,6 +21,8 @@ import {
   LeagueDetailScreen,
   MessagesScreen,
   MyHighlightsScreen,
+  NewsScreen,
+  NewsArticleScreen,
   NotificationsScreen,
   PlayerDirectoryScreen,
   PlayerProfileScreen,
@@ -61,7 +63,7 @@ import { useRoleStack } from '../features/role-stack';
 
 export type MainTabParamList = {
   Discover: undefined;
-  Schedule: undefined;
+  News: undefined;
   Teams: undefined;
   Highlights: undefined;
   Profile: undefined;
@@ -69,7 +71,7 @@ export type MainTabParamList = {
 
 export type RootStackParamList = {
   // Tabs container — typed as a nested navigator so callers can do
-  // `navigation.navigate('MainTabs', { screen: 'Schedule' })` from any
+  // `navigation.navigate('MainTabs', { screen: 'News' })` from any
   // sibling stack screen (GameDetail, HighlightDetail, etc.).
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
 
@@ -77,6 +79,8 @@ export type RootStackParamList = {
   GameDetails: { id: string };
   CreateGame: undefined;
   ScheduledEventDetail: { id: string };
+  // Schedule moved off the tab bar — now reachable from Profile -> More.
+  Schedule: undefined;
 
   // Teams stack
   TeamDetails: { id: string };
@@ -124,6 +128,8 @@ export type RootStackParamList = {
   // News feed (Phase 9)
   NewsFeed: undefined;
   NewsDetail: { articleId: string };
+  // Consumer news tab → story detail with community comments.
+  NewsArticle: { articleId: string };
 
   // Auxiliary (reachable from Profile -> More)
   Bookings: undefined;
@@ -157,7 +163,7 @@ function PlayerTabs() {
       }}
     >
       <Tab.Screen name="Discover" component={DiscoverScreen} />
-      <Tab.Screen name="Schedule" component={ScheduleScreen} />
+      <Tab.Screen name="News" component={NewsScreen} />
       <Tab.Screen name="Highlights" component={HighlightsFeedScreen} />
       <Tab.Screen name="Teams" component={SquadsScreen} />
       <Tab.Screen name="Profile" component={ProfileTabScreen} />
@@ -185,7 +191,7 @@ function CaptainTabs() {
         component={CaptainHomeScreen}
         options={{ tabBarLabel: 'Home' }}
       />
-      <Tab.Screen name="Schedule" component={ScheduleScreen} />
+      <Tab.Screen name="News" component={NewsScreen} />
       <Tab.Screen name="Profile" component={ProfileTabScreen} />
     </Tab.Navigator>
   );
@@ -210,7 +216,7 @@ function RefereeTabs() {
         component={RefereeHomeScreen}
         options={{ tabBarLabel: 'Home' }}
       />
-      <Tab.Screen name="Schedule" component={ScheduleScreen} />
+      <Tab.Screen name="News" component={NewsScreen} />
       <Tab.Screen name="Profile" component={ProfileTabScreen} />
     </Tab.Navigator>
   );
@@ -236,7 +242,7 @@ function makeRoleTabs(label: 'FM' | 'OrgAdmin' | 'LeagueAdmin') {
           component={RoleHomeScreen}
           options={{ tabBarLabel: 'Home' }}
         />
-        <Tab.Screen name="Schedule" component={ScheduleScreen} />
+        <Tab.Screen name="News" component={NewsScreen} />
         <Tab.Screen name="Profile" component={ProfileTabScreen} />
       </Tab.Navigator>
     );
@@ -283,6 +289,7 @@ export function MainNavigator() {
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="GameDetails" component={GameDetailScreen} />
       <Stack.Screen name="CreateGame" component={CreateGameScreen} />
+      <Stack.Screen name="Schedule" component={ScheduleScreen} />
       <Stack.Screen
         name="ScheduledEventDetail"
         component={ScheduledEventDetailScreen}
@@ -338,6 +345,7 @@ export function MainNavigator() {
       {/* News feed (Phase 9) */}
       <Stack.Screen name="NewsFeed" component={NewsFeedScreen} />
       <Stack.Screen name="NewsDetail" component={NewsDetailScreen} />
+      <Stack.Screen name="NewsArticle" component={NewsArticleScreen} />
       <Stack.Screen name="Bookings" component={BookingsScreen} />
       <Stack.Screen name="BookingDetails" component={BookingDetailScreen} />
       <Stack.Screen name="Facilities" component={FacilitiesScreen} />

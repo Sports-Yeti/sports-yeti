@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, type ComponentType } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -8,19 +8,28 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { Check, Search, X } from 'lucide-react-native';
+import { Check, Search, X, type LucideProps } from 'lucide-react-native';
 import { colors, radii, spacing } from '../theme';
 import { fontFamilies } from '../theme/typography';
 import { IconBadge } from './IconBadge';
 import { Tag } from './Tag';
 import { Text } from './Text';
-import {
-  searchSportCatalog,
-  sportCatalogEntry,
-  type SportCatalogEntry,
-} from '../mocks/games';
+import { searchSportCatalog, sportCatalogEntry } from '../mocks/games';
 
 export type SportComboboxMode = 'single' | 'multi';
+
+/**
+ * Minimal shape the combobox needs to render a selectable sport. The games
+ * `SportCatalogEntry` is structurally compatible (it has extra fields like
+ * `bucket`), so the default catalog "just works"; other surfaces (e.g. the
+ * News tab's canonical 6-sport list) can pass their own `options`.
+ */
+export interface SportComboboxOption {
+  key: string;
+  label: string;
+  Icon: ComponentType<LucideProps>;
+  aliases?: string[];
+}
 
 export interface SportComboboxProps {
   /** Selected sport keys (matches `SportCatalogEntry.key`). */
@@ -38,6 +47,12 @@ export interface SportComboboxProps {
    * sport is chosen (until the user clears it or types again).
    */
   mode?: SportComboboxMode;
+  /**
+   * Optional custom sport list. Defaults to the games `SPORT_CATALOG`
+   * (searched via `searchSportCatalog`). Pass a domain-specific list to reuse
+   * the same searchable multi-select UI over a different sport set.
+   */
+  options?: SportComboboxOption[];
   style?: StyleProp<ViewStyle>;
 }
 
@@ -62,12 +77,25 @@ export function SportCombobox({
   scrollResults = false,
   placeholder = 'Search sports…',
   mode = 'multi',
+  options,
   style,
 }: SportComboboxProps) {
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
 
-  const allResults = useMemo(() => searchSportCatalog(query), [query]);
+  const allResults = useMemo<SportComboboxOption[]>(() => {
+    if (options) {
+      const q = query.trim().toLowerCase();
+      if (!q) return options;
+      return options.filter((e) =>
+        [e.label, e.key, ...(e.aliases ?? [])]
+          .join(' ')
+          .toLowerCase()
+          .includes(q),
+      );
+    }
+    return searchSportCatalog(query);
+  }, [query, options]);
   const visibleResults = useMemo(
     () =>
       scrollResults ? allResults : allResults.slice(0, maxVisibleResults),
@@ -112,12 +140,14 @@ export function SportCombobox({
 
   const clearAll = useCallback(() => onChange(new Set<string>()), [onChange]);
 
-  const selectedEntries = useMemo<SportCatalogEntry[]>(
+  const selectedEntries = useMemo<SportComboboxOption[]>(
     () =>
       [...value]
-        .map((k) => sportCatalogEntry(k))
-        .filter((e): e is SportCatalogEntry => !!e),
-    [value],
+        .map((k) =>
+          options ? options.find((e) => e.key === k) : sportCatalogEntry(k),
+        )
+        .filter((e): e is SportComboboxOption => !!e),
+    [value, options],
   );
 
   const ResultList = scrollResults ? ScrollView : View;

@@ -196,7 +196,7 @@ export function GameDetailScreen() {
       action: {
         label: 'Add to schedule',
         onPress: () =>
-          navigation.navigate('MainTabs', { screen: 'Schedule' }),
+          navigation.navigate('Schedule'),
       },
     });
   };
@@ -698,9 +698,7 @@ export function GameDetailScreen() {
                   strokeWidth={2.5}
                 />
               }
-              onPress={() =>
-                navigation.navigate('MainTabs', { screen: 'Schedule' })
-              }
+              onPress={() => navigation.navigate('Schedule')}
             />
           </View>
         ) : isClosed ? (

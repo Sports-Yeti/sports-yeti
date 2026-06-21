@@ -7,3 +7,4 @@ export * from './profile';
 export * from './facilities';
 export * from './bookings';
 export * from './messages';
+export * from './news';
