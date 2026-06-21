@@ -33,9 +33,9 @@ export function OrgSwitcher({ visible, onRequestClose }: OrgSwitcherProps) {
                 onRequestClose();
                 if (org.id !== CURRENT_ORG.id) {
                   toast.show({
-                    variant: 'info',
-                    title: `Org switching coming soon`,
-                    description: `Mocked switch to ${org.name}.`,
+                    variant: 'success',
+                    title: `Switched to ${org.name} (mock)`,
+                    description: 'Cross-org data binds with backend wiring.',
                   });
                 }
               }}
@@ -65,7 +65,11 @@ export function OrgSwitcher({ visible, onRequestClose }: OrgSwitcherProps) {
 
         <Pressable
           onPress={() =>
-            toast.show({ variant: 'info', title: 'Create org coming soon' })
+            toast.show({
+              variant: 'info',
+              title: 'New organization (mock)',
+              description: 'Org provisioning lands with backend wiring.',
+            })
           }
           accessibilityRole="button"
           accessibilityLabel="Create new organization"
