@@ -57,6 +57,7 @@ import {
   SettingsScreen,
   StatsScreen,
   TeamDetailScreen,
+  TeamFormScreen,
   TeamListScreen,
   WaiverDetailScreen,
   WaiverFormScreen,
@@ -81,6 +82,7 @@ export type MainStackParamList = {
   DivisionForm: { id?: string } | undefined;
   Teams: undefined;
   TeamDetail: { id: string };
+  TeamForm: { id?: string } | undefined;
   Schedule: undefined;
   GameDetail: { id: string };
   GameForm: { id?: string } | undefined;
@@ -177,6 +179,7 @@ export function MainNavigator() {
         <Stack.Screen name="DivisionForm" component={DivisionFormScreen} />
         <Stack.Screen name="Teams" component={TeamListScreen} />
         <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
+        <Stack.Screen name="TeamForm" component={TeamFormScreen} />
         <Stack.Screen name="Schedule" component={ScheduleScreen} />
         <Stack.Screen name="GameDetail" component={GameDetailScreen} />
         <Stack.Screen name="GameForm" component={GameFormScreen} />

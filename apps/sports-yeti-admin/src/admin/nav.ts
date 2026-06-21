@@ -42,6 +42,7 @@ export type AdminRouteName =
   | 'DivisionForm'
   | 'Teams'
   | 'TeamDetail'
+  | 'TeamForm'
   | 'Schedule'
   | 'GameDetail'
   | 'GameForm'
@@ -323,6 +324,7 @@ export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   DivisionForm: 'divisions',
   Teams: 'teams',
   TeamDetail: 'teams',
+  TeamForm: 'teams',
   Schedule: 'schedule',
   GameDetail: 'schedule',
   GameForm: 'schedule',
@@ -389,6 +391,7 @@ export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   DivisionForm: 'Division editor',
   Teams: 'Teams',
   TeamDetail: 'Team',
+  TeamForm: 'Team editor',
   Schedule: 'Schedule',
   GameDetail: 'Game',
   GameForm: 'Game editor',

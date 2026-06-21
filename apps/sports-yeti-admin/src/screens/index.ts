@@ -21,6 +21,7 @@ export { DivisionFormScreen } from './divisions/DivisionFormScreen';
 
 export { TeamListScreen } from './teams/TeamListScreen';
 export { TeamDetailScreen } from './teams/TeamDetailScreen';
+export { TeamFormScreen } from './teams/TeamFormScreen';
 
 export { ScheduleScreen } from './schedule/ScheduleScreen';
 export { GameDetailScreen } from './schedule/GameDetailScreen';
