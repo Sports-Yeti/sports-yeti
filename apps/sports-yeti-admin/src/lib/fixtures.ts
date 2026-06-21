@@ -229,7 +229,7 @@ export function generateFixtures(input: FixtureInput): GenerationResult {
 
   for (const round of pairingRounds) {
     const roundGames: Game[] = [];
-    let dayCursor = new Date(cursor);
+    const dayCursor = new Date(cursor);
     let timeIndex = 0;
     let spaceIndex = 0;
     for (const pair of round.pairs) {
