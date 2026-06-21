@@ -85,7 +85,7 @@ export function OrgMoneyScreen() {
           title="Money"
           subtitle="Gross, platform fees, net, and outstanding by league × season. Plus external rental revenue."
           crumbs={[
-            { label: 'Workspace' },
+            { label: 'Organization' },
             { label: org.name, route: 'OrganizationDetail' },
             { label: 'Money' },
           ]}

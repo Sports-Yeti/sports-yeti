@@ -50,7 +50,7 @@ export function OrgIntegrationsScreen() {
           title="Integrations"
           subtitle="Social channels for cross-posting, payment processor, and push notifications."
           crumbs={[
-            { label: 'Workspace' },
+            { label: 'Organization' },
             { label: org.name, route: 'OrganizationDetail' },
             { label: 'Integrations' },
           ]}

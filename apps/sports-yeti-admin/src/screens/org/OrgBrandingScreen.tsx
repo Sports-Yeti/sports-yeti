@@ -63,7 +63,7 @@ export function OrgBrandingScreen() {
           title="Branding"
           subtitle="Brand color overlays the active theme on every org-scoped surface."
           crumbs={[
-            { label: 'Workspace' },
+            { label: 'Organization' },
             { label: initial.name, route: 'OrganizationDetail' },
             { label: 'Branding' },
           ]}

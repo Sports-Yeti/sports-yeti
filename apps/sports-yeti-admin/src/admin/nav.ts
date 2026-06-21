@@ -14,6 +14,7 @@ import {
   Inbox,
   LayoutDashboard,
   Layers,
+  ListChecks,
   Megaphone,
   ScrollText,
   Settings,
@@ -103,8 +104,8 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    id: 'workspace',
-    label: 'Workspace',
+    id: 'overview',
+    label: 'Overview',
     items: [
       {
         id: 'dashboard',
@@ -112,6 +113,26 @@ export const NAV_GROUPS: NavGroup[] = [
         route: 'Dashboard',
         icon: LayoutDashboard,
       },
+      {
+        id: 'operations',
+        label: 'Operations',
+        route: 'Operations',
+        icon: ListChecks,
+        badgeKey: 'pendingTeams',
+      },
+      {
+        id: 'approvals',
+        label: 'Approvals',
+        route: 'Approvals',
+        icon: Inbox,
+        badgeKey: 'pendingTeams',
+      },
+    ],
+  },
+  {
+    id: 'organization',
+    label: 'Organization',
+    items: [
       {
         id: 'organizations',
         label: 'Organizations',
@@ -147,25 +168,6 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Branding',
         route: 'OrgBranding',
         icon: Megaphone,
-      },
-    ],
-  },
-  {
-    id: 'operations',
-    label: 'Operations',
-    items: [
-      {
-        id: 'approvals',
-        label: 'Approvals',
-        route: 'Approvals',
-        icon: Inbox,
-        badgeKey: 'pendingTeams',
-      },
-      {
-        id: 'operations',
-        label: 'Operations (legacy)',
-        route: 'Operations',
-        icon: Inbox,
       },
     ],
   },

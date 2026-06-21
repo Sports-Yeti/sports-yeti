@@ -194,7 +194,7 @@ export function OrgPeopleScreen() {
           title="People"
           subtitle="Unified directory across players, captains, referees, and facility managers."
           crumbs={[
-            { label: 'Workspace' },
+            { label: 'Organization' },
             { label: org.name, route: 'OrganizationDetail' },
             { label: 'People' },
           ]}

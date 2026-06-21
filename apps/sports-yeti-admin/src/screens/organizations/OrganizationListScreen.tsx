@@ -117,7 +117,7 @@ export function OrganizationListScreen() {
       <PageHeader
         title="Organizations"
         subtitle="Every Sports Yeti organization, with leagues + facilities + active seasons at a glance."
-        crumbs={[{ label: 'Workspace' }, { label: 'Organizations' }]}
+        crumbs={[{ label: 'Organization' }, { label: 'Organizations' }]}
         onNavigate={(r) => navigation.navigate(r)}
         trailing={
           <Button
