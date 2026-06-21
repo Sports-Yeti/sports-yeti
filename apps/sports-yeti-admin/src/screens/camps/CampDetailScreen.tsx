@@ -8,7 +8,7 @@ import {
   StatCard,
   type AdminRouteName,
 } from '../../admin';
-import { Button, Card, EmptyState, Tag, Text, useToast } from '../../ui';
+import { Button, Card, EmptyState, Text } from '../../ui';
 import { colors, radii, spacing } from '../../theme';
 import { campById, STATUS_LABEL } from '../../mocks/camps';
 import { formatCurrency, formatDate } from '../../lib/format';
@@ -20,7 +20,6 @@ interface ScreenNavigation {
 export function CampDetailScreen() {
   const navigation = useNavigation() as unknown as ScreenNavigation;
   const route = useRoute<RouteProp<{ params: { id: string } }, 'params'>>();
-  const toast = useToast();
   const camp = campById(route.params.id);
 
   if (!camp) {

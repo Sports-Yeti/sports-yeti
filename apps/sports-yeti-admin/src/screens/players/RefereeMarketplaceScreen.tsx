@@ -4,7 +4,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
   ChevronRight,
-  Flag,
   Gauge,
   Inbox,
   MailPlus,
@@ -12,6 +11,7 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Star,
   Trophy,
   Users,
 } from 'lucide-react-native';
@@ -163,7 +163,7 @@ export function RefereeMarketplaceScreen() {
             <StatCard
               label="Open Bids"
               value={stats.openBids.toLocaleString()}
-              helper="View marketplace →"
+              helper="View marketplace"
               tone="brand"
               icon={
                 <Trophy
@@ -299,7 +299,7 @@ export function RefereeMarketplaceScreen() {
                 toast.show({
                   variant: 'info',
                   title: 'Detailed roster view',
-                  description: 'Swap to People → Referees tab in nav (mock).',
+                  description: 'Swap to the People / Referees tab in nav (mock).',
                 })
               }
             />
@@ -321,7 +321,15 @@ export function RefereeMarketplaceScreen() {
                     <Tag
                       size="sm"
                       tone="brand"
-                      label={`★ ${ref.refereeRating.toFixed(1)}`}
+                      icon={
+                        <Star
+                          size={11}
+                          color={colors.brand.deep}
+                          fill={colors.brand.deep}
+                          strokeWidth={2.25}
+                        />
+                      }
+                      label={ref.refereeRating.toFixed(1)}
                     />
                   ) : null}
                   {ref.hourlyRateCents ? (

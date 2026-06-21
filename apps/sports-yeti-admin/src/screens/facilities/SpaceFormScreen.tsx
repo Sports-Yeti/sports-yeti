@@ -82,8 +82,6 @@ export function SpaceFormScreen() {
         defaultValues={defaultValues}
         resolver={zodResolver(spaceFormSchema)}
         onSubmit={async (values) => {
-          // eslint-disable-next-line no-console
-          console.log('Space form submit (mock)', values);
           toast.show({
             variant: 'success',
             title: editing ? 'Space updated' : 'Space created',

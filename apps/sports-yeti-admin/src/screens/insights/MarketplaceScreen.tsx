@@ -7,7 +7,7 @@ import {
   PageScroll,
   type DataTableColumn,
 } from '../../admin';
-import { Avatar, Button, Input, Tabs, Tag, Text, useToast } from '../../ui';
+import { Avatar, Button, Input, Tabs, Tag, Text } from '../../ui';
 import { colors, spacing } from '../../theme';
 import { MARKETPLACE_LISTINGS, type MarketplaceListing } from '../../mocks/insights';
 import { formatCurrency, formatRelative } from '../../lib/format';
@@ -19,7 +19,6 @@ const TABS = [
 ];
 
 export function MarketplaceScreen() {
-  const toast = useToast();
   const [tab, setTab] = useState('all');
   const [search, setSearch] = useState('');
 

@@ -9,7 +9,7 @@ import {
   PageScroll,
   type AdminRouteName,
 } from '../../admin';
-import { Button, Card, EmptyState, Input, Select, Tabs, Tag, Text } from '../../ui';
+import { Button, Card, EmptyState, Input, Tabs, Tag, Text } from '../../ui';
 import { colors, radii, spacing } from '../../theme';
 import { CAMPS, STATUS_LABEL, type Camp, type CampStatus } from '../../mocks/camps';
 import { formatCurrency, formatDate } from '../../lib/format';

@@ -77,8 +77,6 @@ export function DivisionFormScreen() {
         defaultValues={defaultValues}
         resolver={zodResolver(divisionFormSchema)}
         onSubmit={async (values) => {
-          // eslint-disable-next-line no-console
-          console.log('Division form submit (mock)', values);
           toast.show({
             variant: 'success',
             title: editing ? 'Division updated' : 'Division created',

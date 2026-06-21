@@ -22,7 +22,7 @@ export interface DragItem {
   ymd: string;
 }
 
-interface SourcePropsFor<T extends DragItem> {
+interface SourcePropsFor {
   draggable: true;
   onDragStart: (event: { dataTransfer?: DataTransfer }) => void;
   onDragEnd: () => void;
@@ -40,7 +40,7 @@ interface TargetProps {
 interface DragApi<T extends DragItem> {
   draggingId: string | null;
   hoveredYmd: string | null;
-  sourceProps: (item: T) => SourcePropsFor<T>;
+  sourceProps: (item: T) => SourcePropsFor;
   targetProps: (
     targetYmd: string,
     onAccept: (item: T) => void,
@@ -52,7 +52,7 @@ export function useCalendarDrag<T extends DragItem>(): DragApi<T> {
   const [hoveredYmd, setHoveredYmd] = useState<string | null>(null);
 
   const sourceProps = useCallback(
-    (item: T): SourcePropsFor<T> => ({
+    (item: T): SourcePropsFor => ({
       draggable: true,
       onDragStart: (event) => {
         setDraggingItem(item);

@@ -437,10 +437,13 @@ export function OperationsScreen() {
           <Pressable
             onPress={() => navigation.navigate('Leagues')}
             accessibilityRole="button"
+            accessibilityLabel="View all leagues"
+            style={styles.viewAllRow}
           >
             <Text variant="bodySm" color={colors.brand.primary} weight="600">
-              View all →
+              View all
             </Text>
+            <ChevronRight size={14} color={colors.brand.primary} strokeWidth={2.5} />
           </Pressable>
         </View>
         <View style={styles.summaryList}>
@@ -681,6 +684,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  viewAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   summaryList: {
     gap: spacing.md,

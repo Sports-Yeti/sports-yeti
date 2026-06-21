@@ -72,7 +72,7 @@ interface AdminPaymentApi {
  * SportsYeti backend exposes /admin/payments/refund + /admin/bookings/charge.
  */
 const mockApi: AdminPaymentApi = {
-  async refundPayment({ amountCents, paymentId }) {
+  async refundPayment({ paymentId }) {
     await new Promise((resolve) => setTimeout(resolve, MOCK_LATENCY_MS));
     if (shouldFakeFailure()) {
       return {

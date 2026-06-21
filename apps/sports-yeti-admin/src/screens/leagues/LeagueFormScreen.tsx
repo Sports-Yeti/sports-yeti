@@ -73,8 +73,6 @@ export function LeagueFormScreen() {
         defaultValues={defaultValues}
         resolver={zodResolver(leagueFormSchema)}
         onSubmit={async (values) => {
-          // eslint-disable-next-line no-console
-          console.log('League form submit (mock)', values);
           toast.show({
             variant: 'success',
             title: editing ? 'League updated' : 'League created',

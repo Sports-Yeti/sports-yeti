@@ -8,7 +8,6 @@ import {
   organizationById,
   rentalConfigForSpace,
   spacesByFacility,
-  type SpaceRentalMode,
 } from '@sports-yeti/mocks';
 import { PageHeader, PageScroll, type AdminRouteName } from '../../admin';
 import { Button, Card, Tag, Text } from '../../ui';

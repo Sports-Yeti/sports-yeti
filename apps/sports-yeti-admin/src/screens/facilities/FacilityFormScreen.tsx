@@ -7,6 +7,7 @@ import {
   ownershipForFacility,
   USERS,
 } from '@sports-yeti/mocks';
+import { Check } from 'lucide-react-native';
 import { PageHeader, PageScroll, type AdminRouteName } from '../../admin';
 import { Button, Card, Input, Select, Tag, Text, useToast } from '../../ui';
 import { colors, spacing } from '../../theme';
@@ -152,7 +153,12 @@ export function FacilityFormScreen() {
                 key={u.id}
                 size="sm"
                 variant={selected ? 'solid' : 'outline'}
-                label={`${selected ? '✓ ' : ''}${u.name}`}
+                label={u.name}
+                leadingIcon={
+                  selected ? (
+                    <Check size={14} color={colors.text.inverse} strokeWidth={2.75} />
+                  ) : undefined
+                }
                 onPress={() => toggleManager(u.id)}
               />
             );
