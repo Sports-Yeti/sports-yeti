@@ -61,7 +61,7 @@ export function OrganizationDetailScreen() {
           subtitle={`${org.city}, ${org.state} · ${org.slug}`}
           meta={`Created ${formatDate(org.createdAtIso)}`}
           crumbs={[
-            { label: 'Workspace' },
+            { label: 'Organization' },
             { label: 'Organizations', route: 'Organizations' },
             { label: org.name },
           ]}
