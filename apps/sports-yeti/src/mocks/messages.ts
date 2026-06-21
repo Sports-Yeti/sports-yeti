@@ -122,7 +122,11 @@ export const CHATS: ChatPreview[] = [
   },
 ];
 
-export type ChatCardKind = 'league_share' | 'commit_poll' | 'custom_poll';
+export type ChatCardKind =
+  | 'league_share'
+  | 'commit_poll'
+  | 'custom_poll'
+  | 'league_registration';
 
 export interface LeagueShareCard {
   kind: 'league_share';
@@ -162,7 +166,24 @@ export interface CustomPollCard {
   closesAt?: string;
 }
 
-export type ChatCard = LeagueShareCard | CommitPollCard | CustomPollCard;
+/**
+ * Posted when a captain submits a league registration. The card's live status
+ * (pending review → enrolled) is read from the team-chat store by teamId, so it
+ * flips automatically once the league approves the team.
+ */
+export interface LeagueRegistrationCard {
+  kind: 'league_registration';
+  teamId: string;
+  leagueId: string;
+  leagueName: string;
+  teamName: string;
+}
+
+export type ChatCard =
+  | LeagueShareCard
+  | CommitPollCard
+  | CustomPollCard
+  | LeagueRegistrationCard;
 
 export interface ChatMessage {
   id: string;

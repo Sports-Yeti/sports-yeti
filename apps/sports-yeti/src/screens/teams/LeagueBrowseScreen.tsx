@@ -191,6 +191,7 @@ export function LeagueBrowseScreen() {
   const isCaptainMode = route.params?.mode === 'captain';
   const fromChatId = route.params?.fromChatId;
   const postCard = useTeamChat((s) => s.postCard);
+  const requestRegistration = useTeamChat((s) => s.requestRegistration);
   const initialTeam = route.params?.teamId
     ? TEAM_DETAILS[route.params.teamId]
     : CAPTAIN_OF_TEAMS[0];
@@ -275,6 +276,18 @@ export function LeagueBrowseScreen() {
       const teamLabel = isCaptainMode ? chosenTeam?.name ?? 'Your team' : teamName.trim();
       setPendingLeague(null);
       setTeamName('');
+      // Captain registering an existing team → mark it pending in the shared
+      // store so its chat is notified and league payments stay locked until
+      // the league approves it.
+      if (isCaptainMode && chosenTeam) {
+        requestRegistration({
+          teamId: chosenTeam.id,
+          chatId: `chat-${chosenTeam.id}`,
+          leagueId: league.id,
+          leagueName: league.name,
+          teamName: chosenTeam.name,
+        });
+      }
       toast.show({
         variant: 'success',
         title: isCaptainMode ? `Submitted ${teamLabel}` : 'Application submitted',

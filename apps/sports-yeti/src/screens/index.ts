@@ -27,6 +27,7 @@ export { TeamDetailScreen } from './teams/TeamDetailScreen';
 export { TeamPaymentScreen } from './teams/TeamPaymentScreen';
 export { PlayerDirectoryScreen } from './teams/PlayerDirectoryScreen';
 export { LeagueBrowseScreen } from './teams/LeagueBrowseScreen';
+export { LeagueDetailScreen } from './teams/LeagueDetailScreen';
 
 // Highlights stack
 export { MyHighlightsScreen } from './highlights/MyHighlightsScreen';

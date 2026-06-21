@@ -18,6 +18,7 @@ import {
   Clock,
   CreditCard,
   Crown,
+  Lock,
   MessageCircle,
   Share2,
   Trash2,
@@ -354,6 +355,7 @@ export function TeamDetailScreen() {
   const postCard = useTeamChat((s) => s.postCard);
   const removeMessageAuthor = useTeamChat((s) => s.removeMessageAuthor);
   const polls = useTeamChat((s) => s.pollsById);
+  const registrationsByTeam = useTeamChat((s) => s.registrationsByTeam);
 
   // Derive a mutable team copy so captain actions (remove player, approve app)
   // reflect immediately during the demo without mutating the mock module.
@@ -403,11 +405,30 @@ export function TeamDetailScreen() {
   const yourPaymentStatus = youMember?.paymentStatus ?? 'pending';
   const youArePaid =
     team.costMode === 'free' || yourPaymentStatus === 'paid' || yourPaymentStatus === 'not_required';
+  // Live league-registration status (set when a captain submits an entry).
+  // It overrides the seeded mock so the chat card, banners, and payment lock
+  // all read one source of truth as the league reviews → approves.
+  const liveReg = registrationsByTeam[team.id];
+  const effectiveRegStatus: 'pending' | 'approved' | undefined =
+    liveReg?.status ??
+    (team.leagueRegistration
+      ? team.leagueRegistration.status === 'approved'
+        ? 'approved'
+        : 'pending'
+      : undefined);
+  const hasPendingLeagueReg = effectiveRegStatus === 'pending';
+  const registrationLeagueName =
+    liveReg?.leagueName ??
+    team.leagueRegistration?.leagueName ??
+    team.league?.name ??
+    'the league';
   // League teams collect fees through the platform (player pays the league
   // directly). Custom squads collect in person and the captain marks players
-  // paid manually — so members can't self-serve a payment for those.
-  const isLeague = isLeagueTeam(team);
-  const captainCollectsPayment = team.costMode === 'paid' && !isLeague;
+  // paid manually — so members can't self-serve a payment for those. A team
+  // mid-registration is neither yet: league payments stay locked until approved.
+  const isLeague = isLeagueTeam(team) || effectiveRegStatus === 'approved';
+  const captainCollectsPayment =
+    team.costMode === 'paid' && !isLeague && !hasPendingLeagueReg;
   // Chat is gated on approval, not payment. An unpaid member still gets full
   // chat access; this just surfaces a non-blocking reminder to settle the fee.
   const paymentDue = isMember && !youArePaid;
@@ -582,6 +603,39 @@ export function TeamDetailScreen() {
   };
 
   const renderHeroBanner = () => {
+    // Player's own join request is pending captain review.
+    if (team.membership === 'pending') {
+      return (
+        <Card style={styles.pendingBanner}>
+          <Clock size={20} color={colors.status.warning} strokeWidth={2.25} />
+          <View style={styles.lockBody}>
+            <Text variant="button" color={colors.text.primary}>
+              Your application is pending
+            </Text>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {"Captains usually respond within 48 hours. We'll notify you here."}
+            </Text>
+          </View>
+        </Card>
+      );
+    }
+    // Team is registered with a league but not yet approved → league payments
+    // are locked until the league signs off.
+    if (hasPendingLeagueReg) {
+      return (
+        <Card style={styles.pendingBanner}>
+          <Lock size={20} color={colors.status.warning} strokeWidth={2.25} />
+          <View style={styles.lockBody}>
+            <Text variant="button" color={colors.text.primary}>
+              Registration pending
+            </Text>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {`${registrationLeagueName} is reviewing ${team.name}. Player payments to the league unlock automatically once you're approved.`}
+            </Text>
+          </View>
+        </Card>
+      );
+    }
     // Custom squad: captain collects in person. Non-blocking reminder only —
     // the member already has full chat access.
     if (paymentDue && captainCollectsPayment) {
@@ -626,28 +680,13 @@ export function TeamDetailScreen() {
         </Card>
       );
     }
-    if (team.membership === 'pending') {
-      return (
-        <Card style={styles.pendingBanner}>
-          <Clock size={20} color={colors.status.warning} strokeWidth={2.25} />
-          <View style={styles.lockBody}>
-            <Text variant="button" color={colors.text.primary}>
-              Your application is pending
-            </Text>
-            <Text variant="bodySm" color={colors.text.secondary}>
-              {"Captains usually respond within 48 hours. We'll notify you here."}
-            </Text>
-          </View>
-        </Card>
-      );
-    }
-    if (team.leagueRegistration?.status === 'approved' && team.costMode === 'paid') {
+    if (effectiveRegStatus === 'approved' && team.costMode === 'paid') {
       return (
         <Card style={styles.successBanner}>
           <CheckCircle2 size={20} color="#2E7D32" strokeWidth={2.25} />
           <View style={styles.lockBody}>
             <Text variant="button" color={colors.text.primary}>
-              {team.leagueRegistration.leagueName} approved
+              {registrationLeagueName} approved
             </Text>
             <Text variant="bodySm" color={colors.text.secondary}>
               Players can now pay their {formatCurrency(team.perPlayerCents)} share.

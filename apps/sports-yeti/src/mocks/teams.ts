@@ -348,6 +348,294 @@ export const OPEN_LEAGUES: OpenLeague[] = [
 ];
 
 // ----------------------------------------------------------------------------
+// League details — general org/league info + historical season standings.
+// Surfaced when a league card is opened (e.g. tapped from a chat share).
+// ----------------------------------------------------------------------------
+
+export interface LeagueOrganization {
+  name: string;
+  tagline: string;
+  foundedYear: number;
+  city: string;
+  /** Leagues run by a verified organization get a trust badge. */
+  verified?: boolean;
+  seasonsRun: number;
+}
+
+export interface LeagueSeasonStanding {
+  /** Final placement, 1-based. */
+  rank: number;
+  teamName: string;
+  abbreviation: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  points: number;
+  isChampion?: boolean;
+}
+
+export interface LeagueSeason {
+  id: string;
+  /** Display name, e.g. "Summer 2025". */
+  name: string;
+  year: number;
+  teamCount: number;
+  champion: string;
+  standings: LeagueSeasonStanding[];
+}
+
+export interface LeagueDetail {
+  id: string;
+  name: string;
+  sport: string;
+  sportKey: SportKey;
+  city: string;
+  level: TeamLevel;
+  /** Play format, e.g. "Co-ed 7v7". */
+  format: string;
+  description: string;
+  Icon: ComponentType<LucideProps>;
+  organization: LeagueOrganization;
+  /** When matches are played, e.g. "Sunday mornings". */
+  cadence: string;
+  /** Season structure summary, e.g. "8-week season + playoffs". */
+  seasonLengthLabel: string;
+  feeCents: number;
+  pastSeasons: LeagueSeason[];
+}
+
+/** Compact standings builder — points default to 3·W + 1·T (league standard). */
+function buildStanding(
+  rank: number,
+  teamName: string,
+  abbreviation: string,
+  wins: number,
+  losses: number,
+  ties = 0,
+): LeagueSeasonStanding {
+  return {
+    rank,
+    teamName,
+    abbreviation,
+    wins,
+    losses,
+    ties,
+    points: wins * 3 + ties,
+    isChampion: rank === 1,
+  };
+}
+
+const MILE_HIGH_ORG: LeagueOrganization = {
+  name: 'Mile High Sports Collective',
+  tagline: 'Community-run adult leagues across the Front Range since 2014.',
+  foundedYear: 2014,
+  city: 'Denver, CO',
+  verified: true,
+  seasonsRun: 22,
+};
+
+export const LEAGUE_DETAILS: Record<string, LeagueDetail> = {
+  'mile-high-summer': {
+    id: 'mile-high-summer',
+    name: 'Mile High Summer League',
+    sport: 'Soccer',
+    sportKey: 'soccer',
+    city: 'Denver, CO',
+    level: 'INTERMEDIATE',
+    format: 'Co-ed 7v7',
+    description:
+      'Our flagship summer season. Eight weeks of Sunday-morning matches at the Yeti Center fields, capped by a single-elimination playoff weekend. Certified referees, league-provided match balls, and a guaranteed minimum of nine games per team.',
+    Icon: Trophy,
+    organization: MILE_HIGH_ORG,
+    cadence: 'Sunday mornings · 8am–1pm',
+    seasonLengthLabel: '8-week season + playoffs',
+    feeCents: 192000,
+    pastSeasons: [
+      {
+        id: 'mhs-2025',
+        name: 'Summer 2025',
+        year: 2025,
+        teamCount: 12,
+        champion: 'Glacier Knights',
+        standings: [
+          buildStanding(1, 'Glacier Knights', 'GLA', 9, 1, 0),
+          buildStanding(2, 'Avalanche FC', 'AVA', 7, 2, 1),
+          buildStanding(3, 'Cherry Creek United', 'CCU', 6, 3, 1),
+          buildStanding(4, 'Highland Strikers', 'HLS', 5, 4, 1),
+          buildStanding(5, 'Wash Park Wanderers', 'WPW', 3, 6, 1),
+          buildStanding(6, 'Sloan Lake SC', 'SLS', 1, 8, 1),
+        ],
+      },
+      {
+        id: 'mhs-2024',
+        name: 'Summer 2024',
+        year: 2024,
+        teamCount: 10,
+        champion: 'Avalanche FC',
+        standings: [
+          buildStanding(1, 'Avalanche FC', 'AVA', 8, 1, 1),
+          buildStanding(2, 'Glacier Knights', 'GLA', 8, 2, 0),
+          buildStanding(3, 'Highland Strikers', 'HLS', 5, 4, 1),
+          buildStanding(4, 'Cherry Creek United', 'CCU', 4, 5, 1),
+          buildStanding(5, 'Sloan Lake SC', 'SLS', 2, 7, 1),
+        ],
+      },
+    ],
+  },
+  'mile-high-spring': {
+    id: 'mile-high-spring',
+    name: 'Mile High Spring League',
+    sport: 'Soccer',
+    sportKey: 'soccer',
+    city: 'Denver, CO',
+    level: 'INTERMEDIATE',
+    format: "Men's 11v11",
+    description:
+      'The competitive spring 11-a-side season. Full-field matches on Sunday mornings with promotion and relegation between divisions across the season.',
+    Icon: Trophy,
+    organization: MILE_HIGH_ORG,
+    cadence: 'Sunday mornings',
+    seasonLengthLabel: '10-week season + cup',
+    feeCents: 180000,
+    pastSeasons: [
+      {
+        id: 'mhsp-2025',
+        name: 'Spring 2025',
+        year: 2025,
+        teamCount: 8,
+        champion: 'Riverside United',
+        standings: [
+          buildStanding(1, 'Riverside United', 'RSU', 8, 1, 1),
+          buildStanding(2, 'Avalanche FC', 'AVA', 6, 2, 2),
+          buildStanding(3, 'Front Range FC', 'FRF', 5, 4, 1),
+          buildStanding(4, 'Capitol Hill SC', 'CAP', 3, 5, 2),
+          buildStanding(5, 'Berkeley Lake', 'BRK', 1, 7, 2),
+        ],
+      },
+    ],
+  },
+  'aurora-fall': {
+    id: 'aurora-fall',
+    name: 'Aurora Fall Hockey D2',
+    sport: 'Ice Hockey',
+    sportKey: 'hockey',
+    city: 'Anchorage, AK',
+    level: 'ADVANCED',
+    format: '5v5',
+    description:
+      'Division 2 fall hockey with a twelve-game regular season and a best-of-three playoff. Officials, scorekeeping, and locker rooms are included in the team fee.',
+    Icon: Snowflake,
+    organization: {
+      name: 'Aurora Ice Association',
+      tagline: 'Anchorage’s home for competitive adult hockey.',
+      foundedYear: 2009,
+      city: 'Anchorage, AK',
+      verified: true,
+      seasonsRun: 31,
+    },
+    cadence: 'Weeknights · 7–10pm',
+    seasonLengthLabel: '12-game season + best-of-3 playoffs',
+    feeCents: 360000,
+    pastSeasons: [
+      {
+        id: 'auf-2024',
+        name: 'Fall 2024',
+        year: 2024,
+        teamCount: 12,
+        champion: 'Tundra Wolves',
+        standings: [
+          buildStanding(1, 'Tundra Wolves', 'TUN', 11, 1, 0),
+          buildStanding(2, 'Glacier Bay Bears', 'GBB', 9, 3, 0),
+          buildStanding(3, 'Chugach Chargers', 'CHG', 7, 5, 0),
+          buildStanding(4, 'Inlet Ice', 'INL', 5, 7, 0),
+          buildStanding(5, 'Denali Drifters', 'DEN', 2, 10, 0),
+        ],
+      },
+    ],
+  },
+  'coastal-volley': {
+    id: 'coastal-volley',
+    name: 'Coastal Volley Open',
+    sport: 'Beach Volleyball',
+    sportKey: 'volleyball',
+    city: 'San Diego, CA',
+    level: 'RECREATIONAL',
+    format: '4v4',
+    description:
+      'Six Sundays of beach volleyball on the sand at Mission Bay. Nets, balls, and shade tents provided — just bring sunscreen. Open to all skill levels.',
+    Icon: Waves,
+    organization: {
+      name: 'Coastal Volley Club',
+      tagline: 'Sand, sun, and serves all summer long.',
+      foundedYear: 2017,
+      city: 'San Diego, CA',
+      seasonsRun: 14,
+    },
+    cadence: 'Sunday afternoons',
+    seasonLengthLabel: '6-week season',
+    feeCents: 96000,
+    pastSeasons: [
+      {
+        id: 'cvo-2024',
+        name: 'Summer 2024',
+        year: 2024,
+        teamCount: 16,
+        champion: 'Pacific Crest',
+        standings: [
+          buildStanding(1, 'Pacific Crest', 'PAC', 6, 0, 0),
+          buildStanding(2, 'La Jolla Locals', 'LJL', 5, 1, 0),
+          buildStanding(3, 'Bay Bumpers', 'BAY', 4, 2, 0),
+          buildStanding(4, 'Sunset Spikers', 'SUN', 2, 4, 0),
+          buildStanding(5, 'Mission Misfits', 'MIS', 1, 5, 0),
+        ],
+      },
+    ],
+  },
+  'rocky-rec-hoops': {
+    id: 'rocky-rec-hoops',
+    name: 'Rocky Rec Hoops',
+    sport: 'Basketball',
+    sportKey: 'basketball',
+    city: 'Boulder, CO',
+    level: 'RECREATIONAL',
+    format: 'Co-ed 5v5',
+    description:
+      'A ten-week recreational basketball season at Summit Rec Center. Tuesday and Thursday tip-offs at 7pm with a relaxed, all-levels-welcome vibe and a short playoff.',
+    Icon: Trees,
+    organization: {
+      name: 'Rocky Mountain Rec League',
+      tagline: 'Low-pressure rec sports for Boulder County.',
+      foundedYear: 2012,
+      city: 'Boulder, CO',
+      seasonsRun: 26,
+    },
+    cadence: 'Tue & Thu · 7pm',
+    seasonLengthLabel: '10-week season + playoffs',
+    feeCents: 84000,
+    pastSeasons: [
+      {
+        id: 'rrh-2025',
+        name: 'Spring 2025',
+        year: 2025,
+        teamCount: 10,
+        champion: 'Flatiron Ballers',
+        standings: [
+          buildStanding(1, 'Flatiron Ballers', 'FLB', 9, 1, 0),
+          buildStanding(2, 'Pearl Street Pros', 'PSP', 7, 3, 0),
+          buildStanding(3, 'Chautauqua Crew', 'CHA', 6, 4, 0),
+          buildStanding(4, 'Hill Hoopers', 'HIL', 4, 6, 0),
+          buildStanding(5, 'Valmont Vipers', 'VAL', 2, 8, 0),
+        ],
+      },
+    ],
+  },
+};
+
+export function getLeagueDetail(leagueId: string): LeagueDetail | undefined {
+  return LEAGUE_DETAILS[leagueId];
+}
+
+// ----------------------------------------------------------------------------
 // Team details — every state needed to demo the Teams overhaul lives here.
 // ----------------------------------------------------------------------------
 

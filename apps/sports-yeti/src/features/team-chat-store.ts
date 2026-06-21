@@ -10,18 +10,47 @@ import {
   type ChatCard,
   type ChatMessage,
 } from '../mocks/messages';
-import { SARAH_AVATAR } from '../mocks/avatars';
+import { PLAYER_AVATARS, SARAH_AVATAR } from '../mocks/avatars';
 
 const SARAH_PLAYER_ID = 'p-sarah';
+
+/** How long the demo waits before the "league office" approves a registration. */
+const REGISTRATION_APPROVAL_DELAY_MS = 6000;
+
+export interface LeagueRegistrationLive {
+  teamId: string;
+  leagueId: string;
+  leagueName: string;
+  teamName: string;
+  status: 'pending' | 'approved';
+  requestedAt: string;
+}
 
 interface TeamChatState {
   messagesByChat: Record<string, ChatMessage[]>;
   pollsById: Record<string, CommitPoll>;
   customPollsById: Record<string, CustomPoll>;
+  /** Live league-registration status keyed by teamId (drives chat + payments). */
+  registrationsByTeam: Record<string, LeagueRegistrationLive>;
   /** Append a plain text message authored by the current user. */
   appendUserMessage: (chatId: string, body: string) => void;
+  /** Append a message from the "league office" (used for approval updates). */
+  appendLeagueMessage: (chatId: string, body: string) => void;
   /** Append a new captain message that posts a card into the named chat. */
   postCard: (chatId: string, body: string, card: ChatCard) => void;
+  /**
+   * Submit a league registration: marks the team pending, posts a registration
+   * card into its chat, and simulates league approval after a short delay.
+   */
+  requestRegistration: (args: {
+    teamId: string;
+    chatId: string;
+    leagueId: string;
+    leagueName: string;
+    teamName: string;
+  }) => void;
+  /** Flip a pending registration to approved + post the enrollment update. */
+  approveRegistration: (teamId: string) => void;
   /** Cast / change the current user's vote on a commit poll. */
   votePoll: (pollId: string, vote: CommitVote) => void;
   /**
@@ -46,6 +75,7 @@ export const useTeamChat = create<TeamChatState>((set, get) => ({
   messagesByChat: seedMessages(),
   pollsById: { ...INITIAL_COMMIT_POLLS },
   customPollsById: {},
+  registrationsByTeam: {},
   appendUserMessage: (chatId, body) => {
     const next: ChatMessage = {
       id: `m-${Date.now()}`,
@@ -55,6 +85,22 @@ export const useTeamChat = create<TeamChatState>((set, get) => ({
       body,
       timestamp: 'Just now',
       isYou: true,
+    };
+    set((state) => ({
+      messagesByChat: {
+        ...state.messagesByChat,
+        [chatId]: [...(state.messagesByChat[chatId] ?? []), next],
+      },
+    }));
+  },
+  appendLeagueMessage: (chatId, body) => {
+    const next: ChatMessage = {
+      id: `lg-${Date.now()}`,
+      authorName: 'League Office',
+      authorHandle: '@league',
+      authorAvatar: PLAYER_AVATARS[7] ?? SARAH_AVATAR,
+      body,
+      timestamp: 'Just now',
     };
     set((state) => ({
       messagesByChat: {
@@ -162,6 +208,42 @@ export const useTeamChat = create<TeamChatState>((set, get) => ({
       };
     });
   },
+  requestRegistration: ({ teamId, chatId, leagueId, leagueName, teamName }) => {
+    set((state) => ({
+      registrationsByTeam: {
+        ...state.registrationsByTeam,
+        [teamId]: {
+          teamId,
+          leagueId,
+          leagueName,
+          teamName,
+          status: 'pending',
+          requestedAt: 'Just now',
+        },
+      },
+    }));
+    get().postCard(
+      chatId,
+      `I submitted our registration for ${leagueName}. We're pending the league's approval — I'll keep you posted here.`,
+      { kind: 'league_registration', teamId, leagueId, leagueName, teamName },
+    );
+    // Simulate the league admin reviewing and approving the entry.
+    setTimeout(() => get().approveRegistration(teamId), REGISTRATION_APPROVAL_DELAY_MS);
+  },
+  approveRegistration: (teamId) => {
+    const existing = get().registrationsByTeam[teamId];
+    if (!existing || existing.status === 'approved') return;
+    set((state) => ({
+      registrationsByTeam: {
+        ...state.registrationsByTeam,
+        [teamId]: { ...existing, status: 'approved' },
+      },
+    }));
+    get().appendLeagueMessage(
+      `chat-${teamId}`,
+      `${existing.teamName} is approved and officially enrolled in ${existing.leagueName}. Player payments are now open.`,
+    );
+  },
   removeMessageAuthor: (playerId) => {
     set((state) => {
       const next: Record<string, ChatMessage[]> = {};
@@ -186,6 +268,7 @@ export const useTeamChat = create<TeamChatState>((set, get) => ({
         messagesByChat: seedMessages(),
         pollsById: { ...INITIAL_COMMIT_POLLS },
         customPollsById: {},
+        registrationsByTeam: {},
       });
     }
   },

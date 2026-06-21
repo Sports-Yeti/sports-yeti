@@ -13,9 +13,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
+  BadgeCheck,
   CalendarClock,
   Check,
   ChevronLeft,
+  Clock,
   Lock,
   PencilLine,
   Plus,
@@ -308,6 +310,60 @@ function CustomPollInline({
   );
 }
 
+function LeagueRegistrationInline({
+  card,
+  onOpen,
+}: {
+  card: Extract<ChatCard, { kind: 'league_registration' }>;
+  onOpen: () => void;
+}) {
+  const registration = useTeamChat((s) => s.registrationsByTeam[card.teamId]);
+  const approved = registration?.status === 'approved';
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${card.leagueName}`}
+      onPress={onOpen}
+      style={({ pressed }) => [styles.cardShell, pressed ? styles.cardPressed : null]}
+    >
+      <View style={styles.cardHeader}>
+        <View
+          style={[
+            styles.cardIcon,
+            { backgroundColor: approved ? colors.brand.soft : colors.surface.bg },
+          ]}
+        >
+          {approved ? (
+            <BadgeCheck size={18} color={colors.brand.primary} strokeWidth={2.25} />
+          ) : (
+            <Clock size={18} color={colors.status.warning} strokeWidth={2.25} />
+          )}
+        </View>
+        <View style={styles.cardHeaderBody}>
+          <Text variant="caption" color={colors.text.secondary}>
+            LEAGUE REGISTRATION
+          </Text>
+          <Text variant="button" color={colors.text.primary}>
+            {card.leagueName}
+          </Text>
+        </View>
+        <Tag
+          tone={approved ? 'success' : 'warning'}
+          size="sm"
+          leadingDot
+          label={approved ? 'Enrolled' : 'Pending review'}
+        />
+      </View>
+      <Text variant="bodySm" color={colors.text.secondary}>
+        {approved
+          ? `${card.teamName} is officially enrolled. Player payments to the league are now open.`
+          : `${card.teamName}'s entry is awaiting ${card.leagueName} approval. Payments unlock once approved.`}
+      </Text>
+    </Pressable>
+  );
+}
+
 function MessageBubble({
   msg,
   onOpenLeague,
@@ -316,6 +372,7 @@ function MessageBubble({
   onOpenLeague: (leagueId: string) => void;
 }) {
   const isYou = !!msg.isYou;
+  const card = msg.card;
   return (
     <View style={[styles.bubbleRow, isYou ? styles.bubbleRowYou : null]}>
       {!isYou ? (
@@ -340,17 +397,20 @@ function MessageBubble({
             {msg.body}
           </Text>
         </View>
-        {msg.card?.kind === 'league_share' ? (
-          <LeagueShareInline
-            card={msg.card}
-            onOpen={() => onOpenLeague(msg.card!.kind === 'league_share' ? msg.card.leagueId : '')}
+        {card?.kind === 'league_share' ? (
+          <LeagueShareInline card={card} onOpen={() => onOpenLeague(card.leagueId)} />
+        ) : null}
+        {card?.kind === 'commit_poll' ? (
+          <CommitPollInline card={card} />
+        ) : null}
+        {card?.kind === 'custom_poll' ? (
+          <CustomPollInline card={card} />
+        ) : null}
+        {card?.kind === 'league_registration' ? (
+          <LeagueRegistrationInline
+            card={card}
+            onOpen={() => onOpenLeague(card.leagueId)}
           />
-        ) : null}
-        {msg.card?.kind === 'commit_poll' ? (
-          <CommitPollInline card={msg.card} />
-        ) : null}
-        {msg.card?.kind === 'custom_poll' ? (
-          <CustomPollInline card={msg.card} />
         ) : null}
         <Text variant="caption" color={colors.text.muted}>
           {msg.timestamp}
@@ -591,13 +651,9 @@ export function ChatScreen() {
               <MessageBubble
                 key={m.id}
                 msg={m}
-                onOpenLeague={() => {
-                  toast.show({
-                    variant: 'info',
-                    title: 'Opening league',
-                    description: 'Take a look and tap "Enroll team" if it fits.',
-                  });
-                  openLeague();
+                onOpenLeague={(leagueId) => {
+                  Haptics.selectionAsync();
+                  navigation.navigate('LeagueDetails', { leagueId });
                 }}
               />
             ))

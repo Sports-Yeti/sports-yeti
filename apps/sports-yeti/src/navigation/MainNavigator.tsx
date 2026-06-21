@@ -18,6 +18,7 @@ import {
   HighlightUploadScreen,
   HighlightsFeedScreen,
   LeagueBrowseScreen,
+  LeagueDetailScreen,
   MessagesScreen,
   MyHighlightsScreen,
   NotificationsScreen,
@@ -84,6 +85,7 @@ export type RootStackParamList = {
   LeagueBrowse:
     | { mode?: 'browse' | 'captain'; teamId?: string; fromChatId?: string }
     | undefined;
+  LeagueDetails: { leagueId: string };
 
   // Highlights stack
   Highlights: undefined; // alias for going to Highlights feed tab from elsewhere
@@ -289,6 +291,7 @@ export function MainNavigator() {
       <Stack.Screen name="TeamPayment" component={TeamPaymentScreen} />
       <Stack.Screen name="PlayerDirectory" component={PlayerDirectoryScreen} />
       <Stack.Screen name="LeagueBrowse" component={LeagueBrowseScreen} />
+      <Stack.Screen name="LeagueDetails" component={LeagueDetailScreen} />
       <Stack.Screen name="MyHighlights" component={MyHighlightsScreen} />
       <Stack.Screen name="HighlightUpload" component={HighlightUploadScreen} />
       <Stack.Screen name="HighlightDetail" component={HighlightDetailScreen} />

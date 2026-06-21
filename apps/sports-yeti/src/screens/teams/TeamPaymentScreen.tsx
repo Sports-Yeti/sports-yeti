@@ -4,7 +4,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Bell, ChevronLeft, CreditCard, ShieldCheck } from 'lucide-react-native';
+import { Bell, ChevronLeft, CreditCard, Lock, ShieldCheck } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   Avatar,
@@ -21,6 +21,7 @@ import {
 import { TEAM_DETAILS, type RosterMember } from '../../mocks/teams';
 import { formatCurrency } from '../../lib/format';
 import { useCheckout } from '../../lib/checkout';
+import { useTeamChat } from '../../features/team-chat-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'TeamPayment'>;
@@ -86,6 +87,8 @@ export function TeamPaymentScreen() {
   const toast = useToast();
   const team = TEAM_DETAILS[route.params.teamId];
   const checkout = useCheckout();
+  const liveReg = useTeamChat((s) => s.registrationsByTeam[route.params.teamId]);
+  const leagueLocked = liveReg?.status === 'pending';
   const [confirmPay, setConfirmPay] = useState(false);
   const [paid, setPaid] = useState(false);
 
@@ -191,6 +194,20 @@ export function TeamPaymentScreen() {
           </Text>
         </View>
 
+        {leagueLocked ? (
+          <Card style={styles.lockCard}>
+            <Lock size={20} color={colors.status.warning} strokeWidth={2.25} />
+            <View style={styles.lockBody}>
+              <Text variant="button" color={colors.text.primary}>
+                Payments locked
+              </Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {`${liveReg?.leagueName ?? 'The league'} is still reviewing ${team.name}. Your share unlocks automatically once they approve the team.`}
+              </Text>
+            </View>
+          </Card>
+        ) : null}
+
         <Card style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text variant="body" color={colors.text.secondary}>
@@ -255,7 +272,9 @@ export function TeamPaymentScreen() {
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
           <Button
             label={
-              checkout.isPaying
+              leagueLocked
+                ? 'Locked until league approves'
+                : checkout.isPaying
                 ? 'Processing…'
                 : youArePaid
                 ? 'Already paid'
@@ -264,7 +283,12 @@ export function TeamPaymentScreen() {
             variant="gradient"
             size="lg"
             fullWidth
-            disabled={checkout.isPaying || youArePaid}
+            leadingIcon={
+              leagueLocked ? (
+                <Lock size={16} color={colors.text.inverse} strokeWidth={2.5} />
+              ) : undefined
+            }
+            disabled={leagueLocked || checkout.isPaying || youArePaid}
             onPress={() => setConfirmPay(true)}
           />
         </View>
@@ -320,6 +344,16 @@ const styles = StyleSheet.create({
   heroBlock: {
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  lockCard: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    padding: spacing.lg,
+    alignItems: 'flex-start',
+  },
+  lockBody: {
+    flex: 1,
+    gap: 2,
   },
   summaryCard: {
     gap: spacing.sm,
