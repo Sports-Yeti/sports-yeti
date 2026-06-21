@@ -35,6 +35,7 @@ import {
   type SportKey,
   type Squad,
 } from '../../mocks/teams';
+import { catalogKeyToTeamSport, resolveAllowedTeamSports } from '../../lib/sport-filter';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -83,22 +84,6 @@ function parseDollars(value: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-// Catalogue entries from `SPORT_CATALOG` bucket back to the concrete sport
-// keys used by Discover, which don't include hockey. Map the hockey-family
-// entries explicitly so hockey teams still match the shared sport filter.
-const TEAM_SPORT_BY_CATALOG_KEY: Record<string, SportKey> = {
-  'ice-hockey': 'hockey',
-  'roller-hockey': 'hockey',
-  'field-hockey': 'hockey',
-};
-
-function catalogKeyToTeamSport(key: string): SportKey | null {
-  const mapped = TEAM_SPORT_BY_CATALOG_KEY[key];
-  if (mapped) return mapped;
-  const bucket = sportCatalogEntry(key)?.bucket;
-  return (bucket as SportKey | null) ?? null;
-}
-
 function deriveChatLocked(squadId: string): boolean {
   const team = TEAM_DETAILS[squadId];
   if (!team) return false;
@@ -144,15 +129,10 @@ export function SquadsScreen() {
 
   // Resolve the selected catalogue entries down to the concrete team sport
   // keys we can match against. `null` means "any sport".
-  const allowedTeamSports = useMemo<Set<SportKey> | null>(() => {
-    if (sports.size === 0) return null;
-    const set = new Set<SportKey>();
-    for (const key of sports) {
-      const teamSport = catalogKeyToTeamSport(key);
-      if (teamSport) set.add(teamSport);
-    }
-    return set;
-  }, [sports]);
+  const allowedTeamSports = useMemo<Set<SportKey> | null>(
+    () => resolveAllowedTeamSports(sports),
+    [sports],
+  );
 
   // Positions to choose from = union across every selected sport. Empty until
   // a sport is picked, since positions are sport-specific.

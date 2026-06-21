@@ -4,36 +4,65 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { ChevronLeft, MessageCircle, Send, UserPlus } from 'lucide-react-native';
+import { ChevronLeft, MapPin, MessageCircle, UserPlus } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   Avatar,
+  BottomSheet,
   Button,
   EmptyState,
+  FilterPill,
+  RadiusMapPicker,
+  type RadiusCenter,
   SearchBar,
+  SearchMultiSelect,
+  SportCombobox,
+  SportMultiSelectSheet,
   Tabs,
   Tag,
   Text,
   useToast,
 } from '../../ui';
-import { DIRECTORY_PLAYERS, type DirectoryPlayer } from '../../mocks/teams';
+import {
+  DIRECTORY_PLAYERS,
+  POSITIONS_BY_SPORT,
+  CITY_COORDS,
+  type DirectoryPlayer,
+} from '../../mocks/teams';
+import { sportCatalogEntry } from '../../mocks/games';
+import { DEFAULT_MAP_CENTER, distanceMilesBetween } from '../../mocks/facilities';
+import {
+  catalogKeyToTeamSport,
+  resolveAllowedTeamSports,
+} from '../../lib/sport-filter';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
+type AvailabilityFilter = 'all' | DirectoryPlayer['availability'];
 
-const SPORT_FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'soccer', label: 'Soccer' },
-  { key: 'basketball', label: 'Basketball' },
-  { key: 'volleyball', label: 'Volleyball' },
-  { key: 'hockey', label: 'Hockey' },
-];
-
-const AVAILABILITY_FILTERS = [
+const AVAILABILITY_CHIPS: { key: AvailabilityFilter; label: string }[] = [
   { key: 'all', label: 'Any' },
-  { key: 'looking_for_team', label: 'LFT' },
   { key: 'available', label: 'Available' },
+  { key: 'looking_for_team', label: 'LFT' },
+  { key: 'busy', label: 'Busy' },
 ];
+
+const AVAILABILITY_PILL_LABEL: Record<AvailabilityFilter, string> = {
+  all: 'Any',
+  available: 'Available',
+  looking_for_team: 'LFT',
+  busy: 'Busy',
+};
+
+// Experience filter reuses the searchable multi-select, so options are the
+// capitalized labels that match `capitalize(player.experience)`.
+const EXPERIENCE_OPTIONS = ['Beginner', 'Intermediate', 'Advanced', 'Pro'];
+
+const DEFAULT_RADIUS = 25;
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 const AVAILABILITY_TONE = {
   available: 'success' as const,
@@ -120,22 +149,144 @@ export function PlayerDirectoryScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const [search, setSearch] = useState('');
-  const [sport, setSport] = useState('all');
-  const [availability, setAvailability] = useState('all');
+  /** Multi-select sport keys from `SPORT_CATALOG`. Empty = match all sports. */
+  const [sports, setSports] = useState<Set<string>>(new Set<string>());
+  /** Multi-select roster positions. Empty = any position. */
+  const [positions, setPositions] = useState<Set<string>>(new Set<string>());
+  const [availability, setAvailability] = useState<AvailabilityFilter>('all');
+  /** Multi-select experience labels (capitalized). Empty = any level. */
+  const [experience, setExperience] = useState<Set<string>>(new Set<string>());
+  const [center, setCenter] = useState<RadiusCenter | null>(null);
+  const [radiusMiles, setRadiusMiles] = useState(DEFAULT_RADIUS);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
+
+  const selectedSportEntries = useMemo(
+    () =>
+      [...sports]
+        .map((k) => sportCatalogEntry(k))
+        .filter((e): e is NonNullable<ReturnType<typeof sportCatalogEntry>> => !!e),
+    [sports],
+  );
+
+  const allowedTeamSports = useMemo(
+    () => resolveAllowedTeamSports(sports),
+    [sports],
+  );
+
+  // Positions to choose from = union across every selected sport. Empty until
+  // a sport is picked, since positions are sport-specific.
+  const positionOptions = useMemo<string[]>(() => {
+    if (!allowedTeamSports || allowedTeamSports.size === 0) return [];
+    const out: string[] = [];
+    for (const teamSport of allowedTeamSports) {
+      for (const p of POSITIONS_BY_SPORT[teamSport]) {
+        if (!out.includes(p)) out.push(p);
+      }
+    }
+    return out;
+  }, [allowedTeamSports]);
+
+  // Radius only filters once the user pins a center, since players span
+  // far-flung cities — applying a default radius would hide most of them.
+  const radiusActive = center !== null;
+  const radiusCenter = useMemo<RadiusCenter>(
+    () => center ?? { ...DEFAULT_MAP_CENTER, label: 'Default area' },
+    [center],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const lowerPositions = new Set([...positions].map((p) => p.toLowerCase()));
     return DIRECTORY_PLAYERS.filter((p) => {
-      if (sport !== 'all' && p.sportKey !== sport) return false;
+      if (allowedTeamSports && !allowedTeamSports.has(p.sportKey)) return false;
       if (availability !== 'all' && p.availability !== availability) return false;
+      if (experience.size > 0 && !experience.has(capitalize(p.experience)))
+        return false;
+      if (lowerPositions.size > 0 && !lowerPositions.has(p.position.toLowerCase()))
+        return false;
+      if (radiusActive) {
+        const coords = CITY_COORDS[p.city];
+        if (coords && distanceMilesBetween(radiusCenter, coords) > radiusMiles) {
+          return false;
+        }
+      }
       if (q) {
         const hay = `${p.name} ${p.handle} ${p.position} ${p.city}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [search, sport, availability]);
+  }, [
+    search,
+    allowedTeamSports,
+    availability,
+    experience,
+    positions,
+    radiusActive,
+    radiusCenter,
+    radiusMiles,
+  ]);
+
+  const hasActiveFilters =
+    sports.size > 0 ||
+    positions.size > 0 ||
+    availability !== 'all' ||
+    experience.size > 0 ||
+    radiusActive;
+
+  const setSportsAndSyncPositions = (next: Set<string>) => {
+    setSports(next);
+    // Drop position picks that no longer belong to any selected sport.
+    setPositions((prev) => {
+      if (prev.size === 0) return prev;
+      const valid = new Set<string>();
+      for (const key of next) {
+        const teamSport = catalogKeyToTeamSport(key);
+        if (teamSport) {
+          for (const p of POSITIONS_BY_SPORT[teamSport]) valid.add(p);
+        }
+      }
+      const pruned = new Set([...prev].filter((p) => valid.has(p)));
+      return pruned.size === prev.size ? prev : pruned;
+    });
+  };
+
+  const removeSport = (key: string) =>
+    setSportsAndSyncPositions(new Set([...sports].filter((k) => k !== key)));
+
+  const resetFilters = () => {
+    setSearch('');
+    setSports(new Set<string>());
+    setPositions(new Set<string>());
+    setAvailability('all');
+    setExperience(new Set<string>());
+    setCenter(null);
+    setRadiusMiles(DEFAULT_RADIUS);
+  };
+
+  const positionPillLabel = (() => {
+    if (positions.size === 0) return 'Position · Any';
+    if (positions.size === 1) {
+      const [only] = positions;
+      return only ?? 'Position · Any';
+    }
+    return `${positions.size} positions`;
+  })();
+
+  const experiencePillLabel = (() => {
+    if (experience.size === 0) return 'Experience · Any';
+    if (experience.size === 1) {
+      const [only] = experience;
+      return only ?? 'Experience · Any';
+    }
+    return `${experience.size} levels`;
+  })();
+
+  const distancePillLabel = radiusActive
+    ? `${radiusMiles} mi · ${radiusCenter.label}`
+    : 'Distance · Any';
 
   const handleInvite = (player: DirectoryPlayer) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -179,21 +330,59 @@ export function PlayerDirectoryScreen() {
           value={search}
           onChangeText={setSearch}
           placeholder="Search by name, position, or city…"
-          onFilterPress={() => undefined}
+          onFilterPress={() => setFilterOpen(true)}
         />
-        <Tabs
-          variant="pill"
-          scrollable
-          items={SPORT_FILTERS}
-          value={sport}
-          onChange={setSport}
-        />
-        <Tabs
-          variant="segmented"
-          items={AVAILABILITY_FILTERS}
-          value={availability}
-          onChange={setAvailability}
-        />
+        <View style={styles.pillRow}>
+          {selectedSportEntries.map((entry) => (
+            <FilterPill
+              key={entry.key}
+              label={entry.label}
+              onPress={() => setSportSheetOpen(true)}
+              onClose={() => removeSport(entry.key)}
+              accessibilityLabel={`${entry.label} sport filter`}
+            />
+          ))}
+          {selectedSportEntries.length === 0 ? (
+            <FilterPill
+              label="Sports · Any"
+              onPress={() => setSportSheetOpen(true)}
+            />
+          ) : null}
+          {positionOptions.length > 0 ? (
+            <FilterPill
+              label={positionPillLabel}
+              onPress={() => setFilterOpen(true)}
+            />
+          ) : null}
+          <FilterPill
+            label={`Availability · ${AVAILABILITY_PILL_LABEL[availability]}`}
+            onPress={() => setFilterOpen(true)}
+          />
+          <FilterPill
+            label={experiencePillLabel}
+            onPress={() => setFilterOpen(true)}
+          />
+          <FilterPill
+            label={distancePillLabel}
+            onPress={() => setFilterOpen(true)}
+            leading={
+              <MapPin size={12} color={colors.brand.deep} strokeWidth={2.5} />
+            }
+          />
+          {hasActiveFilters ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear all filters"
+              hitSlop={8}
+              onPress={resetFilters}
+              style={styles.clearBtn}
+            >
+              <Text variant="caption" color={colors.text.secondary}>
+                Clear
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <ScrollView
@@ -213,12 +402,20 @@ export function PlayerDirectoryScreen() {
               />
             }
             title="No players match"
-            description="Try widening sport or availability — or share your team link to recruit."
-            primaryAction={{
-              label: 'Share team link',
-              onPress: () =>
-                toast.show({ variant: 'info', title: 'Team link copied' }),
-            }}
+            description={
+              hasActiveFilters
+                ? 'Try widening sport, availability, experience, or distance.'
+                : 'No players in the directory yet — share your team link to recruit.'
+            }
+            primaryAction={
+              hasActiveFilters
+                ? { label: 'Reset filters', onPress: resetFilters }
+                : {
+                    label: 'Share team link',
+                    onPress: () =>
+                      toast.show({ variant: 'info', title: 'Team link copied' }),
+                  }
+            }
           />
         ) : (
           filtered.map((p) => (
@@ -244,6 +441,110 @@ export function PlayerDirectoryScreen() {
           ))
         )}
       </ScrollView>
+
+      <BottomSheet
+        visible={filterOpen}
+        onRequestClose={() => setFilterOpen(false)}
+        title="Filter players"
+        snapPoints={['88%']}
+      >
+        <ScrollView
+          contentContainerStyle={styles.sheetContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.sheetGroup}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Sports
+            </Text>
+            <SportCombobox
+              value={sports}
+              onChange={setSportsAndSyncPositions}
+              placeholder="Search sports (e.g. soccer, hockey)…"
+              scrollResults={false}
+              maxVisibleResults={6}
+            />
+          </View>
+
+          {positionOptions.length > 0 ? (
+            <View style={styles.sheetGroup}>
+              <Text variant="eyebrow" color={colors.text.secondary}>
+                Position
+              </Text>
+              <SearchMultiSelect
+                value={positions}
+                onChange={setPositions}
+                options={positionOptions}
+                placeholder="Search positions…"
+                emptyText="No positions match that search."
+              />
+            </View>
+          ) : null}
+
+          <View style={styles.sheetGroup}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Availability
+            </Text>
+            <Tabs
+              variant="segmented"
+              items={AVAILABILITY_CHIPS.map((a) => ({ key: a.key, label: a.label }))}
+              value={availability}
+              onChange={(k) => setAvailability(k as AvailabilityFilter)}
+            />
+          </View>
+
+          <View style={styles.sheetGroup}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Experience
+            </Text>
+            <SearchMultiSelect
+              value={experience}
+              onChange={setExperience}
+              options={EXPERIENCE_OPTIONS}
+              placeholder="Search experience levels…"
+              emptyText="No levels match that search."
+            />
+          </View>
+
+          <View style={styles.sheetGroup}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Location & radius
+            </Text>
+            <RadiusMapPicker
+              center={center}
+              onChangeCenter={setCenter}
+              radiusMiles={radiusMiles}
+              onChangeRadius={setRadiusMiles}
+            />
+          </View>
+
+          <View style={styles.sheetActions}>
+            <Button
+              label="Reset"
+              variant="ghost"
+              fullWidth
+              onPress={resetFilters}
+            />
+            <Button
+              label={
+                filtered.length === 0
+                  ? 'No matches'
+                  : `Show ${filtered.length} player${filtered.length === 1 ? '' : 's'}`
+              }
+              variant="gradient"
+              fullWidth
+              onPress={() => setFilterOpen(false)}
+            />
+          </View>
+        </ScrollView>
+      </BottomSheet>
+
+      <SportMultiSelectSheet
+        visible={sportSheetOpen}
+        onRequestClose={() => setSportSheetOpen(false)}
+        value={sports}
+        onApply={setSportsAndSyncPositions}
+      />
     </View>
   );
 }
@@ -272,9 +573,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  clearBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    minHeight: 32,
+    justifyContent: 'center',
+  },
   list: {
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
+  },
+  sheetContent: {
+    gap: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
+  sheetGroup: {
+    gap: spacing.md,
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
   card: {
     flexDirection: 'row',

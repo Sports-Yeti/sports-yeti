@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Crown,
+  MapPin,
   Search,
   Share2,
   Trophy,
@@ -18,9 +19,14 @@ import {
   Button,
   Card,
   EmptyState,
+  FilterPill,
   IconBadge,
   Input,
+  RadiusMapPicker,
+  type RadiusCenter,
   SearchBar,
+  SportCombobox,
+  SportMultiSelectSheet,
   Tabs,
   Tag,
   Text,
@@ -28,11 +34,16 @@ import {
 } from '../../ui';
 import {
   CAPTAIN_OF_TEAMS,
+  CITY_COORDS,
   OPEN_LEAGUES,
   TEAM_DETAILS,
   type OpenLeague,
   type TeamDetail,
+  type TeamLevel,
 } from '../../mocks/teams';
+import { sportCatalogEntry } from '../../mocks/games';
+import { DEFAULT_MAP_CENTER, distanceMilesBetween } from '../../mocks/facilities';
+import { resolveAllowedTeamSports } from '../../lib/sport-filter';
 import { formatCurrency } from '../../lib/format';
 import { useTeamChat } from '../../features/team-chat-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
@@ -40,13 +51,29 @@ import type { RootStackParamList } from '../../navigation/MainNavigator';
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'LeagueBrowse'>;
 
-const SPORT_FILTERS = [
-  { key: 'all', label: 'All sports' },
-  { key: 'soccer', label: 'Soccer' },
-  { key: 'basketball', label: 'Basketball' },
-  { key: 'volleyball', label: 'Volleyball' },
-  { key: 'hockey', label: 'Hockey' },
+type LevelFilter = 'all' | TeamLevel;
+type SpotsFilter = 'all' | 'available';
+
+const LEVEL_CHIPS: { key: LevelFilter; label: string }[] = [
+  { key: 'all', label: 'All levels' },
+  { key: 'RECREATIONAL', label: 'Recreational' },
+  { key: 'INTERMEDIATE', label: 'Intermediate' },
+  { key: 'ADVANCED', label: 'Advanced' },
 ];
+
+const LEVEL_LABEL: Record<LevelFilter, string> = {
+  all: 'All levels',
+  RECREATIONAL: 'Recreational',
+  INTERMEDIATE: 'Intermediate',
+  ADVANCED: 'Advanced',
+};
+
+const SPOTS_CHIPS: { key: SpotsFilter; label: string }[] = [
+  { key: 'all', label: 'All leagues' },
+  { key: 'available', label: 'Open spots' },
+];
+
+const DEFAULT_RADIUS = 25;
 
 function LeagueCard({
   league,
@@ -196,8 +223,15 @@ export function LeagueBrowseScreen() {
     ? TEAM_DETAILS[route.params.teamId]
     : CAPTAIN_OF_TEAMS[0];
 
-  const [sport, setSport] = useState('all');
   const [search, setSearch] = useState('');
+  /** Multi-select sport keys from `SPORT_CATALOG`. Empty = match all sports. */
+  const [sports, setSports] = useState<Set<string>>(new Set<string>());
+  const [level, setLevel] = useState<LevelFilter>('all');
+  const [spots, setSpots] = useState<SpotsFilter>('all');
+  const [center, setCenter] = useState<RadiusCenter | null>(null);
+  const [radiusMiles, setRadiusMiles] = useState(DEFAULT_RADIUS);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [pendingLeague, setPendingLeague] = useState<OpenLeague | null>(null);
   const [teamPickerOpen, setTeamPickerOpen] = useState(false);
   const [chosenTeamId, setChosenTeamId] = useState<string | undefined>(
@@ -208,17 +242,65 @@ export function LeagueBrowseScreen() {
 
   const chosenTeam = chosenTeamId ? TEAM_DETAILS[chosenTeamId] : undefined;
 
+  const selectedSportEntries = useMemo(
+    () =>
+      [...sports]
+        .map((k) => sportCatalogEntry(k))
+        .filter((e): e is NonNullable<ReturnType<typeof sportCatalogEntry>> => !!e),
+    [sports],
+  );
+
+  const allowedTeamSports = useMemo(
+    () => resolveAllowedTeamSports(sports),
+    [sports],
+  );
+
+  // Radius only filters once the user pins a center, since leagues span
+  // far-flung cities — applying a default radius would hide most of them.
+  const radiusActive = center !== null;
+  const radiusCenter = useMemo<RadiusCenter>(
+    () => center ?? { ...DEFAULT_MAP_CENTER, label: 'Default area' },
+    [center],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return OPEN_LEAGUES.filter((l) => {
-      if (sport !== 'all' && l.sportKey !== sport) return false;
+      if (allowedTeamSports && !allowedTeamSports.has(l.sportKey)) return false;
+      if (level !== 'all' && l.level !== level) return false;
+      if (spots === 'available' && l.registeredTeams >= l.maxTeams) return false;
+      if (radiusActive) {
+        const coords = CITY_COORDS[l.city];
+        if (coords && distanceMilesBetween(radiusCenter, coords) > radiusMiles) {
+          return false;
+        }
+      }
       if (q) {
         const hay = `${l.name} ${l.sport} ${l.city}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [sport, search]);
+  }, [search, allowedTeamSports, level, spots, radiusActive, radiusCenter, radiusMiles]);
+
+  const hasActiveFilters =
+    sports.size > 0 || level !== 'all' || spots !== 'all' || radiusActive;
+
+  const removeSport = (key: string) =>
+    setSports((prev) => new Set([...prev].filter((k) => k !== key)));
+
+  const resetFilters = () => {
+    setSearch('');
+    setSports(new Set<string>());
+    setLevel('all');
+    setSpots('all');
+    setCenter(null);
+    setRadiusMiles(DEFAULT_RADIUS);
+  };
+
+  const distancePillLabel = radiusActive
+    ? `${radiusMiles} mi · ${radiusCenter.label}`
+    : 'Distance · Any';
 
   const teamNameError =
     !isCaptainMode && teamName.length > 0 && teamName.trim().length < 3
@@ -355,15 +437,53 @@ export function LeagueBrowseScreen() {
           value={search}
           onChangeText={setSearch}
           placeholder="Search by league, sport, or city…"
-          onFilterPress={() => undefined}
+          onFilterPress={() => setFilterOpen(true)}
         />
-        <Tabs
-          variant="pill"
-          scrollable
-          items={SPORT_FILTERS}
-          value={sport}
-          onChange={setSport}
-        />
+        <View style={styles.pillRow}>
+          {selectedSportEntries.map((entry) => (
+            <FilterPill
+              key={entry.key}
+              label={entry.label}
+              onPress={() => setSportSheetOpen(true)}
+              onClose={() => removeSport(entry.key)}
+              accessibilityLabel={`${entry.label} sport filter`}
+            />
+          ))}
+          {selectedSportEntries.length === 0 ? (
+            <FilterPill
+              label="Sports · Any"
+              onPress={() => setSportSheetOpen(true)}
+            />
+          ) : null}
+          <FilterPill
+            label={`Level · ${LEVEL_LABEL[level]}`}
+            onPress={() => setFilterOpen(true)}
+          />
+          <FilterPill
+            label={spots === 'available' ? 'Spots · Open' : 'Spots · Any'}
+            onPress={() => setFilterOpen(true)}
+          />
+          <FilterPill
+            label={distancePillLabel}
+            onPress={() => setFilterOpen(true)}
+            leading={
+              <MapPin size={12} color={colors.brand.deep} strokeWidth={2.5} />
+            }
+          />
+          {hasActiveFilters ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear all filters"
+              hitSlop={8}
+              onPress={resetFilters}
+              style={styles.clearBtn}
+            >
+              <Text variant="caption" color={colors.text.secondary}>
+                Clear
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <ScrollView
@@ -376,13 +496,21 @@ export function LeagueBrowseScreen() {
         {filtered.length === 0 ? (
           <EmptyState
             icon={<Trophy size={28} color={colors.brand.primary} strokeWidth={2.25} />}
-            title="No leagues"
-            description="Nothing open in this sport yet — we'll notify you when one launches."
-            primaryAction={{
-              label: 'Notify me',
-              onPress: () =>
-                toast.show({ variant: 'success', title: "We'll let you know" }),
-            }}
+            title="No leagues match"
+            description={
+              hasActiveFilters
+                ? 'Try widening your sport, level, or distance filters.'
+                : "Nothing open right now — we'll notify you when one launches."
+            }
+            primaryAction={
+              hasActiveFilters
+                ? { label: 'Reset filters', onPress: resetFilters }
+                : {
+                    label: 'Notify me',
+                    onPress: () =>
+                      toast.show({ variant: 'success', title: "We'll let you know" }),
+                  }
+            }
           />
         ) : (
           filtered.map((l) => (
@@ -512,6 +640,94 @@ export function LeagueBrowseScreen() {
           ))}
         </ScrollView>
       </BottomSheet>
+
+      <BottomSheet
+        visible={filterOpen}
+        onRequestClose={() => setFilterOpen(false)}
+        title="Filter leagues"
+        snapPoints={['86%']}
+      >
+        <ScrollView
+          contentContainerStyle={styles.filterSheetContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.sheetGroup}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Sports
+            </Text>
+            <SportCombobox
+              value={sports}
+              onChange={setSports}
+              placeholder="Search sports (e.g. soccer, hockey)…"
+              scrollResults={false}
+              maxVisibleResults={6}
+            />
+          </View>
+
+          <View style={styles.sheetGroup}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Level
+            </Text>
+            <Tabs
+              variant="segmented"
+              items={LEVEL_CHIPS.map((l) => ({ key: l.key, label: l.label }))}
+              value={level}
+              onChange={(k) => setLevel(k as LevelFilter)}
+            />
+          </View>
+
+          <View style={styles.sheetGroup}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Team spots
+            </Text>
+            <Tabs
+              variant="segmented"
+              items={SPOTS_CHIPS.map((s) => ({ key: s.key, label: s.label }))}
+              value={spots}
+              onChange={(k) => setSpots(k as SpotsFilter)}
+            />
+          </View>
+
+          <View style={styles.sheetGroup}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Location & radius
+            </Text>
+            <RadiusMapPicker
+              center={center}
+              onChangeCenter={setCenter}
+              radiusMiles={radiusMiles}
+              onChangeRadius={setRadiusMiles}
+            />
+          </View>
+
+          <View style={styles.sheetActions}>
+            <Button
+              label="Reset"
+              variant="ghost"
+              fullWidth
+              onPress={resetFilters}
+            />
+            <Button
+              label={
+                filtered.length === 0
+                  ? 'No matches'
+                  : `Show ${filtered.length} league${filtered.length === 1 ? '' : 's'}`
+              }
+              variant="gradient"
+              fullWidth
+              onPress={() => setFilterOpen(false)}
+            />
+          </View>
+        </ScrollView>
+      </BottomSheet>
+
+      <SportMultiSelectSheet
+        visible={sportSheetOpen}
+        onRequestClose={() => setSportSheetOpen(false)}
+        value={sports}
+        onApply={setSports}
+      />
     </View>
   );
 }
@@ -539,6 +755,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
     gap: spacing.md,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  clearBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    minHeight: 32,
+    justifyContent: 'center',
+  },
+  filterSheetContent: {
+    gap: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
+  sheetGroup: {
+    gap: spacing.md,
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
   list: {
     paddingHorizontal: spacing.lg,
