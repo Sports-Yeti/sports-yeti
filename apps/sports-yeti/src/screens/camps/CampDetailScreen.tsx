@@ -312,7 +312,9 @@ export function CampDetailScreen() {
               leadingIcon={
                 <CalendarDays size={16} color={colors.brand.primary} strokeWidth={2.5} />
               }
-              onPress={() => navigation.navigate('Schedule')}
+              onPress={() =>
+                navigation.navigate('MainTabs', { screen: 'Schedule' })
+              }
             />
           </View>
         ) : (

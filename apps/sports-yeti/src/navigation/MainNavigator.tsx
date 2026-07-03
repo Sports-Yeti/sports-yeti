@@ -68,7 +68,7 @@ export type MainTabParamList = {
   News: undefined;
   Teams: undefined;
   Highlights: undefined;
-  Profile: undefined;
+  Schedule: undefined;
 };
 
 export type RootStackParamList = {
@@ -82,8 +82,9 @@ export type RootStackParamList = {
   CreateGame: undefined;
   CampDetails: { id: string };
   ScheduledEventDetail: { id: string };
-  // Schedule moved off the tab bar — now reachable from Profile -> More.
-  Schedule: undefined;
+  // Profile moved off the tab bar (Schedule took its slot) — reachable from
+  // the avatar in every ScreenHeader.
+  Profile: undefined;
 
   // Teams stack
   TeamDetails: { id: string };
@@ -154,8 +155,8 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 /**
- * Player tab set — the existing default. Discover / Schedule / Highlights /
- * Teams / Profile.
+ * Player tab set — the existing default. Discover / News / Highlights /
+ * Teams / Schedule.
  */
 function PlayerTabs() {
   return (
@@ -171,13 +172,13 @@ function PlayerTabs() {
       <Tab.Screen name="News" component={NewsScreen} />
       <Tab.Screen name="Highlights" component={HighlightsFeedScreen} />
       <Tab.Screen name="Teams" component={SquadsScreen} />
-      <Tab.Screen name="Profile" component={ProfileTabScreen} />
+      <Tab.Screen name="Schedule" component={ScheduleScreen} />
     </Tab.Navigator>
   );
 }
 
 /**
- * Captain tab set — Phase 4. Home (CaptainHome) + Schedule + Profile.
+ * Captain tab set — Phase 4. Home (CaptainHome) + News + Schedule.
  * Captain's Home surfaces team management, sub-requests, and quick links
  * to the focused stack screens (TeamCreate / DivisionApply / etc.).
  */
@@ -197,14 +198,14 @@ function CaptainTabs() {
         options={{ tabBarLabel: 'Home' }}
       />
       <Tab.Screen name="News" component={NewsScreen} />
-      <Tab.Screen name="Profile" component={ProfileTabScreen} />
+      <Tab.Screen name="Schedule" component={ScheduleScreen} />
     </Tab.Navigator>
   );
 }
 
 /**
  * Referee tab set — Phase 6. Home (RefereeHomeScreen surfaces inbox +
- * marketplace + accepted + completed) + Schedule + Profile.
+ * marketplace + accepted + completed) + News + Schedule.
  */
 function RefereeTabs() {
   return (
@@ -222,7 +223,7 @@ function RefereeTabs() {
         options={{ tabBarLabel: 'Home' }}
       />
       <Tab.Screen name="News" component={NewsScreen} />
-      <Tab.Screen name="Profile" component={ProfileTabScreen} />
+      <Tab.Screen name="Schedule" component={ScheduleScreen} />
     </Tab.Navigator>
   );
 }
@@ -248,7 +249,7 @@ function makeRoleTabs(label: 'FM' | 'OrgAdmin' | 'LeagueAdmin') {
           options={{ tabBarLabel: 'Home' }}
         />
         <Tab.Screen name="News" component={NewsScreen} />
-        <Tab.Screen name="Profile" component={ProfileTabScreen} />
+        <Tab.Screen name="Schedule" component={ScheduleScreen} />
       </Tab.Navigator>
     );
   }
@@ -295,7 +296,7 @@ export function MainNavigator() {
       <Stack.Screen name="GameDetails" component={GameDetailScreen} />
       <Stack.Screen name="CreateGame" component={CreateGameScreen} />
       <Stack.Screen name="CampDetails" component={CampDetailScreen} />
-      <Stack.Screen name="Schedule" component={ScheduleScreen} />
+      <Stack.Screen name="Profile" component={ProfileTabScreen} />
       <Stack.Screen
         name="ScheduledEventDetail"
         component={ScheduledEventDetailScreen}

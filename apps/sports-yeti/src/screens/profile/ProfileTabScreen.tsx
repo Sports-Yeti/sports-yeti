@@ -12,6 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   BadgeCheck,
+  ChevronLeft,
   ChevronRight,
   Eye,
   LogOut,
@@ -30,7 +31,6 @@ import {
   Card,
   IconBadge,
   Modal,
-  ScreenHeader,
   Tabs,
   Tag,
   Text,
@@ -462,18 +462,32 @@ export function ProfileTabScreen() {
 
   return (
     <View style={styles.root}>
-      {/* Own-profile header intentionally hides the notifications bell; the
-          Notifications center stays reachable via More → Notifications. */}
-      <ScreenHeader avatarUri={profile.avatar} title="Profile" showBell={false} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Open settings"
-        hitSlop={8}
-        onPress={() => navigation.navigate('Settings')}
-        style={[styles.settingsBtn, { top: insets.top + 14 }]}
-      >
-        <Settings size={20} color={colors.text.primary} strokeWidth={2.25} />
-      </Pressable>
+      {/* Profile is a pushed stack screen (Schedule owns its old tab slot),
+          so the header carries an explicit back affordance. The notifications
+          bell stays hidden — the center is reachable via More → Notifications. */}
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={8}
+          onPress={() => navigation.goBack()}
+          style={styles.topBarBtn}
+        >
+          <ChevronLeft size={24} color={colors.text.primary} strokeWidth={2.25} />
+        </Pressable>
+        <Text variant="h2" color={colors.text.primary}>
+          Profile
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+          hitSlop={8}
+          onPress={() => navigation.navigate('Settings')}
+          style={styles.topBarBtn}
+        >
+          <Settings size={20} color={colors.text.primary} strokeWidth={2.25} />
+        </Pressable>
+      </View>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -640,15 +654,21 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     gap: spacing.lg,
   },
-  settingsBtn: {
-    position: 'absolute',
-    right: spacing.lg,
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.surface.card,
+    ...shadows.soft,
+  },
+  topBarBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
   },
   headerCard: {
     backgroundColor: colors.brand.soft,

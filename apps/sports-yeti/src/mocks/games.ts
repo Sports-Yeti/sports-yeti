@@ -52,6 +52,21 @@ export type GameSkillLevel = 'all' | 'beginner' | 'intermediate' | 'advanced';
 export type GameOpenStatus = 'open' | 'closed';
 
 /**
+ * What kind of playable event a Discover card represents.
+ *
+ * - `game`: a league / tournament fixture that is officiated by referees
+ *   (and typically played in team jerseys).
+ * - `scrimmage`: a casual, non-league pickup — no assigned referees and no
+ *   matching jerseys (bring light + dark shirts).
+ */
+export type DiscoverEventType = 'game' | 'scrimmage';
+
+export const EVENT_TYPE_LABEL: Record<DiscoverEventType, string> = {
+  game: 'Game',
+  scrimmage: 'Scrimmage',
+};
+
+/**
  * Per-roster-spot commitment + payment lifecycle.
  *
  * Semantics by event type:
@@ -116,6 +131,11 @@ export interface DiscoverGame {
   status: GameStatusEyebrow;
   isLive: boolean;
   featured: boolean;
+  /**
+   * Whether this is a league game (officiated, jerseys) or a casual
+   * scrimmage (non-league, no jerseys). Drives the kind tag on the card.
+   */
+  eventType: DiscoverEventType;
   sport: SportKey;
   Icon: ComponentType<LucideProps>;
   price: 'Free' | string;
@@ -141,7 +161,7 @@ export interface DiscoverGame {
   roster: GameAttendee[];
   skillLevel: GameSkillLevel;
   timeBucket: GameTimeBucket;
-  dayId: string; // matches WEEK_DAYS id
+  dayId: string; // legacy weekday key ('mon'…'sun'), kept for mock stability
   hostId: string;
   description: string;
   openStatus: GameOpenStatus;
@@ -209,6 +229,8 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     status: 'LIVE NOW',
     isLive: true,
     featured: true,
+    // Casual co-ed pickup, bring light + dark shirts → scrimmage.
+    eventType: 'scrimmage',
     sport: 'soccer',
     Icon: CircleDot,
     price: 'Free',
@@ -243,6 +265,8 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     status: 'TOMORROW',
     isLive: false,
     featured: false,
+    // Officiated league run — refs provided → game.
+    eventType: 'game',
     sport: 'basketball',
     Icon: Dumbbell,
     price: '$5',
@@ -277,6 +301,8 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     status: 'THIS WEEKEND',
     isLive: false,
     featured: false,
+    // Casual non-league pickup, rotate teams → scrimmage.
+    eventType: 'scrimmage',
     sport: 'volleyball',
     Icon: Volleyball,
     price: 'Free',
@@ -311,6 +337,8 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     status: 'NEXT WEEK',
     isLive: false,
     featured: false,
+    // Casual doubles round-robin, no league / refs → scrimmage.
+    eventType: 'scrimmage',
     sport: 'tennis',
     Icon: Target,
     price: '$8',
@@ -349,6 +377,8 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     status: 'THIS WEEKEND',
     isLive: false,
     featured: false,
+    // Casual all-levels pickup, no league / refs → scrimmage.
+    eventType: 'scrimmage',
     sport: 'baseball',
     Icon: Tent,
     price: 'Free',
@@ -383,6 +413,8 @@ export const DISCOVER_GAMES: DiscoverGame[] = [
     status: 'TONIGHT',
     isLive: false,
     featured: false,
+    // League tournament final, refs assigned → game.
+    eventType: 'game',
     sport: 'basketball',
     Icon: Dumbbell,
     price: '$10',

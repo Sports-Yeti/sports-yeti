@@ -3,10 +3,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import {
+  CalendarDays,
   Compass,
   Newspaper,
   PlaySquare,
-  User,
   Users,
 } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -18,7 +18,7 @@ const ICONS: Record<string, React.ComponentType<{ size: number; color: string; s
   Highlights: PlaySquare,
   Teams: Users,
   News: Newspaper,
-  Profile: User,
+  Schedule: CalendarDays,
 };
 
 const LABELS: Record<string, string> = {
@@ -26,7 +26,7 @@ const LABELS: Record<string, string> = {
   Highlights: 'Highlights',
   Teams: 'Teams',
   News: 'News',
-  Profile: 'Profile',
+  Schedule: 'Schedule',
 };
 
 export function SportsYetiTabBar({

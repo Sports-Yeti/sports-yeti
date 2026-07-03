@@ -593,7 +593,12 @@ export function HighlightsFeedScreen() {
         removeClippedSubviews
       />
       <View style={styles.headerOverlay} pointerEvents="box-none">
-        <ScreenHeader variant="translucent" hasNotifications />
+        <ScreenHeader
+          variant="translucent"
+          hasNotifications
+          onAvatarPress={() => navigation.navigate('Profile' as never)}
+          onBellPress={() => navigation.navigate('Notifications' as never)}
+        />
       </View>
 
       <BottomSheet

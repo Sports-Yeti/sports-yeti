@@ -101,7 +101,7 @@ export const CHATS: ChatPreview[] = [
   {
     id: 'chat-locker-spring-camp',
     kind: 'event',
-    title: 'Locker Room · Spring Skills Camp',
+    title: 'Locker Room · Summer Skills Camp',
     subtitle: 'Day 3 of 5 · 14 athletes',
     avatar: PLAYER_AVATARS[5]!,
     lastMessage: 'Coach Priya: Bring indoor shoes tonight — we are on the studio floor.',
@@ -119,6 +119,28 @@ export const CHATS: ChatPreview[] = [
     lastSenderName: 'Marcus L.',
     lastTimestamp: '3h ago',
     unreadCount: 1,
+  },
+  {
+    id: 'chat-locker-frg',
+    kind: 'event',
+    title: 'Locker Room · FRG vs AVA',
+    subtitle: 'Match Day 6 · 16 going',
+    avatar: PLAYER_AVATARS[2]!,
+    lastMessage: 'Marcus L.: Away kit (dark) for this one — Front Range wears white.',
+    lastSenderName: 'Marcus L.',
+    lastTimestamp: '1d ago',
+    unreadCount: 0,
+  },
+  {
+    id: 'chat-locker-playoff',
+    kind: 'event',
+    title: 'Locker Room · Quarterfinal',
+    subtitle: 'AVA vs GLA · 20 going',
+    avatar: PLAYER_AVATARS[1]!,
+    lastMessage: 'League: Bracket seeds are locked. Winner faces the Tundra Wolves side.',
+    lastSenderName: 'League',
+    lastTimestamp: '2d ago',
+    unreadCount: 0,
   },
 ];
 
@@ -416,6 +438,28 @@ export const CHAT_MESSAGES: Record<string, ChatMessage[]> = {
       body: 'Light shirts on the south end — let’s rotate every 12.',
       timestamp: '3h ago',
       reactions: [{ emoji: '⚽', count: 5 }],
+    },
+  ],
+  'chat-locker-frg': [
+    {
+      id: 'lr-frg-1',
+      authorName: 'Marcus L.',
+      authorHandle: '@marcus_strikes',
+      authorAvatar: PLAYER_AVATARS[0]!,
+      body: 'Away kit (dark) for this one — Front Range wears white.',
+      timestamp: '1d ago',
+      reactions: [{ emoji: '👕', count: 2 }],
+    },
+  ],
+  'chat-locker-playoff': [
+    {
+      id: 'lr-po-1',
+      authorName: 'League',
+      authorHandle: '@mile_high_league',
+      authorAvatar: PLAYER_AVATARS[1]!,
+      body: 'Bracket seeds are locked. Winner faces the Tundra Wolves side.',
+      timestamp: '2d ago',
+      reactions: [{ emoji: '🏆', count: 6 }],
     },
   ],
 };

@@ -29,11 +29,9 @@ export function CampCard({ camp, onPress, onRegisterPress }: CampCardProps) {
             </IconBadge>
             <View style={styles.titleColumn}>
               <View style={styles.eyebrowRow}>
-                <Text variant="eyebrow" color={colors.brand.primary}>
-                  CAMP
-                </Text>
+                <Tag tone="brand" size="sm" label="Camp" />
                 {sport ? (
-                  <Tag tone="brand" size="sm" leadingDot label={sport} />
+                  <Tag tone="info" size="sm" leadingDot label={sport} />
                 ) : null}
                 {isClosed ? (
                   <Tag tone="neutral" size="sm" label="Full" />

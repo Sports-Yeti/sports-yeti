@@ -18,6 +18,8 @@ export interface TabItem {
   icon?: React.ReactNode;
   badge?: string;
   disabled?: boolean;
+  /** Screen-reader label — use when `badge` carries info the label lacks. */
+  accessibilityLabel?: string;
 }
 
 export interface TabsProps {
@@ -46,7 +48,7 @@ export function Tabs({
         disabled={item.disabled}
         accessibilityRole="tab"
         accessibilityState={{ selected, disabled: item.disabled }}
-        accessibilityLabel={item.label}
+        accessibilityLabel={item.accessibilityLabel ?? item.label}
         style={({ pressed }) => [
           variantStyles[variant].tab,
           selected ? variantStyles[variant].tabSelected : null,

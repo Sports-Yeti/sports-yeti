@@ -11,8 +11,19 @@ import {
   Text,
   useToast,
 } from '../ui';
-import { sportLabel, type DiscoverGame } from '../mocks/games';
+import {
+  EVENT_TYPE_LABEL,
+  sportLabel,
+  type DiscoverEventType,
+  type DiscoverGame,
+} from '../mocks/games';
 import { useWatchStore } from '../stores';
+
+/** Tag tone per event kind — mirrors the Schedule screen convention. */
+const EVENT_TYPE_TONE: Record<DiscoverEventType, 'brand' | 'warning'> = {
+  game: 'brand',
+  scrimmage: 'warning',
+};
 
 interface EventCardProps {
   game: DiscoverGame;
@@ -63,8 +74,13 @@ export function EventCard({ game, onPress, onJoinPress }: EventCardProps) {
                 <Text variant="eyebrow" color={eyebrowColor}>
                   {game.status}
                 </Text>
+                <Tag
+                  tone={EVENT_TYPE_TONE[game.eventType]}
+                  size="sm"
+                  label={EVENT_TYPE_LABEL[game.eventType]}
+                />
                 {sport ? (
-                  <Tag tone="brand" size="sm" leadingDot label={sport} />
+                  <Tag tone="info" size="sm" leadingDot label={sport} />
                 ) : null}
                 {isClosed ? (
                   <Tag tone="neutral" size="sm" label="Closed" />
