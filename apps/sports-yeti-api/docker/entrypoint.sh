@@ -13,6 +13,11 @@ if grep -q "^APP_KEY=$" .env 2>/dev/null; then
     php artisan key:generate --force
 fi
 
+if ! grep -q "^JWT_SECRET=" .env 2>/dev/null; then
+    echo "Generating JWT secret..."
+    php artisan jwt:secret --force
+fi
+
 echo "Caching configuration..."
 php artisan config:cache
 php artisan route:cache
