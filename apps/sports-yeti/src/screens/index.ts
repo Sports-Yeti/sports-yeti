@@ -40,6 +40,7 @@ export { HighlightDetailScreen } from './highlights/HighlightDetailScreen';
 // Profile stack
 export { ProfileEditScreen } from './profile/ProfileEditScreen';
 export { PlayerProfileScreen } from './profile/PlayerProfileScreen';
+export { FollowingListScreen } from './profile/FollowingListScreen';
 export { BookmarkedHighlightsScreen } from './profile/BookmarkedHighlightsScreen';
 export { SettingsScreen } from './profile/SettingsScreen';
 export { NotificationsScreen } from './profile/NotificationsScreen';

@@ -14,6 +14,8 @@ interface ScreenHeaderProps {
   onAvatarPress?: () => void;
   onBellPress?: () => void;
   hasNotifications?: boolean;
+  /** Hide the notifications bell entirely (e.g. on the user's own Profile). */
+  showBell?: boolean;
   variant?: 'translucent' | 'solid';
 }
 
@@ -24,6 +26,7 @@ export function ScreenHeader({
   onAvatarPress,
   onBellPress,
   hasNotifications = false,
+  showBell = true,
   variant = 'translucent',
 }: ScreenHeaderProps) {
   const insets = useSafeAreaInsets();
@@ -55,19 +58,23 @@ export function ScreenHeader({
             {title}
           </Text>
         </Pressable>
-        <Pressable
-          onPress={onBellPress}
-          style={styles.bell}
-          accessibilityRole="button"
-          accessibilityLabel={
-            hasNotifications
-              ? 'View notifications, unread items available'
-              : 'View notifications'
-          }
-        >
-          <Bell size={20} color={colors.text.primary} strokeWidth={2.25} />
-          {hasNotifications ? <View style={styles.dot} /> : null}
-        </Pressable>
+        {showBell ? (
+          <Pressable
+            onPress={onBellPress}
+            style={styles.bell}
+            accessibilityRole="button"
+            accessibilityLabel={
+              hasNotifications
+                ? 'View notifications, unread items available'
+                : 'View notifications'
+            }
+          >
+            <Bell size={20} color={colors.text.primary} strokeWidth={2.25} />
+            {hasNotifications ? <View style={styles.dot} /> : null}
+          </Pressable>
+        ) : (
+          <View style={styles.bell} />
+        )}
       </View>
     </Container>
   );

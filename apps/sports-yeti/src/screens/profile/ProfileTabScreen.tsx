@@ -11,6 +11,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  BadgeCheck,
   ChevronRight,
   Eye,
   LogOut,
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores';
 import { useSavedHighlights } from '../../features/saved-highlights-store';
+import { useFollowStore } from '../../features/follow-store';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   Avatar,
@@ -35,13 +37,14 @@ import {
   useToast,
 } from '../../ui';
 import {
+  EXPERIENCE_LEVEL_BY_KEY,
   NOTIFICATIONS,
-  PROFILE_FRIENDS,
   PROFILE_MORE_LINKS,
-  PROFILE_MUTUAL_COUNT,
   PROFILE_USER,
   SPORT_META_BY_KEY,
-  getStatsForSport,
+  formatFeetInches,
+  getParticipationForSport,
+  getPublicProfile,
   type AppNotification,
   type ProfileMoreRoute,
   type ProfileStat,
@@ -54,22 +57,15 @@ import type { RootStackParamList } from '../../navigation/MainNavigator';
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
 function ProfileHeader({
-  name,
-  handle,
-  bio,
-  avatarUri,
-  proMember,
+  profile,
   onEdit,
   onPreview,
 }: {
-  name: string;
-  handle: string;
-  bio: string;
-  avatarUri: string;
-  proMember: boolean;
+  profile: ProfileUser;
   onEdit: () => void;
   onPreview: () => void;
 }) {
+  const experience = EXPERIENCE_LEVEL_BY_KEY[profile.experience];
   return (
     <Card style={styles.headerCard}>
       <View style={styles.headerEditRow}>
@@ -94,23 +90,32 @@ function ProfileHeader({
         </Pressable>
       </View>
       <View style={styles.headerCenter}>
-        <Avatar uri={avatarUri} size={120} bordered />
-        <Text variant="h1" color={colors.text.primary} align="center">
-          {name}
-        </Text>
+        <Avatar uri={profile.avatar} size={120} bordered />
+        <View style={styles.nameRow}>
+          <Text variant="h1" color={colors.text.primary} align="center">
+            {profile.name}
+          </Text>
+          {profile.proBadge === 'approved' ? (
+            <BadgeCheck size={22} color={colors.brand.primary} strokeWidth={2.25} />
+          ) : null}
+        </View>
         <Text variant="body" color={colors.text.secondary} align="center">
-          {handle}
+          {profile.handle} · {profile.city}
         </Text>
         <Text variant="bodySm" color={colors.text.secondary} align="center" style={styles.bio}>
-          {bio}
+          {profile.bio}
         </Text>
-        {proMember ? (
-          <View style={styles.proChip}>
-            <Text variant="eyebrow" color={colors.brand.tint}>
-              Pro Member
-            </Text>
-          </View>
-        ) : null}
+        <View style={styles.headerTags}>
+          <Tag tone="brand" size="sm" label={experience.label} />
+          {profile.proBadge === 'approved' ? (
+            <Tag tone="success" size="sm" leadingDot label="Pro verified" />
+          ) : profile.proBadge === 'pending' ? (
+            <Tag tone="warning" size="sm" leadingDot label="Pro review pending" />
+          ) : null}
+          {profile.proMember ? (
+            <Tag tone="info" size="sm" label="Pro Member" />
+          ) : null}
+        </View>
       </View>
     </Card>
   );
@@ -125,11 +130,10 @@ function SportSummaryCard({
 }) {
   const meta = SPORT_META_BY_KEY[sportProfile.sportKey];
   const Icon = meta.Icon;
-  const stats = getStatsForSport(user, sportProfile.sportKey);
-  const primary = stats.find((s) => s.highlight);
-  const others = stats.filter((s) => !s.highlight);
-  const PrimaryIcon = primary?.Icon ?? Icon;
   const secondary = sportProfile.secondaryPositions ?? [];
+  const attributeEntries = Object.entries(sportProfile.attributes ?? {}).filter(
+    ([, v]) => v.trim().length > 0,
+  );
 
   return (
     <Card style={styles.sportSummaryCard}>
@@ -147,57 +151,40 @@ function SportSummaryCard({
               <Tag key={p} tone="neutral" size="sm" label={p} />
             ))}
             {sportProfile.jerseyNumber ? (
-              <Tag
-                tone="info"
-                size="sm"
-                label={`#${sportProfile.jerseyNumber}`}
-              />
+              <Tag tone="info" size="sm" label={`#${sportProfile.jerseyNumber}`} />
             ) : null}
           </View>
         </View>
       </View>
-
-      <View style={styles.sportSummaryStats}>
-        {primary ? (
-          <View style={styles.sportSummaryPrimary}>
-            <IconBadge size={40} tone="brand">
-              <PrimaryIcon
-                size={18}
-                color={colors.brand.deep}
-                strokeWidth={2.25}
-              />
-            </IconBadge>
-            <View style={styles.sportSummaryPrimaryText}>
-              <Text variant="display" color={colors.text.primary}>
-                {primary.value}
-              </Text>
-              <Text variant="eyebrow" color={colors.text.secondary}>
-                {primary.label}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-        <View style={styles.sportSummarySecondary}>
-          {others.map((stat) => {
-            const StatIcon = stat.Icon;
-            return (
-              <View key={stat.id} style={styles.sportSecondaryStat}>
-                <StatIcon
-                  size={14}
-                  color={colors.brand.primary}
-                  strokeWidth={2.25}
-                />
-                <Text variant="button" color={colors.text.primary}>
-                  {stat.value}
-                </Text>
-                <Text variant="caption" color={colors.text.secondary}>
-                  {stat.label}
-                </Text>
-              </View>
-            );
-          })}
+      {sportProfile.yearsPlaying || attributeEntries.length > 0 ? (
+        <View style={styles.sportSummaryMeta}>
+          {sportProfile.yearsPlaying ? (
+            <Tag tone="neutral" size="sm" label={`${sportProfile.yearsPlaying} yrs`} />
+          ) : null}
+          {attributeEntries.map(([key, value]) => (
+            <Tag key={key} tone="neutral" size="sm" label={value} />
+          ))}
         </View>
-      </View>
+      ) : null}
+      {user.physical.heightIn || user.physical.weightLb || user.physical.wingspanIn ? (
+        <View style={styles.physicalRow}>
+          {user.physical.heightIn ? (
+            <Text variant="caption" color={colors.text.secondary}>
+              HT {formatFeetInches(user.physical.heightIn)}
+            </Text>
+          ) : null}
+          {user.physical.weightLb ? (
+            <Text variant="caption" color={colors.text.secondary}>
+              WT {user.physical.weightLb} lb
+            </Text>
+          ) : null}
+          {user.physical.wingspanIn ? (
+            <Text variant="caption" color={colors.text.secondary}>
+              WS {formatFeetInches(user.physical.wingspanIn)}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </Card>
   );
 }
@@ -229,36 +216,57 @@ function StatCard({
   );
 }
 
-function FriendsCard({ onPress }: { onPress: () => void }) {
+function FollowingCard({
+  onViewAll,
+  onFindMore,
+}: {
+  onViewAll: () => void;
+  onFindMore: () => void;
+}) {
+  const followingIds = useFollowStore((s) => s.followingIds);
+  const followedProfiles = followingIds
+    .map((id) => getPublicProfile(id))
+    .filter((p): p is NonNullable<typeof p> => !!p);
+
   return (
-    <Card style={styles.friendsCard}>
-      <View style={styles.friendsHeader}>
+    <Card style={styles.followingCard}>
+      <View style={styles.followingHeader}>
         <Text variant="h2" color={colors.text.primary}>
-          Friends
+          Following
         </Text>
-        <Pressable accessibilityRole="button" hitSlop={8} onPress={onPress}>
+        <Pressable accessibilityRole="button" hitSlop={8} onPress={onFindMore}>
           <Text variant="button" color={colors.brand.primary}>
-            Find more
+            Find players
           </Text>
         </Pressable>
       </View>
-      <AvatarStack
-        uris={PROFILE_FRIENDS.map((f) => f.avatar)}
-        size={48}
-        max={4}
-      />
-      <View style={styles.friendsFooter}>
+      {followedProfiles.length === 0 ? (
         <Text variant="bodySm" color={colors.text.secondary}>
-          {PROFILE_MUTUAL_COUNT} Mutual Connections
+          You aren't following anyone yet. Follow players to get notified when
+          they post highlights or join teams.
         </Text>
-        <Pressable accessibilityRole="button" hitSlop={8} onPress={onPress}>
-          <View style={styles.viewAllBtn}>
-            <Text variant="button" color={colors.brand.deep}>
-              View all
+      ) : (
+        <>
+          <AvatarStack
+            uris={followedProfiles.map((p) => p.avatar)}
+            size={48}
+            max={4}
+          />
+          <View style={styles.followingFooter}>
+            <Text variant="bodySm" color={colors.text.secondary}>
+              {followingIds.length} player{followingIds.length === 1 ? '' : 's'} ·
+              visible on your public profile
             </Text>
+            <Pressable accessibilityRole="button" hitSlop={8} onPress={onViewAll}>
+              <View style={styles.viewAllBtn}>
+                <Text variant="button" color={colors.brand.deep}>
+                  View all
+                </Text>
+              </View>
+            </Pressable>
           </View>
-        </Pressable>
-      </View>
+        </>
+      )}
     </Card>
   );
 }
@@ -454,12 +462,9 @@ export function ProfileTabScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader
-        avatarUri={profile.avatar}
-        title="Profile"
-        hasNotifications={unreadCount > 0}
-        onBellPress={() => navigation.navigate('Notifications')}
-      />
+      {/* Own-profile header intentionally hides the notifications bell; the
+          Notifications center stays reachable via More → Notifications. */}
+      <ScreenHeader avatarUri={profile.avatar} title="Profile" showBell={false} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Open settings"
@@ -478,11 +483,7 @@ export function ProfileTabScreen() {
         showsVerticalScrollIndicator={false}
       >
         <ProfileHeader
-          name={profile.name}
-          handle={profile.handle}
-          bio={profile.bio}
-          avatarUri={profile.avatar}
-          proMember={profile.proMember}
+          profile={profile}
           onEdit={() => navigation.navigate('ProfileEdit')}
           onPreview={() =>
             navigation.navigate('PlayerProfile', { playerId: profile.playerId })
@@ -504,7 +505,7 @@ export function ProfileTabScreen() {
                   Go Pro
                 </Text>
                 <Text variant="bodySm" color={colors.text.secondary}>
-                  Unlimited highlights, unlimited stats history.
+                  Unlimited highlights, unlimited history.
                 </Text>
               </View>
             </View>
@@ -544,29 +545,25 @@ export function ProfileTabScreen() {
           />
           {profile.showStats ? (
             <View style={styles.statsRow}>
-              {getStatsForSport(profile, activeSport).slice(0, 4).map((stat, idx) => (
-                <StatCard
-                  key={stat.id}
-                  stat={stat}
-                  style={[
-                    styles.statHalf,
-                    idx > 1 ? styles.statSpacedTop : null,
-                  ]}
-                />
+              {getParticipationForSport(profile, activeSport).map((stat) => (
+                <StatCard key={stat.id} stat={stat} style={styles.statHalf} />
               ))}
             </View>
           ) : (
             <Card style={styles.statsHidden}>
               <Text variant="bodySm" color={colors.text.secondary} align="center">
-                Stats are hidden. Toggle "Show stats" in Edit Profile to share
-                them with others.
+                Activity is hidden. Toggle "Show activity" in Edit Profile to
+                share it with others.
               </Text>
             </Card>
           )}
         </View>
 
-        <FriendsCard
-          onPress={() => navigation.navigate('PlayerDirectory')}
+        <FollowingCard
+          onViewAll={() =>
+            navigation.navigate('FollowingList', { playerId: profile.playerId })
+          }
+          onFindMore={() => navigation.navigate('PlayerDirectory')}
         />
 
         <View style={styles.activityBlock}>
@@ -676,17 +673,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   bio: {
     paddingHorizontal: spacing.xl,
     marginTop: spacing.xs,
   },
-  proChip: {
+  headerTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.sm,
     marginTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface.card,
-    borderRadius: radii.pill,
-    ...shadows.soft,
   },
   upsell: {
     gap: spacing.md,
@@ -725,33 +726,17 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
-  sportSummaryStats: {
+  sportSummaryMeta: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  physicalRow: {
+    flexDirection: 'row',
     gap: spacing.lg,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border.soft,
-  },
-  sportSummaryPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  sportSummaryPrimaryText: {
-    gap: 2,
-  },
-  sportSummarySecondary: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    justifyContent: 'flex-end',
-  },
-  sportSecondaryStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
   },
   statsRow: {
     flexDirection: 'row',
@@ -766,25 +751,22 @@ const styles = StyleSheet.create({
     flexBasis: '47%',
     flexGrow: 1,
   },
-  statSpacedTop: {
-    // gap on the parent already handles vertical rhythm; this style is a
-    // placeholder for future per-row tweaks if a tablet breakpoint lands.
-  },
   statsHidden: {
     paddingVertical: spacing.lg,
   },
-  friendsCard: {
+  followingCard: {
     gap: spacing.lg,
   },
-  friendsHeader: {
+  followingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  friendsFooter: {
+  followingFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
   },
   viewAllBtn: {
     paddingHorizontal: spacing.lg,

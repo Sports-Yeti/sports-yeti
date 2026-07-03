@@ -1,27 +1,20 @@
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react-native';
 import {
-  Activity,
   Bell,
   Bookmark,
   CalendarCheck,
   CalendarDays,
   Clapperboard,
-  Crosshair,
-  Dumbbell,
   FileText,
   Goal,
-  HandMetal,
   Mail,
   MapPin,
-  Repeat,
   Settings,
-  Shield,
   Snowflake,
-  Star,
   Sun,
   Target,
-  TrendingUp,
+  Tent,
   Trophy,
   UserCog,
   Users,
@@ -33,8 +26,8 @@ import { POSITIONS_BY_SPORT, type SportKey } from './teams';
 
 // ----------------------------------------------------------------------------
 // Sport metadata — used by the sport picker, the sport tab strip on the
-// profile, and the per-sport stats panels. Keeping this here (vs teams.ts)
-// because it's profile-shaped (icon, color, display name) rather than the
+// profile, and the per-sport participation panels. Keeping this here (vs
+// teams.ts) because it's profile-shaped (icon, display name) rather than the
 // roster-shaped data that lives in `mocks/teams.ts`.
 // ----------------------------------------------------------------------------
 
@@ -63,72 +56,174 @@ export const SPORT_META_BY_KEY: Record<SportKey, SportMeta> = SPORTS_META.reduce
 );
 
 // ----------------------------------------------------------------------------
-// Per-sport stat schema. Each sport defines an ordered list of stat fields so
-// we can render consistent cards on both the user's own profile and on a
-// public PlayerProfile. The first entry (`primary: true`) is the headline stat
-// the player is "known for" in that sport.
+// Participation counts. The platform does not track in-game performance stats
+// (goals, PPG, kills…) — only how much a player participates in each sport:
+// games played, teams joined, camps trained at, and league seasons completed.
+// One template shared by every sport.
 // ----------------------------------------------------------------------------
 
-export interface SportStatField {
-  id: string;
+export interface SportParticipation {
+  gamesPlayed: number;
+  teamsJoined: number;
+  campsTrained: number;
+  leagueSeasons: number;
+}
+
+export interface ParticipationField {
+  id: keyof SportParticipation;
   label: string;
   Icon: ComponentType<LucideProps>;
-  /** Render slightly larger / accented (max 1 per sport). */
+  /** Render slightly larger / accented (the headline count). */
   primary?: boolean;
 }
 
-export const SPORT_STAT_TEMPLATES: Record<SportKey, SportStatField[]> = {
+export const PARTICIPATION_FIELDS: ParticipationField[] = [
+  { id: 'gamesPlayed', label: 'Games played', Icon: CalendarCheck, primary: true },
+  { id: 'teamsJoined', label: 'Teams joined', Icon: Users },
+  { id: 'campsTrained', label: 'Camps trained', Icon: Tent },
+  { id: 'leagueSeasons', label: 'League seasons', Icon: Trophy },
+];
+
+export const EMPTY_PARTICIPATION: SportParticipation = {
+  gamesPlayed: 0,
+  teamsJoined: 0,
+  campsTrained: 0,
+  leagueSeasons: 0,
+};
+
+// ----------------------------------------------------------------------------
+// Physical + sport-specific attributes. All optional — players opt in to
+// sharing measurements. Shared measurements are imperial (US market).
+// ----------------------------------------------------------------------------
+
+export interface PlayerPhysicalAttributes {
+  heightIn?: number;
+  weightLb?: number;
+  wingspanIn?: number;
+}
+
+/** 66 → `5'6"` */
+export function formatFeetInches(totalInches: number): string {
+  const feet = Math.floor(totalInches / 12);
+  const inches = Math.round(totalInches % 12);
+  return `${feet}'${inches}"`;
+}
+
+export interface SportAttributeField {
+  id: string;
+  label: string;
+  placeholder: string;
+}
+
+/** Optional per-sport attributes rendered as free-text fields in the editor
+ *  and as tags on profiles. Values live on `SportPlayerProfile.attributes`. */
+export const SPORT_ATTRIBUTE_TEMPLATES: Record<SportKey, SportAttributeField[]> = {
   soccer: [
-    { id: 'goals', label: 'Goals', Icon: Trophy, primary: true },
-    { id: 'assists', label: 'Assists', Icon: HandMetal },
-    { id: 'games', label: 'Games', Icon: CalendarCheck },
-    { id: 'mvp', label: 'MVPs', Icon: Star },
+    { id: 'dominant_foot', label: 'Dominant foot', placeholder: 'Right / Left / Both' },
   ],
   basketball: [
-    { id: 'ppg', label: 'PPG', Icon: TrendingUp, primary: true },
-    { id: 'rpg', label: 'RPG', Icon: Repeat },
-    { id: 'apg', label: 'APG', Icon: HandMetal },
-    { id: 'games', label: 'Games', Icon: CalendarCheck },
+    { id: 'vertical_jump', label: 'Vertical jump', placeholder: 'e.g. 28 in' },
+    { id: 'dominant_hand', label: 'Dominant hand', placeholder: 'Right / Left' },
   ],
   volleyball: [
-    { id: 'kills', label: 'Kills', Icon: Zap, primary: true },
-    { id: 'aces', label: 'Aces', Icon: Target },
-    { id: 'blocks', label: 'Blocks', Icon: Shield },
-    { id: 'games', label: 'Sets', Icon: CalendarCheck },
+    { id: 'standing_reach', label: 'Standing reach', placeholder: 'e.g. 7\'4"' },
+    { id: 'approach_jump', label: 'Approach jump', placeholder: 'e.g. 9\'1"' },
   ],
   tennis: [
-    { id: 'wins', label: 'Wins', Icon: Trophy, primary: true },
-    { id: 'losses', label: 'Losses', Icon: Activity },
-    { id: 'aces', label: 'Aces', Icon: Target },
-    { id: 'games', label: 'Matches', Icon: CalendarCheck },
+    { id: 'plays', label: 'Plays', placeholder: 'Right-handed / Left-handed' },
+    { id: 'backhand', label: 'Backhand', placeholder: 'One-handed / Two-handed' },
   ],
   baseball: [
-    { id: 'hits', label: 'Hits', Icon: Target, primary: true },
-    { id: 'rbi', label: 'RBI', Icon: TrendingUp },
-    { id: 'hr', label: 'HR', Icon: Trophy },
-    { id: 'games', label: 'Games', Icon: CalendarCheck },
+    { id: 'bats', label: 'Bats', placeholder: 'R / L / Switch' },
+    { id: 'throws', label: 'Throws', placeholder: 'R / L' },
   ],
   hockey: [
-    { id: 'goals', label: 'Goals', Icon: Crosshair, primary: true },
-    { id: 'assists', label: 'Assists', Icon: HandMetal },
-    { id: 'pim', label: 'PIM', Icon: Dumbbell },
-    { id: 'games', label: 'Games', Icon: CalendarCheck },
+    { id: 'shoots', label: 'Shoots', placeholder: 'Left / Right' },
   ],
 };
 
-/** Per-sport stat values keyed by `SportStatField.id`. */
-export type SportStats = Record<string, number>;
+// ----------------------------------------------------------------------------
+// Gender identity — optional, self-declared.
+// ----------------------------------------------------------------------------
+
+export interface GenderIdentityOption {
+  value: string;
+  label: string;
+}
+
+export const GENDER_IDENTITY_OPTIONS: GenderIdentityOption[] = [
+  { value: 'woman', label: 'Woman' },
+  { value: 'man', label: 'Man' },
+  { value: 'non_binary', label: 'Non-binary' },
+  { value: 'two_spirit', label: 'Two-Spirit' },
+  { value: 'self_described', label: 'Self-described' },
+  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+];
+
+export function genderIdentityLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return GENDER_IDENTITY_OPTIONS.find((o) => o.value === value)?.label ?? null;
+}
+
+// ----------------------------------------------------------------------------
+// Experience levels. Three self-declared tiers; "Pro" is NOT a tier — it's a
+// verified badge players apply for and platform administrators approve.
+// ----------------------------------------------------------------------------
+
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export interface ExperienceLevelMeta {
+  key: ExperienceLevel;
+  label: string;
+  description: string;
+}
+
+export const EXPERIENCE_LEVELS: ExperienceLevelMeta[] = [
+  {
+    key: 'beginner',
+    label: 'Beginner',
+    description: 'New to organized play — learning rules, drills, and game flow.',
+  },
+  {
+    key: 'intermediate',
+    label: 'Intermediate',
+    description: 'Rec-league regular or school ball trained up to high school.',
+  },
+  {
+    key: 'advanced',
+    label: 'Advanced',
+    description: 'College-level training or high-level competitive club play.',
+  },
+];
+
+export const EXPERIENCE_LEVEL_BY_KEY: Record<ExperienceLevel, ExperienceLevelMeta> =
+  EXPERIENCE_LEVELS.reduce(
+    (acc, l) => {
+      acc[l.key] = l;
+      return acc;
+    },
+    {} as Record<ExperienceLevel, ExperienceLevelMeta>,
+  );
+
+/** Pro badge lifecycle: apply → platform admin review → approved. */
+export type ProBadgeStatus = 'none' | 'pending' | 'approved';
+
+// ----------------------------------------------------------------------------
+// Core profile shapes.
+// ----------------------------------------------------------------------------
 
 export interface SportPlayerProfile {
   sportKey: SportKey;
   /** Primary position (canonical, drawn from POSITIONS_BY_SPORT). */
   position: string;
-  /** Optional secondary positions — surface as comma-separated tags. */
+  /** Optional secondary positions — surface as tags. */
   secondaryPositions?: string[];
   /** Years played in this sport. */
   yearsPlaying?: number;
   /** Optional jersey number for this sport. */
   jerseyNumber?: number;
+  /** Sport-specific attributes keyed by SPORT_ATTRIBUTE_TEMPLATES field id. */
+  attributes?: Record<string, string>;
 }
 
 export interface ProfileUser {
@@ -140,15 +235,21 @@ export interface ProfileUser {
   avatar: string;
   bio: string;
   city: string;
+  postalCode: string;
+  /** Value from GENDER_IDENTITY_OPTIONS, or null when unset. */
+  genderIdentity: string | null;
+  /** Subscription tier (billing) — unrelated to the Pro player badge. */
   proMember: boolean;
-  /** Sports the user plays + their position in each. Drives the sport tab
-   *  strip on the profile and the position selector in profile edit.
+  /** Verified professional-experience badge, admin-approved. */
+  proBadge: ProBadgeStatus;
+  /** Sports the user plays + their position(s) in each. Drives the sport tab
+   *  strip on the profile and the pickers in profile edit.
    *  ALWAYS at least 1 entry; the first entry is treated as primary. */
   sportProfiles: SportPlayerProfile[];
-  /** Per-sport stats keyed by `SportKey`. May be empty for a sport that the
-   *  player has registered for but not yet played a game in. */
-  statsBySport: Partial<Record<SportKey, SportStats>>;
-  experience: 'beginner' | 'intermediate' | 'advanced' | 'pro';
+  /** Per-sport participation counts keyed by `SportKey`. */
+  participationBySport: Partial<Record<SportKey, SportParticipation>>;
+  physical: PlayerPhysicalAttributes;
+  experience: ExperienceLevel;
   availability: 'available' | 'looking_for_team' | 'busy';
   availableToSub: boolean;
   certifications: string;
@@ -166,14 +267,6 @@ export interface ProfileStat {
   highlight?: boolean;
 }
 
-export interface ProfileFriend {
-  id: string;
-  name: string;
-  handle: string;
-  avatar: string;
-  position: string;
-}
-
 export const PROFILE_USER: ProfileUser = {
   playerId: 'p-sarah',
   name: 'Sarah Jenkins',
@@ -181,7 +274,10 @@ export const PROFILE_USER: ProfileUser = {
   avatar: SARAH_AVATAR,
   bio: 'Center mid for Avalanche FC. Casual baller. Always up for a Sunday scrimmage.',
   city: 'Denver, CO',
+  postalCode: '80205',
+  genderIdentity: 'woman',
   proMember: true,
+  proBadge: 'none',
   sportProfiles: [
     {
       sportKey: 'soccer',
@@ -189,17 +285,20 @@ export const PROFILE_USER: ProfileUser = {
       secondaryPositions: ['Right Mid'],
       yearsPlaying: 9,
       jerseyNumber: 8,
+      attributes: { dominant_foot: 'Right' },
     },
     {
       sportKey: 'volleyball',
       position: 'Setter',
       yearsPlaying: 4,
+      attributes: { standing_reach: '7\'2"' },
     },
   ],
-  statsBySport: {
-    soccer: { goals: 87, assists: 31, games: 42, mvp: 12 },
-    volleyball: { kills: 64, aces: 22, blocks: 9, games: 18 },
+  participationBySport: {
+    soccer: { gamesPlayed: 42, teamsJoined: 3, campsTrained: 2, leagueSeasons: 5 },
+    volleyball: { gamesPlayed: 18, teamsJoined: 1, campsTrained: 1, leagueSeasons: 2 },
   },
+  physical: { heightIn: 66, weightLb: 140, wingspanIn: 67 },
   experience: 'intermediate',
   availability: 'available',
   availableToSub: true,
@@ -214,12 +313,6 @@ export const PROFILE_USER: ProfileUser = {
 // Helpers — convenience selectors used across screens.
 // ----------------------------------------------------------------------------
 
-export function getPrimarySport(user: Pick<ProfileUser, 'sportProfiles'>):
-  | SportPlayerProfile
-  | undefined {
-  return user.sportProfiles[0];
-}
-
 export function getSportProfile(
   user: Pick<ProfileUser, 'sportProfiles'>,
   sportKey: SportKey,
@@ -227,15 +320,14 @@ export function getSportProfile(
   return user.sportProfiles.find((p) => p.sportKey === sportKey);
 }
 
-/** Stats rendered using the sport template, in template order. Returns 0 for
- *  fields that aren't present in `statsBySport[sportKey]`. */
-export function getStatsForSport(
-  user: Pick<ProfileUser, 'statsBySport'>,
+/** Participation counts rendered via the shared template, in template order.
+ *  Returns 0 for sports the player registered for but hasn't played yet. */
+export function getParticipationForSport(
+  user: Pick<ProfileUser, 'participationBySport'>,
   sportKey: SportKey,
 ): ProfileStat[] {
-  const template = SPORT_STAT_TEMPLATES[sportKey];
-  const values = user.statsBySport[sportKey] ?? {};
-  return template.map((field) => ({
+  const values = user.participationBySport[sportKey] ?? EMPTY_PARTICIPATION;
+  return PARTICIPATION_FIELDS.map((field) => ({
     id: field.id,
     label: field.label.toUpperCase(),
     value: values[field.id] ?? 0,
@@ -251,8 +343,7 @@ export function getPositionsForSport(sportKey: SportKey): string[] {
 
 // ----------------------------------------------------------------------------
 // Public player profiles — keyed by `playerId` so that PlayerProfileScreen and
-// PlayerDirectory can reference one source of truth. We synthesize a basic
-// public profile for every player referenced from the directory + roster mocks.
+// PlayerDirectory can reference one source of truth.
 // ----------------------------------------------------------------------------
 
 export interface PublicPlayerProfile {
@@ -262,10 +353,13 @@ export interface PublicPlayerProfile {
   avatar: string;
   bio: string;
   city: string;
+  genderIdentity?: string | null;
   sportProfiles: SportPlayerProfile[];
-  statsBySport: Partial<Record<SportKey, SportStats>>;
-  /** Default privacy: respects current user's `showStats` toggle when this is
-   *  the user themselves; for others, governed by their own settings. */
+  participationBySport: Partial<Record<SportKey, SportParticipation>>;
+  physical: PlayerPhysicalAttributes;
+  experience: ExperienceLevel;
+  proBadge: ProBadgeStatus;
+  /** Governed by the player's own privacy settings. */
   showStats: boolean;
   showHighlights: boolean;
 }
@@ -278,8 +372,12 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     avatar: PROFILE_USER.avatar,
     bio: PROFILE_USER.bio,
     city: PROFILE_USER.city,
+    genderIdentity: PROFILE_USER.genderIdentity,
     sportProfiles: PROFILE_USER.sportProfiles,
-    statsBySport: PROFILE_USER.statsBySport,
+    participationBySport: PROFILE_USER.participationBySport,
+    physical: PROFILE_USER.physical,
+    experience: PROFILE_USER.experience,
+    proBadge: PROFILE_USER.proBadge,
     showStats: PROFILE_USER.showStats,
     showHighlights: PROFILE_USER.showHighlights,
   },
@@ -288,14 +386,23 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     name: 'Marcus L.',
     handle: '@marcus_strikes',
     avatar: PLAYER_AVATARS[0]!,
-    bio: 'Striker who refuses to come off the front post.',
+    bio: 'Striker who refuses to come off the front post. Ex-USL two seasons.',
     city: 'Denver, CO',
     sportProfiles: [
-      { sportKey: 'soccer', position: 'Striker', yearsPlaying: 12, jerseyNumber: 9 },
+      {
+        sportKey: 'soccer',
+        position: 'Striker',
+        yearsPlaying: 12,
+        jerseyNumber: 9,
+        attributes: { dominant_foot: 'Left' },
+      },
     ],
-    statsBySport: {
-      soccer: { goals: 134, assists: 22, games: 51, mvp: 18 },
+    participationBySport: {
+      soccer: { gamesPlayed: 51, teamsJoined: 4, campsTrained: 6, leagueSeasons: 8 },
     },
+    physical: { heightIn: 73, weightLb: 178, wingspanIn: 75 },
+    experience: 'advanced',
+    proBadge: 'approved',
     showStats: true,
     showHighlights: true,
   },
@@ -307,11 +414,19 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     bio: 'Center back. Reads the game three passes ahead.',
     city: 'Denver, CO',
     sportProfiles: [
-      { sportKey: 'soccer', position: 'Center Back', secondaryPositions: ['Right Back'], yearsPlaying: 7 },
+      {
+        sportKey: 'soccer',
+        position: 'Center Back',
+        secondaryPositions: ['Right Back'],
+        yearsPlaying: 7,
+      },
     ],
-    statsBySport: {
-      soccer: { goals: 4, assists: 11, games: 38, mvp: 5 },
+    participationBySport: {
+      soccer: { gamesPlayed: 38, teamsJoined: 2, campsTrained: 1, leagueSeasons: 4 },
     },
+    physical: { heightIn: 71 },
+    experience: 'intermediate',
+    proBadge: 'none',
     showStats: true,
     showHighlights: true,
   },
@@ -322,14 +437,24 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     avatar: PLAYER_AVATARS[5]!,
     bio: 'Setter and right mid. Two sports, one warmup.',
     city: 'Boulder, CO',
+    genderIdentity: 'woman',
     sportProfiles: [
-      { sportKey: 'volleyball', position: 'Setter', yearsPlaying: 11, jerseyNumber: 4 },
+      {
+        sportKey: 'volleyball',
+        position: 'Setter',
+        yearsPlaying: 11,
+        jerseyNumber: 4,
+        attributes: { standing_reach: '7\'6"', approach_jump: '9\'0"' },
+      },
       { sportKey: 'soccer', position: 'Right Mid', yearsPlaying: 6 },
     ],
-    statsBySport: {
-      volleyball: { kills: 142, aces: 38, blocks: 27, games: 41 },
-      soccer: { goals: 17, assists: 20, games: 28, mvp: 4 },
+    participationBySport: {
+      volleyball: { gamesPlayed: 41, teamsJoined: 3, campsTrained: 4, leagueSeasons: 6 },
+      soccer: { gamesPlayed: 28, teamsJoined: 1, campsTrained: 0, leagueSeasons: 3 },
     },
+    physical: { heightIn: 68, wingspanIn: 70 },
+    experience: 'advanced',
+    proBadge: 'none',
     showStats: true,
     showHighlights: true,
   },
@@ -343,9 +468,12 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     sportProfiles: [
       { sportKey: 'soccer', position: 'Left Wing', yearsPlaying: 5 },
     ],
-    statsBySport: {
-      soccer: { goals: 24, assists: 16, games: 27, mvp: 3 },
+    participationBySport: {
+      soccer: { gamesPlayed: 27, teamsJoined: 2, campsTrained: 1, leagueSeasons: 2 },
     },
+    physical: {},
+    experience: 'beginner',
+    proBadge: 'none',
     showStats: true,
     showHighlights: true,
   },
@@ -357,11 +485,19 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     bio: 'Goalkeeper. Will dive into the next county for a clean sheet.',
     city: 'Denver, CO',
     sportProfiles: [
-      { sportKey: 'soccer', position: 'Goalkeeper', yearsPlaying: 14, jerseyNumber: 1 },
+      {
+        sportKey: 'soccer',
+        position: 'Goalkeeper',
+        yearsPlaying: 14,
+        jerseyNumber: 1,
+      },
     ],
-    statsBySport: {
-      soccer: { goals: 0, assists: 1, games: 60, mvp: 22 },
+    participationBySport: {
+      soccer: { gamesPlayed: 60, teamsJoined: 5, campsTrained: 8, leagueSeasons: 10 },
     },
+    physical: { heightIn: 75, wingspanIn: 79 },
+    experience: 'advanced',
+    proBadge: 'pending',
     showStats: true,
     showHighlights: false,
   },
@@ -375,9 +511,12 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     sportProfiles: [
       { sportKey: 'soccer', position: 'Right Back', yearsPlaying: 16 },
     ],
-    statsBySport: {
-      soccer: { goals: 6, assists: 9, games: 44, mvp: 8 },
+    participationBySport: {
+      soccer: { gamesPlayed: 44, teamsJoined: 3, campsTrained: 5, leagueSeasons: 9 },
     },
+    physical: {},
+    experience: 'advanced',
+    proBadge: 'none',
     showStats: true,
     showHighlights: false,
   },
@@ -389,11 +528,20 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     bio: 'Point guard, captain of Summit Hoops. Pass-first always.',
     city: 'Boulder, CO',
     sportProfiles: [
-      { sportKey: 'basketball', position: 'Point Guard', yearsPlaying: 10, jerseyNumber: 11 },
+      {
+        sportKey: 'basketball',
+        position: 'Point Guard',
+        yearsPlaying: 10,
+        jerseyNumber: 11,
+        attributes: { vertical_jump: '26 in', dominant_hand: 'Right' },
+      },
     ],
-    statsBySport: {
-      basketball: { ppg: 14, rpg: 4, apg: 9, games: 22 },
+    participationBySport: {
+      basketball: { gamesPlayed: 22, teamsJoined: 2, campsTrained: 2, leagueSeasons: 3 },
     },
+    physical: { heightIn: 70, weightLb: 165 },
+    experience: 'intermediate',
+    proBadge: 'none',
     showStats: true,
     showHighlights: true,
   },
@@ -404,12 +552,22 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     avatar: PLAYER_AVATARS[7]!,
     bio: 'Right wing on ice. Reformed defenseman.',
     city: 'Anchorage, AK',
+    genderIdentity: 'woman',
     sportProfiles: [
-      { sportKey: 'hockey', position: 'Right Wing', secondaryPositions: ['Defenseman'], yearsPlaying: 12 },
+      {
+        sportKey: 'hockey',
+        position: 'Right Wing',
+        secondaryPositions: ['Defenseman'],
+        yearsPlaying: 12,
+        attributes: { shoots: 'Right' },
+      },
     ],
-    statsBySport: {
-      hockey: { goals: 28, assists: 41, pim: 18, games: 33 },
+    participationBySport: {
+      hockey: { gamesPlayed: 33, teamsJoined: 2, campsTrained: 3, leagueSeasons: 5 },
     },
+    physical: { heightIn: 67 },
+    experience: 'advanced',
+    proBadge: 'none',
     showStats: true,
     showHighlights: true,
   },
@@ -418,14 +576,22 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     name: 'Björn K.',
     handle: '@bjorn_k',
     avatar: PLAYER_AVATARS[1]!,
-    bio: 'Captain. Center. Cold as the rink.',
+    bio: 'Captain. Center. Cold as the rink. Former SHL depth forward.',
     city: 'Anchorage, AK',
     sportProfiles: [
-      { sportKey: 'hockey', position: 'Center', yearsPlaying: 18 },
+      {
+        sportKey: 'hockey',
+        position: 'Center',
+        yearsPlaying: 18,
+        attributes: { shoots: 'Left' },
+      },
     ],
-    statsBySport: {
-      hockey: { goals: 64, assists: 78, pim: 42, games: 88 },
+    participationBySport: {
+      hockey: { gamesPlayed: 88, teamsJoined: 6, campsTrained: 10, leagueSeasons: 14 },
     },
+    physical: { heightIn: 74, weightLb: 205, wingspanIn: 77 },
+    experience: 'advanced',
+    proBadge: 'approved',
     showStats: true,
     showHighlights: true,
   },
@@ -440,10 +606,13 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
       { sportKey: 'hockey', position: 'Defenseman', yearsPlaying: 9 },
       { sportKey: 'soccer', position: 'Goalkeeper', yearsPlaying: 5 },
     ],
-    statsBySport: {
-      hockey: { goals: 11, assists: 33, pim: 24, games: 44 },
-      soccer: { goals: 0, assists: 0, games: 12, mvp: 2 },
+    participationBySport: {
+      hockey: { gamesPlayed: 44, teamsJoined: 3, campsTrained: 2, leagueSeasons: 6 },
+      soccer: { gamesPlayed: 12, teamsJoined: 1, campsTrained: 0, leagueSeasons: 1 },
     },
+    physical: {},
+    experience: 'intermediate',
+    proBadge: 'none',
     showStats: true,
     showHighlights: false,
   },
@@ -455,11 +624,19 @@ export const PUBLIC_PLAYER_PROFILES: Record<string, PublicPlayerProfile> = {
     bio: 'Outside hitter. Sand or hardwood, both feel like home.',
     city: 'San Diego, CA',
     sportProfiles: [
-      { sportKey: 'volleyball', position: 'Outside Hitter', yearsPlaying: 13 },
+      {
+        sportKey: 'volleyball',
+        position: 'Outside Hitter',
+        yearsPlaying: 13,
+        attributes: { standing_reach: '8\'0"', approach_jump: '10\'2"' },
+      },
     ],
-    statsBySport: {
-      volleyball: { kills: 211, aces: 47, blocks: 18, games: 52 },
+    participationBySport: {
+      volleyball: { gamesPlayed: 52, teamsJoined: 4, campsTrained: 5, leagueSeasons: 8 },
     },
+    physical: { heightIn: 76, wingspanIn: 80 },
+    experience: 'advanced',
+    proBadge: 'none',
     showStats: true,
     showHighlights: true,
   },
@@ -471,17 +648,30 @@ export function getPublicProfile(
   return PUBLIC_PLAYER_PROFILES[playerId];
 }
 
-export const PROFILE_FRIENDS: ProfileFriend[] = PLAYER_AVATARS.slice(0, 6).map(
-  (avatar, idx) => ({
-    id: `friend-${idx}`,
-    name: ['Marcus L.', 'Rio T.', 'Jamie R.', 'Coast Squad', 'Leo P.', 'Priya S.'][idx]!,
-    handle: ['@marcus_strikes', '@rio_t', '@jamie_r', '@coast_squad', '@leo_p', '@priya_serves'][idx]!,
-    avatar,
-    position: ['Striker', 'Center Back', 'Point Guard', 'Setter', 'Left Wing', 'Setter'][idx]!,
-  }),
-);
+// ----------------------------------------------------------------------------
+// Following. There are no "friends" — players follow other players to get
+// notified of their activity. Follow lists are public: anyone can view who a
+// player follows. The current user's live follow set is managed by
+// `features/follow-store.ts`, seeded from DEFAULT_FOLLOWING.
+// ----------------------------------------------------------------------------
 
-export const PROFILE_MUTUAL_COUNT = 14;
+/** Players Sarah follows out of the box. */
+export const DEFAULT_FOLLOWING: string[] = ['p-marcus', 'p-priya', 'p-jamie'];
+
+/** Public follow lists for other players (playerId → playerIds they follow). */
+export const FOLLOWING_BY_PLAYER: Record<string, string[]> = {
+  'p-marcus': ['p-sarah', 'p-rio', 'p-ash', 'p-leo'],
+  'p-priya': ['p-sarah', 'p-coast'],
+  'p-rio': ['p-marcus', 'p-ash'],
+  'p-jamie': ['p-sarah'],
+  'p-tara': ['p-bjorn', 'p-eli'],
+  'p-bjorn': ['p-tara'],
+  'p-eli': ['p-bjorn', 'p-tara'],
+  'p-ash': ['p-marcus'],
+  'p-leo': ['p-marcus', 'p-sarah'],
+  'p-kim': [],
+  'p-coast': ['p-priya'],
+};
 
 // Routes that the More section can deep-link into.
 export type ProfileMoreRoute =
@@ -492,7 +682,6 @@ export type ProfileMoreRoute =
   | 'Waivers'
   | 'MyHighlights'
   | 'BookmarkedHighlights'
-  | 'Bookings'
   | 'Facilities'
   | 'Messages'
   | 'PlayerDirectory';
@@ -505,6 +694,8 @@ export interface MoreLink {
   route: ProfileMoreRoute;
 }
 
+// NOTE: "My Bookings" was intentionally removed — space bookings happen inside
+// the game creation flow, so players have no standalone booking management.
 export const PROFILE_MORE_LINKS: MoreLink[] = [
   {
     id: 'edit',
@@ -533,13 +724,6 @@ export const PROFILE_MORE_LINKS: MoreLink[] = [
     description: 'Reels you saved to watch later.',
     Icon: Bookmark,
     route: 'BookmarkedHighlights',
-  },
-  {
-    id: 'bookings',
-    label: 'My Bookings',
-    description: 'Court and field reservations.',
-    Icon: CalendarCheck,
-    route: 'Bookings',
   },
   {
     id: 'facilities',

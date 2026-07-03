@@ -34,6 +34,11 @@ interface SettingsState {
   inviteAlerts: boolean;
   paymentAlerts: boolean;
   highlightAlerts: boolean;
+  // What activities of MINE my followers get notified about.
+  notifyFollowersHighlights: boolean;
+  notifyFollowersTeamJoins: boolean;
+  notifyFollowersGames: boolean;
+  notifyFollowersCamps: boolean;
 }
 
 const INITIAL: SettingsState = {
@@ -42,6 +47,10 @@ const INITIAL: SettingsState = {
   inviteAlerts: true,
   paymentAlerts: true,
   highlightAlerts: false,
+  notifyFollowersHighlights: true,
+  notifyFollowersTeamJoins: true,
+  notifyFollowersGames: false,
+  notifyFollowersCamps: false,
 };
 
 function SettingsRow({
@@ -207,6 +216,40 @@ export function SettingsScreen() {
             title="Highlight ready"
             value={settings.highlightAlerts}
             onValueChange={(v) => update('highlightAlerts', v)}
+          />
+        </Card>
+
+        <Card style={styles.section}>
+          <Text variant="eyebrow" color={colors.text.secondary} style={styles.sectionLabel}>
+            Follower updates
+          </Text>
+          <Text variant="caption" color={colors.text.secondary}>
+            Choose which of your activities players who follow you are notified
+            about.
+          </Text>
+          <ToggleRow
+            title="New highlights"
+            subtitle="Followers hear about reels you post to the feed."
+            value={settings.notifyFollowersHighlights}
+            onValueChange={(v) => update('notifyFollowersHighlights', v)}
+          />
+          <ToggleRow
+            title="Joining a team"
+            subtitle="Followers see when you join a new squad."
+            value={settings.notifyFollowersTeamJoins}
+            onValueChange={(v) => update('notifyFollowersTeamJoins', v)}
+          />
+          <ToggleRow
+            title="Games"
+            subtitle="Followers are notified when you commit to or play a game."
+            value={settings.notifyFollowersGames}
+            onValueChange={(v) => update('notifyFollowersGames', v)}
+          />
+          <ToggleRow
+            title="Camps & training"
+            subtitle="Followers see camps you register for."
+            value={settings.notifyFollowersCamps}
+            onValueChange={(v) => update('notifyFollowersCamps', v)}
           />
         </Card>
 

@@ -27,6 +27,7 @@ import {
   NotificationsScreen,
   PlayerDirectoryScreen,
   PlayerProfileScreen,
+  FollowingListScreen,
   BookmarkedHighlightsScreen,
   ProfileEditScreen,
   ProfileTabScreen,
@@ -102,6 +103,8 @@ export type RootStackParamList = {
   // Profile stack
   ProfileEdit: undefined;
   PlayerProfile: { playerId: string };
+  /** Public list of players someone follows (own list when playerId is self). */
+  FollowingList: { playerId: string };
   BookmarkedHighlights: undefined;
   Settings: undefined;
   Notifications: undefined;
@@ -307,6 +310,7 @@ export function MainNavigator() {
       <Stack.Screen name="HighlightDetail" component={HighlightDetailScreen} />
       <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
       <Stack.Screen name="PlayerProfile" component={PlayerProfileScreen} />
+      <Stack.Screen name="FollowingList" component={FollowingListScreen} />
       <Stack.Screen
         name="BookmarkedHighlights"
         component={BookmarkedHighlightsScreen}
