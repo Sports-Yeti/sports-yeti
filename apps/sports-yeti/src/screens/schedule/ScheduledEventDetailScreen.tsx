@@ -17,7 +17,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react-native';
-import { colors, radii, shadows, spacing } from '../../theme';
+import { colors, shadows, spacing } from '../../theme';
 import {
   Avatar,
   AvatarStack,
@@ -31,8 +31,8 @@ import {
   useToast,
 } from '../../ui';
 import {
-  KIND_LABEL,
-  eventById,
+  MY_SCHEDULE,
+  scheduleKindLabel,
   type ScheduledCamp,
   type ScheduledEvent,
   type ScheduledGame,
@@ -40,6 +40,7 @@ import {
 } from '../../mocks/schedule';
 import { CHATS } from '../../mocks/messages';
 import { TEAM_DETAILS } from '../../mocks/teams';
+import { useScheduleStore } from '../../features/schedule-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<
@@ -120,7 +121,7 @@ function HeroBlock({ event }: { event: ScheduledEvent }) {
   return (
     <View style={styles.heroBlock}>
       <View style={styles.heroTags}>
-        <Tag tone={kindTone} size="sm" label={KIND_LABEL[event.kind]} />
+        <Tag tone={kindTone} size="sm" label={scheduleKindLabel(event)} />
         {event.commitment === 'paid' ? (
           <Tag tone="success" size="sm" leadingDot label="Paid" />
         ) : (
@@ -426,7 +427,13 @@ function CampDetails({ event }: { event: ScheduledCamp }) {
   );
 }
 
-function ScrimmageDetails({ event }: { event: ScheduledScrimmage }) {
+function ScrimmageDetails({
+  event,
+  onOpenListing,
+}: {
+  event: ScheduledScrimmage;
+  onOpenListing?: () => void;
+}) {
   return (
     <Card style={styles.attendeeCard}>
       <View style={styles.coachRow}>
@@ -457,6 +464,15 @@ function ScrimmageDetails({ event }: { event: ScheduledScrimmage }) {
           </Text>
         </View>
       </View>
+      {onOpenListing ? (
+        <Button
+          label="View game listing"
+          variant="ghost"
+          size="md"
+          onPress={onOpenListing}
+          style={styles.listingBtn}
+        />
+      ) : null}
     </Card>
   );
 }
@@ -512,9 +528,19 @@ export function ScheduledEventDetailScreen() {
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const event = eventById(route.params.id);
+  // Look across seeded + session-added events, keeping cancelled ones
+  // resolvable so this screen can show the "no longer attending" state
+  // (and offer Undo) instead of a dead "not found".
+  const added = useScheduleStore((s) => s.added);
+  const cancelledIds = useScheduleStore((s) => s.cancelledIds);
+  const cancelEvent = useScheduleStore((s) => s.cancelEvent);
+  const restoreEvent = useScheduleStore((s) => s.restoreEvent);
+  const event = useMemo(
+    () => [...MY_SCHEDULE, ...added].find((e) => e.id === route.params.id),
+    [added, route.params.id],
+  );
   const [confirmCancel, setConfirmCancel] = useState(false);
-  const [cancelled, setCancelled] = useState(false);
+  const cancelled = !!event && !!cancelledIds[event.id];
 
   const cancellation = useMemo(
     () => (event ? getCancellationState(event) : null),
@@ -541,17 +567,31 @@ export function ScheduledEventDetailScreen() {
     navigation.navigate('Chat', { chatId, title });
   };
 
+  // Narrowed const so the closure below keeps the non-undefined type.
+  const scrimmageGameId =
+    event.kind === 'scrimmage' ? event.gameId : undefined;
+
   const handleCancel = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setConfirmCancel(false);
-    setCancelled(true);
+    cancelEvent(event.id);
+    // Refunds only apply where the policy grants them: league games and
+    // camps refund inside the window; paid pickup spots don't (the court
+    // is already booked) — same copy GameDetail uses.
+    const paidPickup =
+      event.commitment === 'paid' && event.kind === 'scrimmage';
     toast.show({
       variant: 'success',
       title: 'Cancelled your spot',
-      description:
-        event.commitment === 'paid'
-          ? 'Refund issued to your original payment method.'
-          : 'You’ve been removed from the roster.',
+      description: paidPickup
+        ? 'Paid pickup games aren’t refunded — the court is already booked.'
+        : event.commitment === 'paid'
+        ? 'Refund issued to your original payment method.'
+        : 'You’ve been removed from the roster.',
+      action: { label: 'Undo', onPress: () => restoreEvent(event.id) },
+      // Longer window so assistive-tech users can reach the Undo action
+      // (the footer also flips to "No longer attending" as a fallback).
+      duration: 8000,
     });
   };
 
@@ -581,7 +621,17 @@ export function ScheduledEventDetailScreen() {
 
         {event.kind === 'game' ? <GameMatchupCard event={event} /> : null}
         {event.kind === 'camp' ? <CampDetails event={event} /> : null}
-        {event.kind === 'scrimmage' ? <ScrimmageDetails event={event} /> : null}
+        {event.kind === 'scrimmage' ? (
+          <ScrimmageDetails
+            event={event}
+            onOpenListing={
+              scrimmageGameId
+                ? () =>
+                    navigation.navigate('GameDetails', { id: scrimmageGameId })
+                : undefined
+            }
+          />
+        ) : null}
 
         <ChatsSection event={event} onOpenChat={openChat} />
 
@@ -606,7 +656,9 @@ export function ScheduledEventDetailScreen() {
               label="Find another"
               variant="ghost"
               size="md"
-              onPress={() => navigation.navigate('Discover' as never)}
+              onPress={() =>
+                navigation.navigate('MainTabs', { screen: 'Discover' })
+              }
             />
           </View>
         ) : (
@@ -652,7 +704,9 @@ export function ScheduledEventDetailScreen() {
         variant="destructive"
         title="Cancel your spot?"
         description={
-          event.commitment === 'paid'
+          event.commitment === 'paid' && event.kind === 'scrimmage'
+            ? `${event.cancelPolicyLabel}. The host will be notified so they can re-fill your spot.`
+            : event.commitment === 'paid'
             ? `${event.cancelPolicyLabel}. Your refund processes to the original payment method within 3–5 business days.`
             : `${event.cancelPolicyLabel}. The host will be notified so they can fill your spot.`
         }
@@ -841,6 +895,9 @@ const styles = StyleSheet.create({
   cancelBtn: {
     alignSelf: 'flex-start',
     marginTop: spacing.sm,
+  },
+  listingBtn: {
+    alignSelf: 'flex-start',
   },
   footer: {
     position: 'absolute',

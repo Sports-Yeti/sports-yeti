@@ -17,7 +17,6 @@ import {
   ScreenHeader,
   SearchBar,
   SearchMultiSelect,
-  SectionHeader,
   SportCombobox,
   SportMultiSelectSheet,
   Tabs,
@@ -29,13 +28,13 @@ import { sportCatalogEntry } from '../../mocks/games';
 import { DEFAULT_MAP_CENTER, distanceMilesBetween } from '../../mocks/facilities';
 import {
   POSITIONS_BY_SPORT,
-  SQUADS,
-  TEAM_DETAILS,
   type CostMode,
   type SportKey,
   type Squad,
 } from '../../mocks/teams';
 import { catalogKeyToTeamSport, resolveAllowedTeamSports } from '../../lib/sport-filter';
+import { useTeamMembershipStore } from '../../features/team-membership-store';
+import { useAllSquads } from '../../features/created-squads-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -84,12 +83,10 @@ function parseDollars(value: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-function deriveChatLocked(squadId: string): boolean {
-  const team = TEAM_DETAILS[squadId];
-  if (!team) return false;
-  if (team.costMode === 'free') return false;
-  if (team.membership !== 'member' && team.membership !== 'captain') return false;
-  return team.hasUnpaidShare;
+// Chat is gated on captain approval (never payment — see ChatScreen), so
+// the lock icon only shows while a join request is pending.
+function deriveChatLocked(membership: Squad['membership']): boolean {
+  return membership === 'pending';
 }
 
 export function SquadsScreen() {
@@ -114,9 +111,23 @@ export function SquadsScreen() {
 
   const initials = (user?.name?.charAt(0) ?? 'S').toUpperCase();
 
+  // Seeded + wizard-created squads, with session join/leave overrides so a
+  // request made on TeamDetail moves the squad into "My Teams" (pending)
+  // here without a restart.
+  const allSquads = useAllSquads();
+  const membershipOverrides = useTeamMembershipStore((s) => s.overrides);
+  const squads = useMemo(
+    () =>
+      allSquads.map((s) => {
+        const override = membershipOverrides[s.id];
+        return override ? { ...s, membership: override } : s;
+      }),
+    [allSquads, membershipOverrides],
+  );
+
   const myTeams = useMemo(
-    () => SQUADS.filter((s) => s.membership !== 'none'),
-    [],
+    () => squads.filter((s) => s.membership !== 'none'),
+    [squads],
   );
 
   const selectedSportEntries = useMemo(
@@ -160,7 +171,7 @@ export function SquadsScreen() {
   const discoverable = useMemo(() => {
     const q = search.trim().toLowerCase();
     const lowerPositions = new Set([...positions].map((p) => p.toLowerCase()));
-    return SQUADS.filter((s: Squad) => {
+    return squads.filter((s: Squad) => {
       // Hide full rosters from discovery so players don't apply for nothing.
       if (s.rosterCount >= s.rosterMax) return false;
       // Don't surface teams the user is already on.
@@ -193,6 +204,7 @@ export function SquadsScreen() {
       return true;
     });
   }, [
+    squads,
     search,
     allowedTeamSports,
     level,
@@ -269,11 +281,6 @@ export function SquadsScreen() {
   const distancePillLabel = radiusActive
     ? `${radiusMiles} mi · ${radiusCenter.label}`
     : 'Distance · Any';
-
-  const sectionTitle =
-    tab === 'mine'
-      ? `${myTeams.length} team${myTeams.length === 1 ? '' : 's'} you're on`
-      : `${discoverable.length} team${discoverable.length === 1 ? '' : 's'} recruiting`;
 
   return (
     <View style={styles.root}>
@@ -412,20 +419,16 @@ export function SquadsScreen() {
                   key={squad.id}
                   squad={squad}
                   variant={tab === 'mine' ? 'mine' : 'discover'}
-                  chatLocked={deriveChatLocked(squad.id)}
+                  chatLocked={deriveChatLocked(squad.membership)}
                   onPress={() =>
                     navigation.navigate('TeamDetails', { id: squad.id })
                   }
-                  onApply={() => {
-                    toast.show({
-                      variant: 'success',
-                      title: `Applied to ${squad.name}`,
-                      description:
-                        squad.costMode === 'paid'
-                          ? `Captain reviews within 48h. You'll pay $${(squad.perPlayerCents / 100).toFixed(0)} once accepted.`
-                          : 'The captain will respond within 48 hours.',
-                    });
-                  }}
+                  // Applying requires the join sheet (message to captain),
+                  // which lives on TeamDetail — route there instead of
+                  // faking an application with a toast.
+                  onApply={() =>
+                    navigation.navigate('TeamDetails', { id: squad.id })
+                  }
                 />
               ))}
             </View>

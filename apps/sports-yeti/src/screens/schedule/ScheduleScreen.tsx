@@ -27,10 +27,10 @@ import {
 } from '../../ui';
 import {
   KIND_LABEL,
-  MY_SCHEDULE,
   addDays,
   dayKey,
   eventDayKeys,
+  scheduleKindLabel,
   startOfWeek,
   upcomingEvents,
   type ScheduleEventKind,
@@ -39,6 +39,7 @@ import {
   type ScheduledGame,
   type ScheduledScrimmage,
 } from '../../mocks/schedule';
+import { useMySchedule } from '../../features/schedule-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -481,7 +482,7 @@ function ScrimmageCard({
       <Card style={styles.eventCard}>
         <View style={styles.kindHeader}>
           <View style={styles.kindLeft}>
-            <Tag tone="warning" size="sm" label={KIND_LABEL.scrimmage} />
+            <Tag tone="warning" size="sm" label={scheduleKindLabel(event)} />
             <Text variant="eyebrow" color={colors.text.secondary}>
               {event.sportLabel.toUpperCase()}
             </Text>
@@ -576,7 +577,12 @@ export function ScheduleScreen() {
   const [kind, setKind] = useState<KindFilter>('all');
   const [weekOffset, setWeekOffset] = useState(0);
 
-  const filteredAll = useMemo(() => filterByKind(MY_SCHEDULE, kind), [kind]);
+  // Seeded fixture + everything joined/registered/cancelled this session.
+  const events = useMySchedule();
+  const filteredAll = useMemo(
+    () => filterByKind(events, kind),
+    [events, kind],
+  );
   const eventDays = useMemo(() => eventDayKeys(filteredAll), [filteredAll]);
 
   const weekStart = useMemo(
@@ -589,7 +595,7 @@ export function ScheduleScreen() {
   );
 
   const [selectedDayKey, setSelectedDayKey] = useState<string>(() =>
-    defaultDayForWeek(currentWeekStart, eventDayKeys(MY_SCHEDULE), todayKey),
+    defaultDayForWeek(currentWeekStart, eventDayKeys(events), todayKey),
   );
 
   const goToWeek = (offset: number) => {
@@ -607,7 +613,7 @@ export function ScheduleScreen() {
   const changeKind = (next: KindFilter) => {
     setKind(next);
     // Keep the user's day selection unless the new filter empties it out.
-    const nextDays = eventDayKeys(filterByKind(MY_SCHEDULE, next));
+    const nextDays = eventDayKeys(filterByKind(events, next));
     setSelectedDayKey((prev) =>
       nextDays.has(prev) ? prev : defaultDayForWeek(weekStart, nextDays, todayKey),
     );
@@ -634,8 +640,8 @@ export function ScheduleScreen() {
   );
 
   const upcoming = useMemo(
-    () => filterByKind(upcomingEvents(), kind),
-    [kind],
+    () => filterByKind(upcomingEvents(events), kind),
+    [events, kind],
   );
   const upcomingGroups = useMemo(() => {
     const groups: { key: string; date: Date; events: ScheduledEvent[] }[] = [];

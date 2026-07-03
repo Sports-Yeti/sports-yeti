@@ -20,6 +20,7 @@ import {
 } from '@sports-yeti/mocks';
 import { Text, useToast } from '../../ui';
 import { colors, spacing } from '../../theme';
+import { useSubRequestsStore } from '../../features/sub-requests-store';
 
 const subSchema = z.object({
   teamId: z.string().min(1, 'Pick a team'),
@@ -40,6 +41,7 @@ export function SubRequestCreateScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const addRequest = useSubRequestsStore((s) => s.addRequest);
   const teams = teamsCaptainedBy(DEMO_PLAYER_ID);
   const teamOptions = teams.map((t) => ({ value: t.id, label: t.name }));
 
@@ -81,8 +83,19 @@ export function SubRequestCreateScreen() {
           }}
           resolver={zodResolver(subSchema)}
           onSubmit={async (v) => {
-            // eslint-disable-next-line no-console
-            console.log('Sub request submit (mock)', v);
+            // Session store — the request shows up on CaptainHome and in
+            // the team's sub inbox immediately.
+            addRequest({
+              id: `sub-${Date.now()}`,
+              gameId: '',
+              teamId: v.teamId,
+              position: v.position,
+              skillLevel: v.skillLevel,
+              message: v.message || undefined,
+              status: 'open',
+              applicantPlayerIds: [],
+              createdAtIso: new Date().toISOString(),
+            });
             toast.show({
               variant: 'success',
               title: 'Sub request posted',

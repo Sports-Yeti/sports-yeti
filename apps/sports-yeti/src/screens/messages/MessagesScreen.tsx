@@ -14,6 +14,8 @@ import {
   Text,
 } from '../../ui';
 import { CHATS, type ChatPreview } from '../../mocks/messages';
+import { SARAH_AVATAR } from '../../mocks/avatars';
+import { useTeamChat } from '../../features/team-chat-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -82,9 +84,39 @@ export function MessagesScreen() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('all');
 
+  // Conversations started this session (fresh DMs, new locker rooms) have
+  // no seeded preview — synthesize rows from the chat store so they show
+  // up in the inbox alongside the fixtures.
+  const chatMetaById = useTeamChat((s) => s.chatMetaById);
+  const messagesByChat = useTeamChat((s) => s.messagesByChat);
+  const sessionChats = useMemo<ChatPreview[]>(
+    () =>
+      Object.entries(chatMetaById)
+        .filter(([id]) => !CHATS.some((c) => c.id === id))
+        .map(([id, meta]) => {
+          const thread = messagesByChat[id] ?? [];
+          const last = thread[thread.length - 1];
+          return {
+            id,
+            kind: meta.kind,
+            title: meta.title,
+            avatar:
+              meta.avatar ??
+              (last && !last.isYou ? last.authorAvatar : SARAH_AVATAR),
+            lastMessage: last
+              ? `${last.isYou ? 'You' : last.authorName}: ${last.body}`
+              : 'Say hi 👋',
+            lastSenderName: last?.authorName ?? '',
+            lastTimestamp: last?.timestamp ?? 'New',
+            unreadCount: 0,
+          };
+        }),
+    [chatMetaById, messagesByChat],
+  );
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return CHATS.filter((c) => {
+    return [...sessionChats, ...CHATS].filter((c) => {
       if (tab !== 'all' && c.kind !== tab) return false;
       if (q) {
         const hay = `${c.title} ${c.lastMessage}`.toLowerCase();
@@ -92,7 +124,7 @@ export function MessagesScreen() {
       }
       return true;
     });
-  }, [tab, search]);
+  }, [sessionChats, tab, search]);
 
   return (
     <View style={styles.root}>
@@ -117,7 +149,6 @@ export function MessagesScreen() {
           value={search}
           onChangeText={setSearch}
           placeholder="Search conversations…"
-          onFilterPress={() => undefined}
         />
         <Tabs variant="pill" scrollable items={TABS} value={tab} onChange={setTab} />
       </View>

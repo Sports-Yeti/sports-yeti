@@ -682,7 +682,8 @@ export type ProfileMoreRoute =
   | 'BookmarkedHighlights'
   | 'Facilities'
   | 'Messages'
-  | 'PlayerDirectory';
+  | 'PlayerDirectory'
+  | 'Roles';
 
 export interface MoreLink {
   id: string;
@@ -750,6 +751,13 @@ export const PROFILE_MORE_LINKS: MoreLink[] = [
     description: 'Sign and review participation waivers.',
     Icon: FileText,
     route: 'Waivers',
+  },
+  {
+    id: 'roles',
+    label: 'Your Roles',
+    description: 'Switch or activate captain, referee, and more.',
+    Icon: UserCog,
+    route: 'Roles',
   },
   {
     id: 'settings',

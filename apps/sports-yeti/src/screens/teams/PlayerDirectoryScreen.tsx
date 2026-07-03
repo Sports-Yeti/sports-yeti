@@ -31,6 +31,7 @@ import {
 } from '../../mocks/teams';
 import { sportCatalogEntry } from '../../mocks/games';
 import { DEFAULT_MAP_CENTER, distanceMilesBetween } from '../../mocks/facilities';
+import { dmChatIdForPlayer } from '../../mocks/messages';
 import {
   catalogKeyToTeamSport,
   resolveAllowedTeamSports,
@@ -426,8 +427,12 @@ export function PlayerDirectoryScreen() {
               onInvite={() => handleInvite(p)}
               onMessage={() =>
                 navigation.navigate('Chat', {
-                  chatId: `dm-${p.id}`,
+                  // Canonical per-player DM id (directory `d-` prefix maps
+                  // to the roster `p-` prefix) so the same person opens
+                  // the same conversation from every entry point.
+                  chatId: dmChatIdForPlayer(p.id.replace(/^d-/, 'p-')),
                   title: p.name,
+                  avatar: p.avatar,
                 })
               }
               onOpenProfile={() =>

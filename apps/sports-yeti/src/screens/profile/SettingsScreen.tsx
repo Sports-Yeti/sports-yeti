@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores';
+import { PROFILE_USER } from '../../mocks/profile';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   Button,
@@ -164,6 +165,8 @@ export function SettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Membership card follows the same PROFILE_USER.proMember flag the
+            Profile upsell uses, so both surfaces tell the same story. */}
         <Card style={styles.upsell}>
           <View style={styles.upsellRow}>
             <IconBadge size={48} tone="brand">
@@ -171,16 +174,18 @@ export function SettingsScreen() {
             </IconBadge>
             <View style={styles.upsellBody}>
               <Text variant="h3" color={colors.text.primary}>
-                You're on Pro
+                {PROFILE_USER.proMember ? "You're on Pro" : 'Go Pro'}
               </Text>
               <Text variant="bodySm" color={colors.text.secondary}>
-                Renews May 14 · $9/month
+                {PROFILE_USER.proMember
+                  ? 'Renews May 14 · $9/month'
+                  : 'Highlights credits, priority support, and more · $9/month'}
               </Text>
             </View>
           </View>
           <Button
-            label="Manage subscription"
-            variant="ghost"
+            label={PROFILE_USER.proMember ? 'Manage subscription' : 'Upgrade'}
+            variant={PROFILE_USER.proMember ? 'ghost' : 'gradient'}
             fullWidth
             onPress={() => toast.show({ variant: 'info', title: 'App Store sheet would open here' })}
           />

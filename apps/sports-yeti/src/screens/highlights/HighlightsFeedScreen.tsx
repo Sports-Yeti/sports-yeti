@@ -24,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent } from 'expo';
@@ -32,6 +32,7 @@ import {
   AtSign,
   Bookmark,
   Camera,
+  Check,
   Heart,
   Link as LinkIcon,
   Mail,
@@ -63,9 +64,14 @@ import {
 import { SARAH_AVATAR } from '../../mocks/avatars';
 import { formatCount } from '../../lib/format';
 import { useSavedHighlights } from '../../features/saved-highlights-store';
-import type { RootStackParamList } from '../../navigation/MainNavigator';
+import { useFollowStore } from '../../features/follow-store';
+import type {
+  MainTabParamList,
+  RootStackParamList,
+} from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
+type FeedRoute = RouteProp<MainTabParamList, 'Highlights'>;
 
 const { height: WINDOW_HEIGHT } = Dimensions.get('window');
 
@@ -133,6 +139,7 @@ interface ReelItemProps {
   onShare: (reel: HighlightReel) => void;
   onMore: (reel: HighlightReel) => void;
   onBookmarkChanged: (reel: HighlightReel, bookmarked: boolean) => void;
+  onOpenProfile: (playerId: string) => void;
 }
 
 function ReelItem({
@@ -147,6 +154,7 @@ function ReelItem({
   onShare,
   onMore,
   onBookmarkChanged,
+  onOpenProfile,
 }: ReelItemProps) {
   const [liked, setLiked] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
@@ -159,6 +167,10 @@ function ReelItem({
   const liveCommentCount = useSavedHighlights((s) =>
     s.getCommentCount(reel),
   );
+  const isFollowingPoster = useFollowStore((s) =>
+    reel.playerId ? s.followingIds.includes(reel.playerId) : false,
+  );
+  const toggleFollow = useFollowStore((s) => s.toggleFollow);
 
   const player = useVideoPlayer(reel.videoUrl, (p) => {
     p.loop = true;
@@ -232,7 +244,13 @@ function ReelItem({
   const captionLines = captionExpanded ? undefined : 3;
 
   return (
-    <Pressable onPress={handleTap} style={[styles.slide, { height }]}>
+    // `accessible={false}` keeps this tap-to-pause surface from swallowing
+    // the nested controls (like/share/follow) in screen readers.
+    <Pressable
+      onPress={handleTap}
+      style={[styles.slide, { height }]}
+      accessible={false}
+    >
       {/* Poster shows first; VideoView fades in on top once playing. */}
       <Image
         source={{ uri: reel.poster }}
@@ -347,20 +365,53 @@ function ReelItem({
           ) : null}
         </View>
         <View style={styles.userRow}>
-          <View style={styles.avatarShell}>
-            <Avatar uri={reel.avatar} initials={reel.username.charAt(1)} size={36} bordered />
-            <View style={styles.followBadge}>
-              <Plus size={10} color={colors.text.inverse} strokeWidth={3} />
+          {/* One focus stop for the identity; the follow badge is a SIBLING
+              (not a nested pressable) so screen readers can reach it. */}
+          <Pressable
+            style={styles.userIdentity}
+            disabled={!reel.playerId}
+            onPress={() => reel.playerId && onOpenProfile(reel.playerId)}
+            accessibilityRole="button"
+            accessibilityLabel={`View ${reel.username}'s profile`}
+          >
+            <View style={styles.avatarShell}>
+              <Avatar uri={reel.avatar} initials={reel.username.charAt(1)} size={36} bordered />
             </View>
-          </View>
-          <View style={styles.userText}>
-            <Text variant="button" color={colors.text.inverse}>
-              {reel.username}
-            </Text>
-            <Text variant="eyebrow" color={colors.brand.accent}>
-              {reel.team}
-            </Text>
-          </View>
+            <View style={styles.userText}>
+              <Text variant="button" color={colors.text.inverse}>
+                {reel.username}
+              </Text>
+              <Text variant="eyebrow" color={colors.brand.accent}>
+                {reel.team}
+              </Text>
+            </View>
+          </Pressable>
+          {reel.playerId ? (
+            <Pressable
+              style={[
+                styles.followBadge,
+                isFollowingPoster ? styles.followBadgeOn : null,
+              ]}
+              hitSlop={12}
+              onPress={() => {
+                Haptics.selectionAsync();
+                toggleFollow(reel.playerId!);
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isFollowingPoster }}
+              accessibilityLabel={
+                isFollowingPoster
+                  ? `Unfollow ${reel.username}`
+                  : `Follow ${reel.username}`
+              }
+            >
+              {isFollowingPoster ? (
+                <Check size={10} color={colors.text.inverse} strokeWidth={3} />
+              ) : (
+                <Plus size={10} color={colors.text.inverse} strokeWidth={3} />
+              )}
+            </Pressable>
+          ) : null}
         </View>
         <Pressable
           onPress={() => setCaptionExpanded((v) => !v)}
@@ -428,7 +479,9 @@ function shareUrlFor(reel: HighlightReel): string {
 export function HighlightsFeedScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Navigation>();
+  const route = useRoute<FeedRoute>();
   const toast = useToast();
+  const listRef = useRef<FlatList<HighlightReel>>(null);
 
   const slideHeight = WINDOW_HEIGHT;
 
@@ -461,6 +514,28 @@ export function HighlightsFeedScreen() {
       }
     },
   ).current;
+
+  // Deep-link support: saved-highlight cards pass `focusReelId` so the feed
+  // opens on that exact reel instead of the top of the list.
+  const focusReelId = route.params?.focusReelId;
+  useEffect(() => {
+    if (!focusReelId) return;
+    const index = HIGHLIGHT_REELS.findIndex((r) => r.id === focusReelId);
+    if (index >= 0) {
+      listRef.current?.scrollToIndex({ index, animated: false });
+      setActiveIndex(index);
+    }
+    // Clear the param so re-tapping the same card still triggers the effect.
+    navigation.setParams({ focusReelId: undefined } as never);
+  }, [focusReelId, navigation]);
+
+  const handleOpenProfile = useCallback(
+    (playerId: string) => {
+      Haptics.selectionAsync();
+      navigation.navigate('PlayerProfile', { playerId });
+    },
+    [navigation],
+  );
 
   const handleBookmarkChanged = useCallback(
     (reel: HighlightReel, nowBookmarked: boolean) => {
@@ -553,6 +628,7 @@ export function HighlightsFeedScreen() {
         onShare={setShareSheet}
         onMore={setMoreSheet}
         onBookmarkChanged={handleBookmarkChanged}
+        onOpenProfile={handleOpenProfile}
       />
     ),
     [
@@ -562,6 +638,7 @@ export function HighlightsFeedScreen() {
       activeIndex,
       isMuted,
       handleBookmarkChanged,
+      handleOpenProfile,
     ],
   );
 
@@ -573,6 +650,7 @@ export function HighlightsFeedScreen() {
   return (
     <View style={styles.root}>
       <FlatList
+        ref={listRef}
         data={HIGHLIGHT_REELS}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
@@ -881,15 +959,23 @@ const styles = StyleSheet.create({
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    position: 'relative',
+  },
+  userIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
+    flex: 1,
   },
   avatarShell: {
     position: 'relative',
   },
   followBadge: {
+    // Anchored over the avatar's bottom-right corner (avatar is 36pt at the
+    // start of the row) — a sibling of the identity pressable, not a child.
     position: 'absolute',
     bottom: -4,
-    right: -4,
+    left: 22,
     width: 20,
     height: 20,
     borderRadius: 10,
@@ -898,6 +984,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#000',
+  },
+  followBadgeOn: {
+    backgroundColor: colors.brand.primary,
   },
   userText: {
     gap: 2,

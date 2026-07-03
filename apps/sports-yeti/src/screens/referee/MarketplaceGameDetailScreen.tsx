@@ -11,9 +11,10 @@ import {
   organizationById,
   spaceById,
 } from '@sports-yeti/mocks';
-import { Text, useToast } from '../../ui';
+import { EmptyState, Input, Text, useToast } from '../../ui';
 import { colors, radii, shadows, spacing } from '../../theme';
 import { useWaiverGate } from '../../features/waiver-gate';
+import { useRefereeStore } from '../../features/referee-store';
 
 export function MarketplaceGameDetailScreen() {
   const navigation = useNavigation();
@@ -40,7 +41,12 @@ export function MarketplaceGameDetailScreen() {
   const baseCents = game?.refereeBaseRateCents ?? 6500;
   const [bidCents, setBidCents] = useState(baseCents);
   const [message, setMessage] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  // Session bids persist in the referee store so the marketplace list
+  // shows "Bid placed" after leaving this screen.
+  const placeBid = useRefereeStore((s) => s.placeBid);
+  const submitted = useRefereeStore(
+    (s) => !!s.bidGameIds[route.params.gameId],
+  );
 
   // Waiver gate: org-wide org waiver. Bid blocked until signed.
   const gateScopes = useMemo(
@@ -52,7 +58,11 @@ export function MarketplaceGameDetailScreen() {
   if (!game) {
     return (
       <View style={styles.root}>
-        <Text variant="body">Game not found.</Text>
+        <EmptyState
+          title="Game not found"
+          description="This marketplace listing may have been filled or removed."
+          primaryAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+        />
       </View>
     );
   }
@@ -143,26 +153,21 @@ export function MarketplaceGameDetailScreen() {
               </Text>
             </Pressable>
           </View>
-          <Text variant="caption" color={colors.text.muted}>
-            Optional message — give the captain a reason to pick you.
-          </Text>
-          <Pressable
-            accessibilityRole="text"
-            onPress={() => setMessage((m) => `${m}!`)}
-            style={styles.msgBox}
-          >
-            <Text variant="body" color={colors.text.primary}>
-              {message ||
-                '“Available 30 min early. USSF Grade 7 with 5 seasons of co-ed.”'}
-            </Text>
-          </Pressable>
+          <Input
+            label="Message to the captain (optional)"
+            variant="multiline"
+            placeholder="Available 30 min early. USSF Grade 7 with 5 seasons of co-ed."
+            value={message}
+            onChangeText={setMessage}
+            maxLength={240}
+          />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={submitted ? 'Bid submitted' : 'Submit bid'}
             disabled={submitted}
             onPress={() => {
               guard('submit your bid', () => {
-                setSubmitted(true);
+                placeBid(game.id);
                 toast.show({
                   variant: 'success',
                   title: 'Bid submitted',
@@ -283,12 +288,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
     minWidth: 140,
     textAlign: 'center',
-  },
-  msgBox: {
-    backgroundColor: colors.surface.chip,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    minHeight: 64,
   },
   primaryBtn: {
     paddingHorizontal: 18,

@@ -27,8 +27,10 @@ import {
   FACILITIES,
   FACILITY_SPORT_LABEL,
 } from '../../mocks/facilities';
+import type { Booking } from '../../mocks/bookings';
 import { formatCurrency } from '../../lib/format';
 import { useCheckout } from '../../lib/checkout';
+import { useBookingsStore } from '../../features/bookings-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'FacilityDetails'>;
@@ -52,6 +54,7 @@ export function FacilityDetailScreen() {
   const toast = useToast();
   const facility = FACILITIES.find((f) => f.id === route.params.id);
   const checkout = useCheckout();
+  const addBooking = useBookingsStore((s) => s.addBooking);
   const [bookSheetOpen, setBookSheetOpen] = useState(false);
   const [pickedSpace, setPickedSpace] = useState<string | null>(null);
   const [pickedSlot, setPickedSlot] = useState<string | null>(null);
@@ -77,6 +80,48 @@ export function FacilityDetailScreen() {
     });
     if (result.status === 'success') {
       setBookSheetOpen(false);
+      // Record the reservation so it shows in Bookings. Slot times are
+      // demo strings ("7:00 PM") — book it for tomorrow at that hour.
+      const space = facility.spaces.find((s) => s.id === pickedSpace);
+      const starts = new Date();
+      starts.setDate(starts.getDate() + 1);
+      const hourMatch = /(\d+):00 (AM|PM)/.exec(pickedSlot ?? '');
+      const rawHour = hourMatch ? Number(hourMatch[1]) : 19;
+      const hour =
+        hourMatch?.[2] === 'PM' && rawHour !== 12 ? rawHour + 12 : rawHour;
+      starts.setHours(hour, 0, 0, 0);
+      const ends = new Date(starts.getTime() + 60 * 60 * 1000);
+      const sportLabel = FACILITY_SPORT_LABEL[facility.sports[0] ?? 'soccer'];
+      const booking: Booking = {
+        id: `bk-${Date.now()}`,
+        facilityId: facility.id,
+        facilityName: facility.name,
+        spaceName: space?.name ?? 'Space',
+        city: facility.city,
+        startsAt: starts.toISOString(),
+        endsAt: ends.toISOString(),
+        prettyDate: starts.toLocaleDateString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        }),
+        prettyTime: `${starts.toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        })} – ${ends.toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        })}`,
+        status: 'confirmed',
+        totalCents: facility.hourlyRateCents,
+        paidCents: facility.hourlyRateCents,
+        partySize: space?.capacity ?? 10,
+        hostName: 'You',
+        hostHandle: '@jenkins_yeti',
+        cover: facility.cover,
+        sport: (sportLabel as Booking['sport']) ?? 'Soccer',
+      };
+      addBooking(booking);
       toast.show({
         variant: 'success',
         title: 'Booking confirmed',

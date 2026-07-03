@@ -38,7 +38,7 @@ import {
 } from '../../ui';
 import {
   COMMON_GAME_RULES,
-  DISCOVER_GAMES,
+  EVENT_TYPE_LABEL,
   GAME_HOSTS,
   PAYMENT_STATUS_LABEL,
   SARAH_HOST,
@@ -49,10 +49,15 @@ import {
 } from '../../mocks/games';
 import { FACILITIES } from '../../mocks/facilities';
 import { CHATS } from '../../mocks/messages';
-import { MY_SCHEDULE } from '../../mocks/schedule';
 import { PROFILE_USER } from '../../mocks/profile';
 import { formatCurrency } from '../../lib/format';
 import { usePaymentMethodStore, useWatchStore } from '../../stores';
+import {
+  scheduledEventFromGame,
+  useGameScheduleEntry,
+  useScheduleStore,
+} from '../../features/schedule-store';
+import { useDiscoverGame } from '../../features/discover-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'GameDetails'>;
@@ -63,12 +68,20 @@ export function GameDetailScreen() {
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const game = DISCOVER_GAMES.find((g) => g.id === route.params.id);
-  // Pre-existing schedule entry for this game means the player is already
-  // committed (paid or RSVP'd). The Join CTA is replaced with a Cancel CTA
-  // gated on the cancellation window — the same model the Schedule tab uses.
-  const scheduleEntry = MY_SCHEDULE.find((e) => e.gameId === route.params.id);
-  const [joined, setJoined] = useState(!!scheduleEntry);
+  const game = useDiscoverGame(route.params.id);
+  // A schedule entry for this game (seeded or added this session) means the
+  // player is committed (paid or RSVP'd). The Join CTA is replaced with a
+  // Cancel CTA gated on the cancellation window — the same model the
+  // Schedule tab uses. Join/cancel write to the shared schedule store so
+  // the Schedule tab reflects them immediately.
+  const {
+    entry: scheduleEntry,
+    isCommitted: joined,
+    wasCancelled,
+  } = useGameScheduleEntry(route.params.id);
+  const addEvents = useScheduleStore((s) => s.addEvents);
+  const cancelEvent = useScheduleStore((s) => s.cancelEvent);
+  const restoreEvent = useScheduleStore((s) => s.restoreEvent);
   const [confirmJoin, setConfirmJoin] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [confirmAddCard, setConfirmAddCard] = useState(false);
@@ -143,7 +156,7 @@ export function GameDetailScreen() {
   const handleCancel = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setConfirmCancel(false);
-    setJoined(false);
+    if (scheduleEntry) cancelEvent(scheduleEntry.id);
     toast.show({
       variant: 'success',
       title: 'Cancelled your spot',
@@ -183,7 +196,13 @@ export function GameDetailScreen() {
 
   const handleJoin = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setJoined(true);
+    // Re-joining a spot cancelled this session restores the same entry;
+    // a fresh join maps the listing into a new schedule entry.
+    if (wasCancelled && scheduleEntry) {
+      restoreEvent(scheduleEntry.id);
+    } else {
+      addEvents([scheduledEventFromGame(game)]);
+    }
     setConfirmJoin(false);
     toast.show({
       variant: 'success',
@@ -301,6 +320,12 @@ export function GameDetailScreen() {
               ) : (
                 <Tag tone="brand" label={game.status} />
               )}
+              {/* League-style officiated game vs casual scrimmage — same
+                  distinction the Discover cards draw. */}
+              <Tag
+                tone={game.eventType === 'game' ? 'brand' : 'warning'}
+                label={EVENT_TYPE_LABEL[game.eventType]}
+              />
               {sportLabel(game.sport) ? (
                 <Tag
                   tone="info"

@@ -8,6 +8,7 @@ import {
 import {
   CHAT_MESSAGES,
   type ChatCard,
+  type ChatKind,
   type ChatMessage,
 } from '../mocks/messages';
 import { PLAYER_AVATARS, SARAH_AVATAR } from '../mocks/avatars';
@@ -26,12 +27,26 @@ export interface LeagueRegistrationLive {
   requestedAt: string;
 }
 
+export interface SessionChatMeta {
+  title: string;
+  kind: ChatKind;
+  /** Peer / event avatar for the Messages-inbox row. */
+  avatar?: string;
+}
+
 interface TeamChatState {
   messagesByChat: Record<string, ChatMessage[]>;
   pollsById: Record<string, CommitPoll>;
   customPollsById: Record<string, CustomPoll>;
   /** Live league-registration status keyed by teamId (drives chat + payments). */
   registrationsByTeam: Record<string, LeagueRegistrationLive>;
+  /**
+   * Metadata for conversations opened this session that have no seeded
+   * `CHATS` preview (fresh DMs, new locker rooms). MessagesScreen lists
+   * these so a chat you just opened doesn't vanish from the inbox.
+   */
+  chatMetaById: Record<string, SessionChatMeta>;
+  registerChatMeta: (chatId: string, meta: SessionChatMeta) => void;
   /** Append a plain text message authored by the current user. */
   appendUserMessage: (chatId: string, body: string) => void;
   /** Append a message from the "league office" (used for approval updates). */
@@ -76,6 +91,13 @@ export const useTeamChat = create<TeamChatState>((set, get) => ({
   pollsById: { ...INITIAL_COMMIT_POLLS },
   customPollsById: {},
   registrationsByTeam: {},
+  chatMetaById: {},
+  registerChatMeta: (chatId, meta) => {
+    if (get().chatMetaById[chatId]) return;
+    set((state) => ({
+      chatMetaById: { ...state.chatMetaById, [chatId]: meta },
+    }));
+  },
   appendUserMessage: (chatId, body) => {
     const next: ChatMessage = {
       id: `m-${Date.now()}`,

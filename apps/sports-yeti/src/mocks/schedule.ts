@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react-native';
 import { CircleDot, Target, Trophy } from 'lucide-react-native';
 import { PLAYER_AVATARS } from './avatars';
+import type { DiscoverEventType } from './games';
 
 // ---------------------------------------------------------------------------
 // Date helpers (local-time, day-level). The schedule mock is generated
@@ -45,7 +46,7 @@ function timeLabel(date: Date): string {
   });
 }
 
-function hoursBefore(date: Date, hours: number): Date {
+export function hoursBefore(date: Date, hours: number): Date {
   return new Date(date.getTime() - hours * 60 * 60 * 1000);
 }
 
@@ -119,6 +120,13 @@ export interface ScheduledCamp extends ScheduledEventBase {
 
 export interface ScheduledScrimmage extends ScheduledEventBase {
   kind: 'scrimmage';
+  /**
+   * The underlying Discover listing's kind. Officiated pickup listings
+   * (`game`) still schedule as `scrimmage`-shaped entries (host + open
+   * roster, no fixed teams) but keep an honest kind tag via
+   * {@link scheduleKindLabel}.
+   */
+  eventType?: DiscoverEventType;
   title: string;
   hostName: string;
   hostAvatar: string;
@@ -134,6 +142,14 @@ export const KIND_LABEL: Record<ScheduleEventKind, string> = {
   camp: 'CAMP',
   scrimmage: 'SCRIMMAGE',
 };
+
+/** Kind tag for an event card — honest about officiated pickup games. */
+export function scheduleKindLabel(event: ScheduledEvent): string {
+  if (event.kind === 'scrimmage' && event.eventType === 'game') {
+    return 'PICKUP GAME';
+  }
+  return KIND_LABEL[event.kind];
+}
 
 // ---------------------------------------------------------------------------
 // Mock data — everything the logged-in player (Sarah Jenkins) has paid for
@@ -336,29 +352,20 @@ export const MY_SCHEDULE: ScheduledEvent[] = [
 // Queries
 // ---------------------------------------------------------------------------
 
-export function eventById(id: string): ScheduledEvent | undefined {
-  return MY_SCHEDULE.find((e) => e.id === id);
-}
-
-/** Events on a given calendar day, soonest first. */
-export function eventsOnDay(key: string): ScheduledEvent[] {
-  return MY_SCHEDULE.filter((e) => dayKey(new Date(e.startsAt)) === key).sort(
-    (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
-  );
-}
-
 /** Day keys that have at least one committed event — for day-strip dots. */
 export function eventDayKeys(events: ScheduledEvent[] = MY_SCHEDULE): Set<string> {
   return new Set(events.map((e) => dayKey(new Date(e.startsAt))));
 }
 
 /** All events from the start of today onward, soonest first. */
-export function upcomingEvents(): ScheduledEvent[] {
+export function upcomingEvents(
+  events: ScheduledEvent[] = MY_SCHEDULE,
+): ScheduledEvent[] {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
-  return MY_SCHEDULE.filter(
-    (e) => new Date(e.startsAt).getTime() >= startOfToday.getTime(),
-  ).sort(
-    (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
-  );
+  return events
+    .filter((e) => new Date(e.startsAt).getTime() >= startOfToday.getTime())
+    .sort(
+      (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+    );
 }

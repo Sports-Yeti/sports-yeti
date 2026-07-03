@@ -25,7 +25,6 @@ import {
   useToast,
 } from '../../ui';
 import {
-  HIGHLIGHT_PROJECTS,
   HIGHLIGHT_REELS,
   type HighlightProject,
   type HighlightProjectStatus,
@@ -33,6 +32,7 @@ import {
 } from '../../mocks/highlights';
 import { formatRelativeFromIso } from '../../lib/format';
 import { useSavedHighlights } from '../../features/saved-highlights-store';
+import { useHighlightProjects } from '../../features/highlight-projects-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -60,37 +60,40 @@ function SavedHighlightCard({
   onOpen: () => void;
   onRemove: () => void;
 }) {
+  // Remove button is a SIBLING of the open pressable (not nested) so screen
+  // readers get two distinct focus stops: open, then unsave.
   return (
-    <Pressable
-      onPress={onOpen}
-      accessibilityRole="button"
-      accessibilityLabel={`Open saved highlight by ${reel.username}`}
-      style={styles.savedCard}
-    >
-      <Image
-        source={{ uri: reel.poster }}
-        style={styles.savedThumb}
-        contentFit="cover"
-        accessibilityLabel="Highlight thumbnail"
-      />
-      <View style={styles.savedPlayOverlay} pointerEvents="none">
-        <View style={styles.savedPlayBubble}>
-          <Play
-            size={16}
-            color={colors.text.inverse}
-            strokeWidth={2.5}
-            fill={colors.text.inverse}
-          />
+    <View style={styles.savedCard}>
+      <Pressable
+        onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel={`Open saved highlight by ${reel.username}`}
+      >
+        <Image
+          source={{ uri: reel.poster }}
+          style={styles.savedThumb}
+          contentFit="cover"
+          accessibilityLabel="Highlight thumbnail"
+        />
+        <View style={styles.savedPlayOverlay} pointerEvents="none">
+          <View style={styles.savedPlayBubble}>
+            <Play
+              size={16}
+              color={colors.text.inverse}
+              strokeWidth={2.5}
+              fill={colors.text.inverse}
+            />
+          </View>
         </View>
-      </View>
-      <View style={styles.savedBody}>
-        <Text variant="button" color={colors.text.primary} numberOfLines={1}>
-          {reel.username}
-        </Text>
-        <Text variant="caption" color={colors.text.secondary} numberOfLines={1}>
-          {reel.team}
-        </Text>
-      </View>
+        <View style={styles.savedBody}>
+          <Text variant="button" color={colors.text.primary} numberOfLines={1}>
+            {reel.username}
+          </Text>
+          <Text variant="caption" color={colors.text.secondary} numberOfLines={1}>
+            {reel.team}
+          </Text>
+        </View>
+      </Pressable>
       <Pressable
         onPress={onRemove}
         accessibilityRole="button"
@@ -100,7 +103,7 @@ function SavedHighlightCard({
       >
         <BookmarkX size={16} color={colors.text.muted} strokeWidth={2.25} />
       </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
@@ -153,13 +156,19 @@ export function MyHighlightsScreen() {
   const toast = useToast();
   const bookmarkedIds = useSavedHighlights((s) => s.bookmarkedIds);
   const toggleBookmark = useSavedHighlights((s) => s.toggleBookmark);
+  // Seeded + session-generated projects (new wizard runs land on top).
+  const projects = useHighlightProjects();
   const savedReels = useMemo(
     () => HIGHLIGHT_REELS.filter((r) => bookmarkedIds.has(r.id)),
     [bookmarkedIds],
   );
 
-  const handleOpenSaved = () => {
-    navigation.navigate('MainTabs', { screen: 'Highlights' });
+  const handleOpenSaved = (reel?: HighlightReel) => {
+    // Deep-link the feed to the tapped reel; "Watch all" starts at the top.
+    navigation.navigate('MainTabs', {
+      screen: 'Highlights',
+      params: reel ? { focusReelId: reel.id } : undefined,
+    });
   };
 
   const handleRemoveSaved = (reel: HighlightReel) => {
@@ -220,7 +229,7 @@ export function MyHighlightsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {HIGHLIGHT_PROJECTS.length === 0 ? (
+        {projects.length === 0 ? (
           <EmptyState
             icon={
               <Sparkles size={28} color={colors.brand.primary} strokeWidth={2.25} />
@@ -264,7 +273,7 @@ export function MyHighlightsScreen() {
                 title="Saved highlights"
                 actionLabel={savedReels.length > 0 ? 'Watch all' : undefined}
                 onActionPress={
-                  savedReels.length > 0 ? handleOpenSaved : undefined
+                  savedReels.length > 0 ? () => handleOpenSaved() : undefined
                 }
               />
               {savedReels.length === 0 ? (
@@ -295,7 +304,7 @@ export function MyHighlightsScreen() {
                     <SavedHighlightCard
                       key={reel.id}
                       reel={reel}
-                      onOpen={handleOpenSaved}
+                      onOpen={() => handleOpenSaved(reel)}
                       onRemove={() => handleRemoveSaved(reel)}
                     />
                   ))}
@@ -305,7 +314,7 @@ export function MyHighlightsScreen() {
 
             <View style={styles.list}>
               <SectionHeader title="Your highlight reels" />
-              {HIGHLIGHT_PROJECTS.map((p) => (
+              {projects.map((p) => (
                 <ProjectCard
                   key={p.id}
                   project={p}

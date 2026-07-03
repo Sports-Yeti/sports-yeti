@@ -24,9 +24,9 @@ import {
   Text,
   useToast,
 } from '../../ui';
-import { BOOKINGS } from '../../mocks/bookings';
 import { formatCurrency } from '../../lib/format';
 import { useCheckout } from '../../lib/checkout';
+import { useBooking, useBookingsStore } from '../../features/bookings-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'BookingDetails'>;
@@ -51,7 +51,8 @@ export function BookingDetailScreen() {
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const booking = BOOKINGS.find((b) => b.id === route.params.id);
+  const booking = useBooking(route.params.id);
+  const cancelBooking = useBookingsStore((s) => s.cancelBooking);
   const checkout = useCheckout();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [paid, setPaid] = useState(false);
@@ -298,6 +299,9 @@ export function BookingDetailScreen() {
           label: 'Cancel booking',
           onPress: () => {
             setConfirmCancel(false);
+            // Flip status in the shared store so the Bookings list moves
+            // this reservation to Past · Cancelled.
+            cancelBooking(booking.id);
             toast.show({
               variant: 'info',
               title: 'Booking cancelled',

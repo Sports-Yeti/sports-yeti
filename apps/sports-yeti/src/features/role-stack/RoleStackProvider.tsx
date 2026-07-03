@@ -11,6 +11,7 @@ import {
   primaryRole,
   ROLE_DESCRIPTION,
   ROLE_LABEL,
+  ROLE_SORT_ORDER,
   roleStackForUser,
   sortedRoles,
   type Role,
@@ -29,6 +30,8 @@ export interface RoleStackContextValue {
   setActiveRoleByIndex: (index: number) => void;
   /** Switch by role name (first matching scope is picked). */
   setActiveRole: (role: Role, scopeId?: string) => void;
+  /** Activate a new role for this session (RolesScreen "Activate"). */
+  addRole: (role: Role) => void;
   /** Convenience predicate. */
   hasRole: (role: Role, scopeId?: string) => boolean;
   /** Static labels for surfacing in the role switcher / activation cards. */
@@ -67,41 +70,65 @@ export function RoleStackProvider({
     return found;
   }, [userId]);
 
-  const roles = useMemo(() => sortedRoles(stack), [stack]);
+  // Roles activated during this session (RolesScreen "Activate" flow) —
+  // merged with the seeded stack so the switcher offers them immediately.
+  const [sessionRoles, setSessionRoles] = useState<RoleAssignment[]>([]);
 
-  const [activeRoleIndex, setActiveRoleIndex] = useState(() => {
-    const primary = primaryRole(stack);
-    const idx = roles.findIndex(
-      (r) => r.role === primary.role && r.scopeId === primary.scopeId,
-    );
-    return idx === -1 ? 0 : idx;
-  });
+  const roles = useMemo(
+    () =>
+      [...sortedRoles(stack), ...sessionRoles].sort(
+        (a, b) => ROLE_SORT_ORDER[a.role] - ROLE_SORT_ORDER[b.role],
+      ),
+    [stack, sessionRoles],
+  );
 
-  const activeRole = roles[activeRoleIndex];
+  // Track the active role by identity (role + scope), not array index —
+  // session-activated roles re-sort the list and would shift indexes.
+  const roleKey = (r: Pick<RoleAssignment, 'role' | 'scopeId'>) =>
+    `${r.role}:${r.scopeId ?? 'global'}`;
+
+  const [activeKey, setActiveKey] = useState(() =>
+    roleKey(primaryRole(stack)),
+  );
+
+  const activeRole =
+    roles.find((r) => roleKey(r) === activeKey) ?? roles[0];
 
   const setActiveRoleByIndex = useCallback(
     (index: number) => {
-      if (index < 0 || index >= roles.length) {
-        return;
-      }
-      setActiveRoleIndex(index);
-    },
-    [roles.length],
-  );
-
-  const setActiveRole = useCallback(
-    (role: Role, scopeId?: string) => {
-      const idx = roles.findIndex(
-        (r) => r.role === role && (!scopeId || r.scopeId === scopeId),
-      );
-      if (idx !== -1) setActiveRoleIndex(idx);
+      const next = roles[index];
+      if (next) setActiveKey(roleKey(next));
     },
     [roles],
   );
 
+  const setActiveRole = useCallback(
+    (role: Role, scopeId?: string) => {
+      const next = roles.find(
+        (r) => r.role === role && (!scopeId || r.scopeId === scopeId),
+      );
+      if (next) setActiveKey(roleKey(next));
+    },
+    [roles],
+  );
+
+  const addRole = useCallback((role: Role) => {
+    setSessionRoles((prev) => {
+      if (prev.some((r) => r.role === role)) return prev;
+      return [
+        ...prev,
+        { role, activatedAtIso: new Date().toISOString() },
+      ];
+    });
+  }, []);
+
   const hasRole = useCallback(
-    (role: Role, scopeId?: string) => hasRoleFn(stack, role, scopeId),
-    [stack],
+    (role: Role, scopeId?: string) =>
+      hasRoleFn(stack, role, scopeId) ||
+      sessionRoles.some(
+        (r) => r.role === role && (!scopeId || r.scopeId === scopeId),
+      ),
+    [stack, sessionRoles],
   );
 
   const value = useMemo<RoleStackContextValue>(
@@ -111,11 +138,20 @@ export function RoleStackProvider({
       activeRole,
       setActiveRoleByIndex,
       setActiveRole,
+      addRole,
       hasRole,
       labels: ROLE_LABEL,
       descriptions: ROLE_DESCRIPTION,
     }),
-    [stack, roles, activeRole, setActiveRoleByIndex, setActiveRole, hasRole],
+    [
+      stack,
+      roles,
+      activeRole,
+      setActiveRoleByIndex,
+      setActiveRole,
+      addRole,
+      hasRole,
+    ],
   );
 
   return (

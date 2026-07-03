@@ -10,8 +10,9 @@ import {
   REFEREE_ASSIGNMENTS,
   spaceById,
 } from '@sports-yeti/mocks';
-import { Text, useToast } from '../../ui';
+import { EmptyState, Input, Text, useToast } from '../../ui';
 import { colors, radii, shadows, spacing } from '../../theme';
+import { useRefereeStore } from '../../features/referee-store';
 
 export function GameReportScreen() {
   const navigation = useNavigation();
@@ -41,11 +42,16 @@ export function GameReportScreen() {
   const [awayScore, setAwayScore] = useState('');
   const [infractions, setInfractions] = useState('');
   const [rating, setRating] = useState(5);
+  const submitReport = useRefereeStore((s) => s.submitReport);
 
   if (!assignment || !game) {
     return (
       <View style={styles.root}>
-        <Text variant="body">Assignment not found.</Text>
+        <EmptyState
+          title="Assignment not found"
+          description="It may have been reassigned or you opened a stale link."
+          primaryAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+        />
       </View>
     );
   }
@@ -96,15 +102,14 @@ export function GameReportScreen() {
 
         <View style={styles.card}>
           <Text variant="h3">Infractions / notes</Text>
-          <Pressable
-            accessibilityLabel="Tap to add infractions or notes"
-            onPress={() => setInfractions((s) => `${s}.`)}
-            style={styles.notesBox}
-          >
-            <Text variant="body" color={colors.text.primary}>
-              {infractions || 'Tap to add notes (mock).'}
-            </Text>
-          </Pressable>
+          <Input
+            variant="multiline"
+            placeholder="Yellow card #12 (dissent) in the 60th. No injuries."
+            value={infractions}
+            onChangeText={setInfractions}
+            maxLength={400}
+            accessibilityLabel="Infractions or notes"
+          />
         </View>
 
         <View style={styles.card}>
@@ -145,6 +150,8 @@ export function GameReportScreen() {
           accessibilityRole="button"
           accessibilityLabel="Submit game report"
           onPress={() => {
+            // Move the assignment to Completed on the referee home tabs.
+            submitReport(assignment.id);
             toast.show({
               variant: 'success',
               title: 'Report submitted',
@@ -172,20 +179,44 @@ interface ScoreProps {
   onChange: (v: string) => void;
 }
 function ScoreInput({ label, value, onChange }: ScoreProps) {
+  const current = Number(value || '0');
   return (
     <View style={[styles.scoreCol, { gap: 4 }]}>
       <Text variant="eyebrow" color={colors.text.muted}>
         {label}
       </Text>
-      <Pressable
-        accessibilityLabel={`${label} score, current ${value || 0}`}
-        onPress={() => onChange(String(Number(value || '0') + 1))}
-        style={styles.scoreBox}
-      >
+      <View style={styles.scoreBox}>
         <Text variant="display" color={colors.text.primary} style={styles.scoreValue}>
           {value || '0'}
         </Text>
-      </Pressable>
+      </View>
+      <View style={styles.scoreSteppers}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Decrease ${label} score`}
+          accessibilityValue={{ text: `${current}` }}
+          disabled={current <= 0}
+          onPress={() => onChange(String(Math.max(0, current - 1)))}
+          style={[styles.scoreStepBtn, current <= 0 ? styles.scoreStepDisabled : null]}
+          hitSlop={6}
+        >
+          <Text variant="h3" color={colors.text.primary}>
+            −
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Increase ${label} score`}
+          accessibilityValue={{ text: `${current}` }}
+          onPress={() => onChange(String(current + 1))}
+          style={styles.scoreStepBtn}
+          hitSlop={6}
+        >
+          <Text variant="h3" color={colors.text.primary}>
+            +
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -258,18 +289,28 @@ const styles = StyleSheet.create({
     lineHeight: 52,
     letterSpacing: -0.8,
   },
+  scoreSteppers: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  scoreStepBtn: {
+    width: 44,
+    height: 36,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scoreStepDisabled: {
+    opacity: 0.4,
+  },
   card: {
     backgroundColor: colors.surface.card,
     borderRadius: radii.card,
     padding: spacing.lg,
     gap: spacing.sm,
     ...shadows.card,
-  },
-  notesBox: {
-    backgroundColor: colors.surface.chip,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    minHeight: 96,
   },
   starRow: {
     flexDirection: 'row',

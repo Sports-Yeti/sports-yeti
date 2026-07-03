@@ -9,7 +9,7 @@ import {
   draftsForArticle,
   organizationById,
 } from '@sports-yeti/mocks';
-import { Text } from '../../ui';
+import { EmptyState, Text } from '../../ui';
 import { OrgBrandingProvider } from '../../features/org-branding';
 import { colors, radii, shadows, spacing } from '../../theme';
 
@@ -35,7 +35,11 @@ export function NewsDetailScreen() {
   if (!article || !org) {
     return (
       <View style={styles.root}>
-        <Text variant="body">Article not found.</Text>
+        <EmptyState
+          title="Article not found"
+          description="It may have been unpublished or you opened a stale link."
+          primaryAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+        />
       </View>
     );
   }

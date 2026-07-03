@@ -10,6 +10,7 @@ import {
   Check,
   ChevronLeft,
   CircleDollarSign,
+  CircleDot,
   HandCoins,
   Lock,
   MapPin,
@@ -38,10 +39,14 @@ import {
 } from '../../ui';
 import {
   PAYMENT_STATUS_LABEL,
+  SARAH_HOST,
   SKILL_LABELS,
   sportCatalogEntry,
+  type DiscoverGame,
   type GamePaymentStatus,
   type GameSkillLevel,
+  type GameStatusEyebrow,
+  type GameTimeBucket,
 } from '../../mocks/games';
 import {
   DEFAULT_MAP_CENTER,
@@ -50,7 +55,13 @@ import {
   type Facility,
   type GeoPoint,
 } from '../../mocks/facilities';
+import { SARAH_AVATAR } from '../../mocks/avatars';
 import { formatCurrency } from '../../lib/format';
+import { useDiscoverStore } from '../../features/discover-store';
+import {
+  scheduledEventFromGame,
+  useScheduleStore,
+} from '../../features/schedule-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'CreateGame'>;
@@ -177,10 +188,102 @@ function suggestedPerPlayerCents(form: FormState): number {
   return Math.ceil(total / form.spots);
 }
 
+function timeBucketFor(startsAt: Date): GameTimeBucket {
+  const now = new Date();
+  const startOfDay = (d: Date) => {
+    const c = new Date(d);
+    c.setHours(0, 0, 0, 0);
+    return c.getTime();
+  };
+  const dayDiff = Math.round(
+    (startOfDay(startsAt) - startOfDay(now)) / (24 * 60 * 60 * 1000),
+  );
+  if (dayDiff <= 0) return 'today';
+  if (dayDiff === 1) return 'tomorrow';
+  const day = startsAt.getDay();
+  if (dayDiff < 7 && (day === 6 || day === 0)) return 'weekend';
+  return 'later';
+}
+
+const STATUS_FOR_BUCKET: Record<GameTimeBucket, GameStatusEyebrow> = {
+  live: 'LIVE NOW',
+  today: 'TONIGHT',
+  tomorrow: 'TOMORROW',
+  weekend: 'THIS WEEKEND',
+  later: 'NEXT WEEK',
+};
+
+/** Map the wizard form into a Discover listing hosted by the current user. */
+function discoverGameFromForm(form: FormState): DiscoverGame {
+  const starts = form.startsAt ?? new Date();
+  const sportEntry = form.sport ? sportCatalogEntry(form.sport) : null;
+  const match = findSpaceWithFacility(form.spaceId);
+  const isCustom = form.facilityKind === 'custom';
+  const priceCents = perPlayerCents(form);
+  const bucket = timeBucketFor(starts);
+  const timeLabel = starts.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  const distanceMiles =
+    !isCustom && match
+      ? distanceMilesBetween(DEFAULT_MAP_CENTER, match.facility.coords)
+      : 0;
+  return {
+    id: `hosted-${Date.now()}`,
+    title: form.title.trim(),
+    status: STATUS_FOR_BUCKET[bucket],
+    isLive: false,
+    featured: false,
+    // Wizard-created games are casual pickups — no assigned referees.
+    eventType: 'scrimmage',
+    sport: sportEntry?.bucket ?? 'soccer',
+    Icon: sportEntry?.Icon ?? CircleDot,
+    price: priceCents === 0 ? 'Free' : formatCurrency(priceCents),
+    priceCents,
+    distance: `${distanceMiles.toFixed(1)} mi`,
+    distanceMiles,
+    time: timeLabel,
+    startsAt: starts.toISOString(),
+    durationMinutes: form.durationMinutes,
+    location: isCustom
+      ? form.customFacility.name.trim() || 'Custom location'
+      : match
+      ? `${match.facility.name} · ${match.space.name}`
+      : 'TBD',
+    venueId: match?.facility.id ?? 'custom',
+    spaceId: match?.space.id,
+    spotsLeft: Math.max(0, form.spots - 1),
+    spotsTotal: form.spots,
+    attendees: [SARAH_AVATAR],
+    attendeeTotal: 1,
+    roster: [
+      {
+        id: 'hosted-you',
+        playerId: SARAH_HOST.playerId,
+        name: 'You',
+        avatar: SARAH_AVATAR,
+        status: priceCents > 0 ? 'paid' : 'committed',
+      },
+    ],
+    skillLevel: form.skill,
+    timeBucket: bucket,
+    dayId: 'fri',
+    hostId: SARAH_HOST.id,
+    description:
+      form.description.trim() ||
+      'Hosted through SportsYeti. Details in the locker room chat.',
+    openStatus: 'open',
+    watcherCount: 0,
+  };
+}
+
 export function CreateGameScreen() {
   const navigation = useNavigation<Navigation>();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const addGame = useDiscoverStore((s) => s.addGame);
+  const addEvents = useScheduleStore((s) => s.addEvents);
   const [step, setStep] = useState<Step>(1);
   const [form, setForm] = useState<FormState>(INITIAL);
   const [submitting, setSubmitting] = useState(false);
@@ -215,12 +318,27 @@ export function CreateGameScreen() {
       } else if (isCustom && total > 0) {
         description = `Heads up: collect ${formatCurrency(perHead)}/player in person.`;
       }
+      // Publish the listing to Discover and put it on the host's own
+      // schedule, then land on the live detail page — the game is real
+      // (session-mock real) instead of vanishing into a toast.
+      const game = discoverGameFromForm(form);
+      addGame(game);
+      addEvents([
+        {
+          ...scheduledEventFromGame(game),
+          hostName: 'You',
+          commitment: 'committed',
+          // The mapper's +1 is "joiner adds self"; the host is already
+          // counted in the listing.
+          attendeeTotal: game.attendeeTotal,
+        },
+      ]);
       toast.show({
         variant: 'success',
         title: `${form.title} created`,
         description,
       });
-      navigation.goBack();
+      navigation.replace('GameDetails', { id: game.id });
     }, 600);
   };
 

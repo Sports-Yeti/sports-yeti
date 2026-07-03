@@ -7,8 +7,9 @@ import { Image } from 'expo-image';
 import { CalendarPlus, ChevronLeft, MapPin } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
 import { Card, EmptyState, Tabs, Tag, Text } from '../../ui';
-import { BOOKINGS, type Booking } from '../../mocks/bookings';
+import { type Booking } from '../../mocks/bookings';
 import { formatCurrency } from '../../lib/format';
+import { useBookings } from '../../features/bookings-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -79,7 +80,9 @@ export function BookingsScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('upcoming');
 
-  const visible = BOOKINGS.filter((b) =>
+  // Seeded + session reservations (FacilityDetail bookings land here).
+  const bookings = useBookings();
+  const visible = bookings.filter((b) =>
     tab === 'upcoming'
       ? b.status === 'confirmed' || b.status === 'pending'
       : b.status === 'completed' || b.status === 'cancelled',

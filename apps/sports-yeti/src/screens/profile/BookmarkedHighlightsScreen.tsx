@@ -45,62 +45,66 @@ interface BookmarkCardProps {
 }
 
 function BookmarkCard({ reel, width, onPlay, onRemove }: BookmarkCardProps) {
+  // Remove button is a SIBLING of the play pressable (not nested) so screen
+  // readers get two distinct focus stops: play, then remove.
   return (
-    <Pressable
-      onPress={onPlay}
-      accessibilityRole="button"
-      accessibilityLabel={`Play ${reel.team} highlight by ${reel.username}`}
-      style={[styles.card, { width }]}
-    >
-      <Image
-        source={{ uri: reel.poster }}
-        style={styles.cardImage}
-        contentFit="cover"
-        accessibilityLabel="Highlight thumbnail"
-      />
-      <LinearGradient
-        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.78)']}
-        locations={[0.45, 1]}
+    <View style={[styles.card, { width }]}>
+      <Pressable
+        onPress={onPlay}
+        accessibilityRole="button"
+        accessibilityLabel={`Play ${reel.team} highlight by ${reel.username}`}
         style={StyleSheet.absoluteFillObject}
-      />
+      >
+        <Image
+          source={{ uri: reel.poster }}
+          style={styles.cardImage}
+          contentFit="cover"
+          accessibilityLabel="Highlight thumbnail"
+        />
+        <LinearGradient
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.78)']}
+          locations={[0.45, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
 
-      <View style={styles.cardTopRow}>
+        <View style={styles.cardPlayWrap} pointerEvents="none">
+          <View style={styles.cardPlayBubble}>
+            <Play
+              size={18}
+              color={colors.text.inverse}
+              strokeWidth={2.5}
+              fill={colors.text.inverse}
+            />
+          </View>
+        </View>
+
+        <View style={styles.cardCaptionStack}>
+          <Text variant="eyebrow" color={colors.brand.accent}>
+            {reel.team}
+          </Text>
+          <Text
+            variant="button"
+            color={colors.text.inverse}
+            numberOfLines={2}
+          >
+            {reel.username}
+          </Text>
+        </View>
+      </Pressable>
+
+      <View style={styles.cardTopRow} pointerEvents="box-none">
         <Tag tone="live" size="sm" leadingDot label={`${reel.durationSeconds}s`} />
         <Pressable
           onPress={onRemove}
           accessibilityRole="button"
           accessibilityLabel="Remove from bookmarks"
-          hitSlop={6}
+          hitSlop={8}
           style={styles.removeBtn}
         >
           <X size={14} color={colors.text.inverse} strokeWidth={2.5} />
         </Pressable>
       </View>
-
-      <View style={styles.cardPlayWrap} pointerEvents="none">
-        <View style={styles.cardPlayBubble}>
-          <Play
-            size={18}
-            color={colors.text.inverse}
-            strokeWidth={2.5}
-            fill={colors.text.inverse}
-          />
-        </View>
-      </View>
-
-      <View style={styles.cardCaptionStack}>
-        <Text variant="eyebrow" color={colors.brand.accent}>
-          {reel.team}
-        </Text>
-        <Text
-          variant="button"
-          color={colors.text.inverse}
-          numberOfLines={2}
-        >
-          {reel.username}
-        </Text>
-      </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -127,9 +131,14 @@ export function BookmarkedHighlightsScreen() {
   // single inter-card gap so two cards line up evenly.
   const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
 
-  const goToFeed = () => {
+  // Playing a bookmark deep-links the feed to that exact reel;
+  // the generic CTA just opens the top of the feed.
+  const goToFeed = (reel?: HighlightReel) => {
     Haptics.selectionAsync();
-    navigation.navigate('MainTabs', { screen: 'Highlights' });
+    navigation.navigate('MainTabs', {
+      screen: 'Highlights',
+      params: reel ? { focusReelId: reel.id } : undefined,
+    });
   };
 
   const handleRemove = (reel: HighlightReel) => {
@@ -195,7 +204,7 @@ export function BookmarkedHighlightsScreen() {
             description="Tap the bookmark icon on any reel to save it here for later."
             primaryAction={{
               label: 'Browse highlights',
-              onPress: goToFeed,
+              onPress: () => goToFeed(),
             }}
           />
         ) : (
@@ -221,7 +230,7 @@ export function BookmarkedHighlightsScreen() {
                 label="Open feed"
                 variant="soft"
                 size="sm"
-                onPress={goToFeed}
+                onPress={() => goToFeed()}
               />
             </Card>
 
@@ -231,7 +240,7 @@ export function BookmarkedHighlightsScreen() {
                   key={reel.id}
                   reel={reel}
                   width={cardWidth}
-                  onPlay={goToFeed}
+                  onPlay={() => goToFeed(reel)}
                   onRemove={() => handleRemove(reel)}
                 />
               ))}

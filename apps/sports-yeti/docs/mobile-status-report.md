@@ -2,6 +2,13 @@
 
 _Snapshot of `apps/sports-yeti` as of 2026-06-21. Reflects the actual code state, which in places diverges from the older checklists in `tasks.md` / `project/prompts/remaining-mvp-tasks.md`._
 
+> **Update 2026-07-02:** the UX-completion pass documented in
+> [`mobile-ux-journeys.md`](./mobile-ux-journeys.md) supersedes parts of this
+> report: the §Cleanup items (tsc errors, `SportKey` duplicate) are fixed, the
+> `ProfileEditScreen` import claim was already stale, the boot smoke test now
+> passes, and all mock journeys complete with session persistence. The API
+> wiring roadmap below is unchanged.
+
 ## TL;DR
 
 The mobile app is a **feature-complete, high-fidelity UX** — 55 screens across 6 user

@@ -2,6 +2,8 @@ export interface HighlightReel {
   id: string;
   username: string;
   team: string;
+  /** Public profile deep-link + follow target (when the poster is a player). */
+  playerId?: string;
   caption: string;
   likes: number;
   comments: number;
@@ -18,6 +20,7 @@ export const HIGHLIGHT_REELS: HighlightReel[] = [
     id: 'marcus-strikes-bicycle',
     username: '@marcus_strikes',
     team: 'CITY FC ACADEMY',
+    playerId: 'p-marcus',
     caption:
       'Unbelievable finish in the 90th minute! The crowd went absolutely wild. Hard work pays off.',
     likes: 12400,
@@ -50,6 +53,7 @@ export const HIGHLIGHT_REELS: HighlightReel[] = [
     id: 'beach-volley-ace',
     username: '@coast_squad',
     team: 'SUNNY SANDS VBC',
+    playerId: 'p-coast',
     caption:
       'Match point ace down the line. Sand, sun and a clutch serve to close it out.',
     likes: 5200,

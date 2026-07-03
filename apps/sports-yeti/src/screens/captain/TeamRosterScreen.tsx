@@ -15,7 +15,7 @@ import {
   teamById,
   type RosterMember,
 } from '@sports-yeti/mocks';
-import { Text } from '../../ui';
+import { EmptyState, ProgressBar, Text } from '../../ui';
 import { colors, radii, shadows, spacing } from '../../theme';
 
 const PAYMENT_TONE: Record<RosterMember['paymentStatus'], 'success' | 'warning' | 'error' | 'neutral'> = {
@@ -50,10 +50,29 @@ export function TeamRosterScreen() {
   if (!team) {
     return (
       <View style={styles.root}>
-        <Text variant="body">Team not found.</Text>
+        <EmptyState
+          title="Team not found"
+          description="It may have been disbanded or you opened a stale link."
+          primaryAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+        />
       </View>
     );
   }
+
+  // Registration fee progress — computed inline from the roster instead of
+  // deep-linking into the player-world TeamPayment screen (different mock
+  // universe; the ids don't resolve there).
+  const paidCount = roster.filter((m) => m.paymentStatus === 'paid').length;
+  const perPlayerCents =
+    team.perPlayerOverrideCents ??
+    (team.rosterMax > 0
+      ? Math.ceil(team.registrationFeeCents / team.rosterMax)
+      : 0);
+  const collectedCents = paidCount * perPlayerCents;
+  const feeProgress =
+    team.registrationFeeCents > 0
+      ? Math.min(1, collectedCents / team.registrationFeeCents)
+      : 1;
 
   return (
     <View style={styles.root}>
@@ -105,30 +124,30 @@ export function TeamRosterScreen() {
           </View>
         </View>
 
-        <View style={[styles.actionRow, { gap: spacing.sm }]}>
-          {team.divisionId ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open team payment"
-              onPress={() =>
-                navigation.navigate('TeamPayment', { teamId: team.id })
-              }
-              style={({ pressed }) => [
-                styles.actionBtn,
-                {
-                  backgroundColor: colors.brand.primary,
-                  opacity: pressed ? 0.92 : 1,
-                },
-              ]}
-            >
-              <Text variant="body" color={colors.text.inverse} style={styles.bold}>
-                Open team payment
+        {team.divisionId ? (
+          <View style={styles.paymentCard}>
+            <View style={styles.paymentHead}>
+              <Text variant="h3">Registration fee</Text>
+              <Text variant="bodySm" color={colors.text.secondary}>
+                {paidCount}/{roster.length} paid
               </Text>
-              <Text variant="caption" color={colors.text.inverse}>
-                Split or override the per-player share.
-              </Text>
-            </Pressable>
-          ) : (
+            </View>
+            <ProgressBar
+              value={feeProgress}
+              tone="success"
+              size="md"
+              showLabel
+              accessibilityLabel="Registration fee collection progress"
+            />
+            <Text variant="caption" color={colors.text.muted}>
+              ${(collectedCents / 100).toFixed(0)} of $
+              {(team.registrationFeeCents / 100).toFixed(0)} collected · $
+              {(perPlayerCents / 100).toFixed(0)}/player. Nudge unpaid players
+              from the roster below.
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.actionRow, { gap: spacing.sm }]}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Apply to division"
@@ -148,8 +167,8 @@ export function TeamRosterScreen() {
                 Pick a registration window.
               </Text>
             </Pressable>
-          )}
-        </View>
+          </View>
+        )}
 
         <View style={styles.rosterCard}>
           <Text variant="h3">Roster ({roster.length} / {team.rosterMax})</Text>
@@ -232,6 +251,18 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     marginTop: 8,
+  },
+  paymentCard: {
+    backgroundColor: colors.surface.card,
+    borderRadius: radii.card,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  paymentHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
   },
   rosterCard: {
     backgroundColor: colors.surface.card,

@@ -68,6 +68,7 @@ import {
   type DirectorMessage,
   type HighlightBrief,
 } from '../../lib/highlight-director';
+import { useHighlightProjectsStore } from '../../features/highlight-projects-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'HighlightUpload'>;
@@ -308,6 +309,7 @@ export function HighlightUploadScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const checkout = useCheckout();
+  const addProject = useHighlightProjectsStore((s) => s.addProject);
 
   const [step, setStep] = useState<Step>('pick');
   const [video, setVideo] = useState<PickedVideo | null>(null);
@@ -362,29 +364,46 @@ export function HighlightUploadScreen() {
     return () => clearTimeout(id);
   }, [messages, aiTyping, step]);
 
-  // Drive the multi-stage generation animation, then land on the done screen.
+  // Drive the multi-stage generation animation. The updater stays pure —
+  // stage completion is handled by the effect below.
   useEffect(() => {
     if (step !== 'generating') return undefined;
     setGenStage(0);
     const total = generationStages.length;
     const interval = setInterval(() => {
-      setGenStage((s) => {
-        const nextStage = s + 1;
-        if (nextStage >= total) {
-          clearInterval(interval);
-          finishTimer.current = setTimeout(() => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setStep('done');
-          }, 700);
-        }
-        return nextStage;
-      });
+      setGenStage((s) => Math.min(s + 1, total));
     }, 820);
+    return () => clearInterval(interval);
+  }, [step, generationStages.length]);
+
+  // All stages done → register the project and land on the done screen.
+  useEffect(() => {
+    if (step !== 'generating' || genStage < generationStages.length) {
+      return undefined;
+    }
+    finishTimer.current = setTimeout(() => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Register the new project so the Studio list shows it as
+      // processing the moment the player lands back there.
+      addProject({
+        id: `proj-${Date.now()}`,
+        title: `${selectedModel.name} cut — ${new Date().toLocaleDateString(
+          undefined,
+          { month: 'short', day: 'numeric' },
+        )}`,
+        status: 'processing',
+        createdAt: new Date().toISOString(),
+        sourceVideoSeconds: video?.durationSeconds ?? 0,
+        thumbnail: video?.uri ?? SAMPLE_VIDEO.uri,
+        clipsCount: 0,
+        aiSummary: summarizeBrief(briefRef.current),
+      });
+      setStep('done');
+    }, 700);
     return () => {
-      clearInterval(interval);
       if (finishTimer.current) clearTimeout(finishTimer.current);
     };
-  }, [step, generationStages.length]);
+  }, [step, genStage, generationStages.length, addProject, selectedModel.name, video]);
 
   // Clear any pending timers on unmount.
   useEffect(
@@ -679,6 +698,25 @@ export function HighlightUploadScreen() {
             ))}
           </View>
         </ScrollView>
+      ) : null}
+
+      {/* Sticky continue for the model step — advances into the director
+          chat with the selected editor. */}
+      {step === 'model' ? (
+        <View
+          style={[styles.modelFooter, { paddingBottom: insets.bottom + spacing.md }]}
+        >
+          <Button
+            label={`Direct ${selectedModel.name}`}
+            variant="gradient"
+            size="lg"
+            fullWidth
+            trailingIcon={
+              <ArrowRight size={18} color={colors.text.inverse} strokeWidth={2.5} />
+            }
+            onPress={goToDirector}
+          />
+        </View>
       ) : null}
 
       {/* ----- Step 3: direct the AI (chat) ----- */}
@@ -1174,6 +1212,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  modelFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: spacing.lg,
+    backgroundColor: colors.surface.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.soft,
   },
   // Director chat
   directRoot: {

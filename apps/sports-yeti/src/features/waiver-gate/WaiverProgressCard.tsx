@@ -30,10 +30,10 @@ export function WaiverProgressCard({ scopes, action }: WaiverProgressCardProps) 
 
   if (gate.required.length === 0) return null;
 
-  const signedCount = gate.signed.filter((s) =>
-    gate.required.some((r) => r.id === s.waiverId),
-  ).length;
+  // Count from the blocking list (not the fixture's signature rows) so
+  // waivers signed this session move the progress copy immediately.
   const total = gate.required.length;
+  const signedCount = total - gate.blocking.length;
 
   return (
     <Pressable

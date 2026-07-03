@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronDown, Flag } from 'lucide-react-native';
 import { RoleBadge, Tag, Tabs } from '@sports-yeti/ui';
 import {
-  assignmentsForReferee,
   DEMO_ORG_ID,
   DEMO_REFEREE_ID,
   facilityById,
@@ -22,6 +21,7 @@ import { colors, radii, shadows, spacing } from '../../theme';
 import { useRoleStack } from '../../features/role-stack';
 import { RoleSwitcher } from '../../features/role-switcher';
 import { WaiverProgressCard } from '../../features/waiver-gate';
+import { useRefereeAssignments, useRefereeStore } from '../../features/referee-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -42,11 +42,30 @@ export function RefereeHomeScreen() {
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const referee = useMemo(() => refereeById(DEMO_REFEREE_ID), []);
-  const assignments = useMemo(
-    () => assignmentsForReferee(DEMO_REFEREE_ID),
-    [],
-  );
+  // Seeded assignments + session accept/decline/report transitions.
+  const assignments = useRefereeAssignments();
+  const acceptAssignment = useRefereeStore((s) => s.accept);
+  const declineAssignment = useRefereeStore((s) => s.decline);
+  const bidGameIds = useRefereeStore((s) => s.bidGameIds);
   const marketplace = useMemo(() => marketplaceGamesForReferee(), []);
+
+  const handleAccept = (a: RefereeAssignment) => {
+    acceptAssignment(a.id);
+    toast.show({
+      variant: 'success',
+      title: 'Assignment accepted',
+      description: 'Moved to your Accepted list — submit the report after the game.',
+    });
+  };
+
+  const handleDecline = (a: RefereeAssignment) => {
+    declineAssignment(a.id);
+    toast.show({
+      variant: 'info',
+      title: 'Invitation declined',
+      description: 'The organizer will offer the slot to another referee.',
+    });
+  };
 
   // Referee waiver gate (org-wide). Shown via WaiverProgressCard below;
   // the per-action `guard()` is wired on the marketplace bid CTA inside
@@ -135,11 +154,14 @@ export function RefereeHomeScreen() {
         />
 
         {tab === 'pending'
-          ? renderAssignments(pending, navigation, 'No invitations right now.')
+          ? renderAssignments(pending, navigation, 'No invitations right now.', {
+              onAccept: handleAccept,
+              onDecline: handleDecline,
+            })
           : null}
 
         {tab === 'marketplace'
-          ? renderMarketplace(marketplace, navigation)
+          ? renderMarketplace(marketplace, navigation, bidGameIds)
           : null}
 
         {tab === 'accepted'
@@ -164,6 +186,10 @@ function renderAssignments(
   list: RefereeAssignment[],
   navigation: Navigation,
   emptyCopy: string,
+  inviteHandlers?: {
+    onAccept: (a: RefereeAssignment) => void;
+    onDecline: (a: RefereeAssignment) => void;
+  },
 ) {
   if (list.length === 0) {
     return (
@@ -208,12 +234,13 @@ function renderAssignments(
             <Tag size="sm" tone="success" label="Paid" />
           ) : null}
         </View>
-        {a.status === 'invited' ? (
+        {a.status === 'invited' && inviteHandlers ? (
           <View style={[styles.actionRow, { gap: spacing.sm }]}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Decline assignment"
-              onPress={() => undefined}
+              hitSlop={6}
+              onPress={() => inviteHandlers.onDecline(a)}
               style={({ pressed }) => [
                 styles.ghostBtn,
                 { opacity: pressed ? 0.85 : 1 },
@@ -226,7 +253,8 @@ function renderAssignments(
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Accept assignment"
-              onPress={() => undefined}
+              hitSlop={6}
+              onPress={() => inviteHandlers.onAccept(a)}
               style={({ pressed }) => [
                 styles.primaryBtn,
                 { opacity: pressed ? 0.85 : 1 },
@@ -261,7 +289,11 @@ function renderAssignments(
   });
 }
 
-function renderMarketplace(games: Game[], navigation: Navigation) {
+function renderMarketplace(
+  games: Game[],
+  navigation: Navigation,
+  bidGameIds: Record<string, true>,
+) {
   if (games.length === 0) {
     return (
       <View style={styles.emptyCard}>
@@ -274,11 +306,16 @@ function renderMarketplace(games: Game[], navigation: Navigation) {
   return games.map((g) => {
     const space = spaceById(g.spaceId);
     const facility = space ? facilityById(space.facilityId) : undefined;
+    const hasBid = !!bidGameIds[g.id];
     return (
       <Pressable
         key={g.id}
         accessibilityRole="button"
-        accessibilityLabel={`Bid on ${g.sport} game at ${facility?.name ?? 'venue'}`}
+        accessibilityLabel={
+          hasBid
+            ? `View your bid on the ${g.sport} game at ${facility?.name ?? 'venue'}`
+            : `Bid on ${g.sport} game at ${facility?.name ?? 'venue'}`
+        }
         onPress={() =>
           navigation.navigate('MarketplaceGameDetail', { gameId: g.id })
         }
@@ -300,23 +337,28 @@ function renderMarketplace(games: Game[], navigation: Navigation) {
               label={`Base ${fmt(g.refereeBaseRateCents)}`}
             />
           ) : null}
-          <Tag size="sm" tone="warning" label="Open to bid" leadingDot />
+          {hasBid ? (
+            <Tag size="sm" tone="success" label="Bid placed" leadingDot />
+          ) : (
+            <Tag size="sm" tone="warning" label="Open to bid" leadingDot />
+          )}
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Submit bid"
-          onPress={() =>
-            navigation.navigate('MarketplaceGameDetail', { gameId: g.id })
-          }
-          style={({ pressed }) => [
-            styles.primaryBtn,
-            { alignSelf: 'flex-start', opacity: pressed ? 0.85 : 1 },
+        {/* Visual affordance only — the whole card is the button (nesting a
+            second pressable with the same target confuses screen readers). */}
+        <View
+          style={[
+            hasBid ? styles.ghostBtn : styles.primaryBtn,
+            { alignSelf: 'flex-start' },
           ]}
         >
-          <Text variant="bodySm" color={colors.text.inverse} style={styles.bold}>
-            Bid
+          <Text
+            variant="bodySm"
+            color={hasBid ? colors.text.primary : colors.text.inverse}
+            style={styles.bold}
+          >
+            {hasBid ? 'View bid' : 'Bid'}
           </Text>
-        </Pressable>
+        </View>
       </Pressable>
     );
   });

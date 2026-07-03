@@ -16,6 +16,22 @@ export interface ChatPreview {
   muted?: boolean;
 }
 
+/**
+ * Canonical DM chat id for a player. Players with a seeded conversation
+ * (in `CHATS` / `CHAT_MESSAGES`) reuse it so history shows up; everyone
+ * else gets a deterministic `dm-<playerId>` id that ChatScreen opens as a
+ * fresh thread. Every DM entry point (TeamDetail, PlayerDirectory,
+ * PlayerProfile) must route through this so the same person always maps
+ * to the same conversation.
+ */
+const SEEDED_DM_BY_PLAYER: Record<string, string> = {
+  'p-marcus': 'chat-marcus-dm',
+};
+
+export function dmChatIdForPlayer(playerId: string): string {
+  return SEEDED_DM_BY_PLAYER[playerId] ?? `dm-${playerId}`;
+}
+
 export const CHATS: ChatPreview[] = [
   {
     id: 'chat-avalanche-fc',

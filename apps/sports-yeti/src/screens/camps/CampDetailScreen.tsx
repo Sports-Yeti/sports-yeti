@@ -34,6 +34,11 @@ import {
 import { SKILL_LABELS, sportLabel } from '../../mocks/games';
 import { campById, type CampSession } from '../../mocks/camps';
 import { formatCurrency } from '../../lib/format';
+import {
+  scheduledEventsFromCamp,
+  useCampScheduleEntries,
+  useScheduleStore,
+} from '../../features/schedule-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'CampDetails'>;
@@ -45,7 +50,13 @@ export function CampDetailScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const camp = campById(route.params.id);
-  const [registered, setRegistered] = useState(false);
+  // Registration writes camp sessions into the shared schedule store, so
+  // "registered" survives leaving the screen and the sessions genuinely
+  // show up on the Schedule tab.
+  const scheduleEntries = useCampScheduleEntries(route.params.id);
+  const addEvents = useScheduleStore((s) => s.addEvents);
+  const [waitlisted, setWaitlisted] = useState(false);
+  const registered = scheduleEntries.length > 0 || waitlisted;
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (!camp) {
@@ -71,13 +82,28 @@ export function CampDetailScreen() {
   const handleConfirm = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setConfirmOpen(false);
-    setRegistered(true);
+    if (isClosed) {
+      // Waitlist joins don't hold a spot, so nothing lands on the schedule.
+      setWaitlisted(true);
+    } else {
+      addEvents(scheduledEventsFromCamp(camp));
+    }
     toast.show({
       variant: 'success',
       title: isClosed ? 'Added to waitlist' : `Registered for ${camp.title}`,
       description: isClosed
         ? "We'll notify you if a spot opens."
-        : `${camp.dateLabel} · ${camp.venueName}`,
+        : `All ${camp.schedule.length} sessions were added to your schedule.`,
+      action: isClosed
+        ? undefined
+        : {
+            label: 'View schedule',
+            onPress: () =>
+              navigation.navigate('MainTabs', { screen: 'Schedule' }),
+          },
+      // Longer window for assistive tech; the footer keeps a persistent
+      // "View in Schedule" fallback.
+      duration: isClosed ? undefined : 8000,
     });
   };
 
@@ -304,18 +330,22 @@ export function CampDetailScreen() {
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         {registered ? (
           <View style={styles.registeredRow}>
-            <Tag tone="success" leadingDot label={isClosed ? 'On the waitlist' : "You're registered"} />
-            <Button
-              label="View in Schedule"
-              variant="ghost"
-              size="md"
-              leadingIcon={
-                <CalendarDays size={16} color={colors.brand.primary} strokeWidth={2.5} />
-              }
-              onPress={() =>
-                navigation.navigate('MainTabs', { screen: 'Schedule' })
-              }
-            />
+            <Tag tone="success" leadingDot label={waitlisted ? 'On the waitlist' : "You're registered"} />
+            {/* Waitlisted athletes hold no spot yet — nothing to show in
+                Schedule, so the CTA only renders for real registrations. */}
+            {waitlisted ? null : (
+              <Button
+                label="View in Schedule"
+                variant="ghost"
+                size="md"
+                leadingIcon={
+                  <CalendarDays size={16} color={colors.brand.primary} strokeWidth={2.5} />
+                }
+                onPress={() =>
+                  navigation.navigate('MainTabs', { screen: 'Schedule' })
+                }
+              />
+            )}
           </View>
         ) : (
           <Button

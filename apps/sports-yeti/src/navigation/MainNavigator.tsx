@@ -50,7 +50,6 @@ import {
   // Phase 5 — Player + Waiver gate
   WaiverGateScreen,
   WaiverSignScreen,
-  JoinGamePaymentSheet,
   // Phase 6 — Referee
   RefereeHomeScreen,
   MarketplaceGameDetailScreen,
@@ -67,7 +66,8 @@ export type MainTabParamList = {
   Discover: undefined;
   News: undefined;
   Teams: undefined;
-  Highlights: undefined;
+  /** `focusReelId` scrolls the feed to a specific reel (saved/bookmarks). */
+  Highlights: { focusReelId?: string } | undefined;
   Schedule: undefined;
 };
 
@@ -125,7 +125,6 @@ export type RootStackParamList = {
     scopes: { kind: 'organization' | 'league' | 'division' | 'facility'; scopeId: string }[];
   };
   WaiverSign: { waiverId: string };
-  JoinGamePayment: { gameId: string };
 
   // Referee (Phase 6)
   MarketplaceGameDetail: { gameId: string };
@@ -143,7 +142,8 @@ export type RootStackParamList = {
   Facilities: undefined;
   FacilityDetails: { id: string };
   Messages: undefined;
-  Chat: { chatId: string; title?: string };
+  /** `avatar` seeds the Messages-inbox row for fresh conversations. */
+  Chat: { chatId: string; title?: string; avatar?: string };
 
   // Dev
   ComponentShowcase: undefined;
@@ -337,11 +337,6 @@ export function MainNavigator() {
       {/* Player + Waiver (Phase 5) */}
       <Stack.Screen name="WaiverGate" component={WaiverGateScreen} />
       <Stack.Screen name="WaiverSign" component={WaiverSignScreen} />
-      <Stack.Screen
-        name="JoinGamePayment"
-        component={JoinGamePaymentSheet}
-        options={{ presentation: 'transparentModal', animation: 'fade' }}
-      />
 
       {/* Referee (Phase 6) */}
       <Stack.Screen

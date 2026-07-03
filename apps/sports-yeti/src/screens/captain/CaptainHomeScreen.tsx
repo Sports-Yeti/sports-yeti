@@ -10,7 +10,6 @@ import {
   divisionById,
   DEMO_PLAYER_ID,
   leagueById,
-  openSubRequests,
   organizationById,
   rosterForTeam,
   seasonById,
@@ -21,7 +20,8 @@ import { Text, useToast } from '../../ui';
 import { colors, radii, shadows, spacing } from '../../theme';
 import { useRoleStack } from '../../features/role-stack';
 import { RoleSwitcher } from '../../features/role-switcher';
-import { WaiverProgressCard, useWaiverGate } from '../../features/waiver-gate';
+import { WaiverProgressCard } from '../../features/waiver-gate';
+import { useOpenSubRequests } from '../../features/sub-requests-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -35,20 +35,22 @@ export function CaptainHomeScreen() {
 
   // Captain's teams = teams where the demo player is the captain.
   const teams = useMemo(() => teamsCaptainedBy(DEMO_PLAYER_ID), []);
+  // Seeded + session-posted sub requests, so a request created in the
+  // SubRequestCreate flow shows up here immediately.
+  const allOpenSubRequests = useOpenSubRequests();
   const subRequests = useMemo(() => {
     const myTeamIds = new Set(teams.map((t) => t.id));
-    return openSubRequests().filter((s) => myTeamIds.has(s.teamId));
-  }, [teams]);
+    return allOpenSubRequests.filter((s) => myTeamIds.has(s.teamId));
+  }, [teams, allOpenSubRequests]);
 
   // Waiver gate for the org-wide org waiver — captain needs this signed
-  // to apply teams to a division. The DivisionApply screen surfaces the
+  // to apply teams to a division. The DivisionApply screen enforces the
   // gate on its own CTA; this card mirrors progress on the home.
   const orgScopes = useMemo(
     () =>
       [{ kind: 'organization' as const, scopeId: DEMO_ORG_ID }],
     [],
   );
-  const { guard } = useWaiverGate(orgScopes);
 
   return (
     <View style={styles.root}>

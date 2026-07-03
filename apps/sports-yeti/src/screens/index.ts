@@ -61,8 +61,6 @@ export { SubRequestInboxScreen } from './captain/SubRequestInboxScreen';
 // Player journeys + waiver gate (Phase 5)
 export { WaiverGateScreen } from './waivers/WaiverGateScreen';
 export { WaiverSignScreen } from './waivers/WaiverSignScreen';
-export { JoinGamePaymentSheet } from './games/JoinGamePaymentSheet';
-
 // Referee module (Phase 6)
 export { RefereeHomeScreen } from './referee/RefereeHomeScreen';
 export { MarketplaceGameDetailScreen } from './referee/MarketplaceGameDetailScreen';

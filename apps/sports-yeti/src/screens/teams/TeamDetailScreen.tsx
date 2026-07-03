@@ -25,6 +25,7 @@ import {
   Trophy,
   UserMinus,
   UserPlus,
+  Vote,
 } from 'lucide-react-native';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
@@ -43,7 +44,6 @@ import {
 } from '../../ui';
 import {
   OPEN_LEAGUES,
-  TEAM_DETAILS,
   isLeagueTeam,
   type CommitPoll,
   type OpenLeague,
@@ -52,9 +52,11 @@ import {
   type TeamDetail,
   type TeamSchedule,
 } from '../../mocks/teams';
-import type { ChatCard } from '../../mocks/messages';
+import { dmChatIdForPlayer, type ChatCard } from '../../mocks/messages';
 import { formatCurrency } from '../../lib/format';
 import { useTeamChat } from '../../features/team-chat-store';
+import { useTeamMembershipStore } from '../../features/team-membership-store';
+import { useTeamDetailById } from '../../features/created-squads-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'TeamDetails'>;
@@ -351,15 +353,30 @@ export function TeamDetailScreen() {
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const baseTeam = TEAM_DETAILS[route.params.id];
+  // Seeded fixture or a squad created in the wizard this session.
+  const baseTeam = useTeamDetailById(route.params.id);
   const postCard = useTeamChat((s) => s.postCard);
   const removeMessageAuthor = useTeamChat((s) => s.removeMessageAuthor);
   const polls = useTeamChat((s) => s.pollsById);
   const registrationsByTeam = useTeamChat((s) => s.registrationsByTeam);
+  // Session membership (join/leave) is shared with ChatScreen + SquadsScreen
+  // through the membership store so all three surfaces agree.
+  const membershipOverride = useTeamMembershipStore(
+    (s) => s.overrides[route.params.id],
+  );
+  const requestJoin = useTeamMembershipStore((s) => s.requestJoin);
+  const leaveTeam = useTeamMembershipStore((s) => s.leave);
 
   // Derive a mutable team copy so captain actions (remove player, approve app)
   // reflect immediately during the demo without mutating the mock module.
-  const [team, setTeam] = useState<TeamDetail | undefined>(baseTeam);
+  const [teamState, setTeam] = useState<TeamDetail | undefined>(baseTeam);
+  // Membership is resolved at render time (not baked into state) so store
+  // writes — from this screen or anywhere else — always reflect.
+  const team = teamState
+    ? membershipOverride
+      ? { ...teamState, membership: membershipOverride }
+      : teamState
+    : undefined;
 
   const [tab, setTab] = useState<Tab>('roster');
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -369,13 +386,14 @@ export function TeamDetailScreen() {
   const [joinSheetOpen, setJoinSheetOpen] = useState(false);
   const [joinMessage, setJoinMessage] = useState('');
 
-  // Re-pull the team from mocks if the user navigates back to a fresh detail.
+  // Re-pull the team (seed or session-created) if the user navigates back
+  // to a fresh detail.
   useFocusEffect(
     React.useCallback(() => {
-      if (TEAM_DETAILS[route.params.id]) {
-        setTeam((prev) => prev ?? TEAM_DETAILS[route.params.id]);
+      if (baseTeam) {
+        setTeam((prev) => prev ?? baseTeam);
       }
-    }, [route.params.id]),
+    }, [baseTeam]),
   );
 
   const teamPoll: CommitPoll | undefined = useMemo(() => {
@@ -447,7 +465,11 @@ export function TeamDetailScreen() {
 
   const handleMessage = (m: RosterMember) => {
     if (m.isYou) return;
-    navigation.navigate('Chat', { chatId: `dm-${m.playerId}`, title: m.name });
+    navigation.navigate('Chat', {
+      chatId: dmChatIdForPlayer(m.playerId),
+      title: m.name,
+      avatar: m.avatar,
+    });
   };
 
   const handleRemoveConfirm = () => {
@@ -524,6 +546,7 @@ export function TeamDetailScreen() {
     setJoinSheetOpen(false);
     setJoinMessage('');
     setTeam((prev) => (prev ? { ...prev, membership: 'pending' } : prev));
+    requestJoin(team.id);
     toast.show({
       variant: 'success',
       title: `Request sent to ${team.name}`,
@@ -815,6 +838,34 @@ export function TeamDetailScreen() {
               <Tag tone={leagueInfo.tone} size="sm" label={leagueInfo.tagLabel} />
             ) : null}
           </View>
+          {team.isCaptain ? (
+            <View style={styles.captainLeagueTools}>
+              <Button
+                label="Share a league"
+                variant="soft"
+                size="md"
+                style={styles.captainToolBtn}
+                leadingIcon={
+                  <Share2
+                    size={16}
+                    color={colors.brand.deep}
+                    strokeWidth={2.5}
+                  />
+                }
+                onPress={() => setShareSheetOpen(true)}
+              />
+              <Button
+                label="Commit poll"
+                variant="soft"
+                size="md"
+                style={styles.captainToolBtn}
+                leadingIcon={
+                  <Vote size={16} color={colors.brand.deep} strokeWidth={2.5} />
+                }
+                onPress={() => setPollSheetOpen(true)}
+              />
+            </View>
+          ) : null}
         </View>
 
         {captains.length > 0 ? (
@@ -1029,6 +1080,7 @@ export function TeamDetailScreen() {
           label: 'Leave team',
           onPress: () => {
             setConfirmLeave(false);
+            leaveTeam(team.id);
             toast.show({
               variant: 'info',
               title: `You left ${team.name}`,
@@ -1237,6 +1289,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface.card,
     borderRadius: radii.lg,
     ...shadows.soft,
+  },
+  captainLeagueTools: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  captainToolBtn: {
+    flex: 1,
   },
   providerBody: {
     flex: 1,

@@ -42,6 +42,7 @@ import {
   type SportPlayerProfile,
 } from '../../mocks/profile';
 import { CAPTAIN_OF_TEAMS } from '../../mocks/teams';
+import { dmChatIdForPlayer } from '../../mocks/messages';
 import { useFollowStore } from '../../features/follow-store';
 import type { SportKey } from '../../mocks/teams';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
@@ -411,8 +412,9 @@ export function PlayerProfileScreen() {
               onPress={() => {
                 Haptics.selectionAsync();
                 navigation.navigate('Chat', {
-                  chatId: `dm-${profile.playerId}`,
+                  chatId: dmChatIdForPlayer(profile.playerId),
                   title: profile.name,
+                  avatar: profile.avatar,
                 });
               }}
               style={styles.actionBtn}

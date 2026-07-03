@@ -26,17 +26,24 @@ export function RolesScreen() {
     activeRole,
     descriptions,
     setActiveRole,
+    addRole,
     hasRole,
   } = useRoleStack();
   const [activatingRole, setActivatingRole] = useState<Role | null>(null);
 
   function activateRole(role: Role) {
-    // Phase 3: activation is mocked — toast + nudge to switch.
+    // Session activation — the role joins the stack and the switcher,
+    // and can be switched to immediately.
     setActivatingRole(role);
+    addRole(role);
     toast.show({
       variant: 'success',
-      title: `${ROLE_LABEL[role]} activated (mock)`,
-      description: 'Open the role switcher to start using it.',
+      title: `${ROLE_LABEL[role]} activated`,
+      description: 'It’s in your role list now — switch any time.',
+      action: { label: 'Switch now', onPress: () => switchToRole(role) },
+      // Longer window for assistive tech; the role list itself now offers
+      // Switch as a persistent fallback.
+      duration: 8000,
     });
     setTimeout(() => setActivatingRole(null), 800);
   }

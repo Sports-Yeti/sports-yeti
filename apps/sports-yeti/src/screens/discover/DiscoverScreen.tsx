@@ -39,7 +39,6 @@ import { CampCard } from '../../components/CampCard';
 import { DiscoverLeagueCard } from '../../components/DiscoverLeagueCard';
 import { ShareToTeamSheet } from '../../components/ShareToTeamSheet';
 import {
-  DISCOVER_GAMES,
   gameCoords,
   OPEN_STATUS_FILTERS,
   SKILL_LABELS,
@@ -50,6 +49,7 @@ import {
 } from '../../mocks/games';
 import { DISCOVER_CAMPS, campCoords, type DiscoverCamp } from '../../mocks/camps';
 import { OPEN_LEAGUES, CITY_COORDS, type OpenLeague } from '../../mocks/teams';
+import { useDiscoverGames } from '../../features/discover-store';
 import {
   DEFAULT_MAP_CENTER,
   distanceMilesBetween,
@@ -121,7 +121,7 @@ function withinRadius(
   return distanceMilesBetween(center, coords) <= radiusMiles;
 }
 
-function filterGames(f: FilterState): DiscoverGame[] {
+function filterGames(f: FilterState, games: DiscoverGame[]): DiscoverGame[] {
   const search = f.search.trim().toLowerCase();
   const center = f.center ?? { ...DEFAULT_MAP_CENTER, label: 'Default' };
   const buckets = resolveAllowedBuckets(f.sports);
@@ -134,7 +134,7 @@ function filterGames(f: FilterState): DiscoverGame[] {
   const timeStart = f.timeRange.start ? toMinutes(f.timeRange.start) : null;
   const timeEnd = f.timeRange.end ? toMinutes(f.timeRange.end) : null;
 
-  return DISCOVER_GAMES.filter((g) => {
+  return games.filter((g) => {
     if (f.status !== 'all' && g.openStatus !== f.status) return false;
     if (buckets && !buckets.has(g.sport)) return false;
     if (f.skill !== 'all' && g.skillLevel !== 'all' && g.skillLevel !== f.skill)
@@ -326,7 +326,12 @@ export function DiscoverScreen() {
   const config = CONTENT_CONFIG[content];
   const initials = (user?.name?.charAt(0) ?? 'S').toUpperCase();
 
-  const games = useMemo(() => filterGames(filters), [filters]);
+  // Seeded fixtures + games hosted through the wizard this session.
+  const allGames = useDiscoverGames();
+  const games = useMemo(
+    () => filterGames(filters, allGames),
+    [filters, allGames],
+  );
   const camps = useMemo(() => filterCamps(filters), [filters]);
   const leagues = useMemo(() => filterLeagues(filters), [filters]);
 

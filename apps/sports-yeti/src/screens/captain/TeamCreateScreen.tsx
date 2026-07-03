@@ -45,13 +45,18 @@ import {
   MOCK_CITY_OPTIONS,
   OPEN_LEAGUES,
   type OpenLeague,
+  type TeamDetail,
+  type TeamLevel,
 } from '../../mocks/teams';
 import {
   DEFAULT_MAP_CENTER,
   distanceMilesBetween,
   type GeoPoint,
 } from '../../mocks/facilities';
+import { SARAH_AVATAR } from '../../mocks/avatars';
 import { formatCurrency } from '../../lib/format';
+import { useCreatedSquadsStore } from '../../features/created-squads-store';
+import { useTeamMembershipStore } from '../../features/team-membership-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'TeamCreate'>;
@@ -151,10 +156,82 @@ function suggestedPerPlayerCents(form: FormState): number {
   return Math.ceil(total / form.rosterSize);
 }
 
+const LEVEL_FOR_SKILL: Record<CreateSkillLevel, TeamLevel> = {
+  beginner: 'RECREATIONAL',
+  intermediate: 'INTERMEDIATE',
+  advanced: 'ADVANCED',
+};
+
+/** Map the wizard form into a full TeamDetail captained by the current user. */
+function teamDetailFromForm(form: FormState): TeamDetail {
+  const name = form.name.trim();
+  const sportEntry = form.sport ? sportCatalogEntry(form.sport) : null;
+  const league = form.leagueMode === 'league' ? findLeague(form.leagueId) : null;
+  const perPlayer = perPlayerCents(form);
+  const total = totalCostCents(form);
+  const id = `squad-${Date.now()}`;
+  return {
+    id,
+    name,
+    abbreviation: name
+      .split(/\s+/)
+      .map((w) => w.charAt(0))
+      .join('')
+      .slice(0, 3)
+      .toUpperCase(),
+    sport: sportEntry?.label ?? 'Pickup',
+    sportKey: sportEntry?.bucket ?? 'soccer',
+    location: form.city ?? 'Denver, CO',
+    level: LEVEL_FOR_SKILL[form.skill],
+    league: undefined,
+    description:
+      form.leagueMode === 'league' && league
+        ? `Forming for ${league.name}. Captained by you — invite players to fill the roster.`
+        : 'Casual squad — captained by you. Invite players to fill the roster.',
+    stats: { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, streak: '—' },
+    roster: [
+      {
+        id: `${id}-you`,
+        playerId: 'p-sarah',
+        name: 'Sarah Jenkins',
+        handle: '@jenkins_yeti',
+        avatar: SARAH_AVATAR,
+        position: 'Captain',
+        role: 'captain',
+        experience: 'advanced',
+        paymentStatus: perPlayer > 0 ? 'pending' : 'not_required',
+        isYou: true,
+      },
+    ],
+    rosterMax: form.rosterSize,
+    pendingApplications: [],
+    schedule: [],
+    Icon: sportEntry?.Icon ?? Trophy,
+    isCaptain: true,
+    membership: 'captain',
+    hasUnpaidShare: false,
+    costMode: perPlayer > 0 || total > 0 ? 'paid' : 'free',
+    feeTotalCents: total,
+    perPlayerCents: perPlayer,
+    currency: 'USD',
+    leagueRegistration: league
+      ? {
+          leagueId: league.id,
+          leagueName: league.name,
+          status: 'pending_admin',
+          submittedAt: 'Just now',
+        }
+      : undefined,
+    needs: [{ label: 'Open roster spots', urgent: false }],
+  };
+}
+
 export function TeamCreateScreen() {
   const navigation = useNavigation<Navigation>();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const addTeam = useCreatedSquadsStore((s) => s.addTeam);
+  const setMembership = useTeamMembershipStore((s) => s.setMembership);
   const [step, setStep] = useState<Step>(1);
   const [form, setForm] = useState<FormState>(INITIAL);
   const [submitting, setSubmitting] = useState(false);
@@ -178,12 +255,17 @@ export function TeamCreateScreen() {
     setSubmitting(true);
     setTimeout(() => {
       setSubmitting(false);
+      // Create the squad for real (session mock): it lists under My Teams,
+      // opens in TeamDetail, and you land on it as its captain.
+      const team = teamDetailFromForm(form);
+      addTeam(team);
+      setMembership(team.id, 'captain');
       toast.show({
         variant: 'success',
         title: `${form.name.trim()} is forming`,
         description: buildSummaryLine(form),
       });
-      navigation.goBack();
+      navigation.replace('TeamDetails', { id: team.id });
     }, 600);
   };
 

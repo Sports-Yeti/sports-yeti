@@ -5,8 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronLeft } from 'lucide-react-native';
 import { Tag } from '@sports-yeti/ui';
 import { waiverById } from '@sports-yeti/mocks';
-import { Text, useToast } from '../../ui';
+import { EmptyState, Text, useToast } from '../../ui';
 import { colors, radii, shadows, spacing } from '../../theme';
+import { useWaiverSignatures } from '../../features/waiver-gate/waiver-signatures-store';
 
 export function WaiverSignScreen() {
   const navigation = useNavigation();
@@ -18,22 +19,31 @@ export function WaiverSignScreen() {
     [route.params.waiverId],
   );
   const [agreed, setAgreed] = useState(false);
-  const [signed, setSigned] = useState(false);
+  // Session store, not local state — the gate that sent the player here
+  // re-computes on return and actually unblocks.
+  const recordSignature = useWaiverSignatures((s) => s.sign);
+  const signed = useWaiverSignatures(
+    (s) => !!s.signedWaiverIds[route.params.waiverId],
+  );
 
   if (!waiver) {
     return (
       <View style={styles.root}>
-        <Text variant="body">Waiver not found.</Text>
+        <EmptyState
+          title="Waiver not found"
+          description="It may have been retired or you opened a stale link."
+          primaryAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+        />
       </View>
     );
   }
 
   function sign() {
-    setSigned(true);
+    recordSignature(route.params.waiverId);
     toast.show({
       variant: 'success',
       title: 'Waiver signed',
-      description: `${waiver?.title ?? 'Waiver'} accepted (mock).`,
+      description: `${waiver?.title ?? 'Waiver'} accepted.`,
     });
     setTimeout(() => navigation.goBack(), 600);
   }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,12 +6,15 @@ import { Check, ChevronLeft } from 'lucide-react-native';
 import { SkillLevelPill, Tag } from '@sports-yeti/ui';
 import {
   playerById,
-  subRequestsForTeam,
   teamById,
   type SubRequest,
 } from '@sports-yeti/mocks';
-import { Text, useToast } from '../../ui';
+import { EmptyState, Text, useToast } from '../../ui';
 import { colors, radii, shadows, spacing } from '../../theme';
+import {
+  useSubRequestsForTeam,
+  useSubRequestsStore,
+} from '../../features/sub-requests-store';
 
 export function SubRequestInboxScreen() {
   const navigation = useNavigation();
@@ -22,14 +25,13 @@ export function SubRequestInboxScreen() {
     () => teamById(route.params.teamId),
     [route.params.teamId],
   );
-  const requests = useMemo(
-    () => (team ? subRequestsForTeam(team.id) : []),
-    [team],
-  );
-  const [confirmed, setConfirmed] = useState<Record<string, string>>({});
+  // Seeded + session requests with confirmations applied — shared with
+  // CaptainHome so both surfaces agree on what's open vs filled.
+  const requests = useSubRequestsForTeam(team?.id);
+  const confirmInStore = useSubRequestsStore((s) => s.confirmApplicant);
 
   function confirmApplicant(req: SubRequest, playerId: string) {
-    setConfirmed((prev) => ({ ...prev, [req.id]: playerId }));
+    confirmInStore(req.id, playerId);
     toast.show({
       variant: 'success',
       title: 'Sub confirmed',
@@ -62,13 +64,14 @@ export function SubRequestInboxScreen() {
         ]}
       >
         {requests.length === 0 ? (
-          <Text variant="body" color={colors.text.secondary}>
-            No sub requests posted for {team?.name ?? 'this team'}.
-          </Text>
+          <EmptyState
+            title="No sub requests"
+            description={`Nothing posted for ${team?.name ?? 'this team'} yet. Post one and matching players apply.`}
+            primaryAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+          />
         ) : (
           requests.map((req) => {
-            const filled =
-              req.status === 'filled' || req.filledPlayerId || confirmed[req.id];
+            const filled = req.status === 'filled' || !!req.filledPlayerId;
             return (
               <View key={req.id} style={styles.card}>
                 <View style={[styles.headerRow, { gap: spacing.xs }]}>
@@ -111,8 +114,7 @@ export function SubRequestInboxScreen() {
                   <View style={[styles.applicantList, { gap: spacing.xs }]}>
                     {req.applicantPlayerIds.map((pid) => {
                       const p = playerById(pid);
-                      const isFilled =
-                        req.filledPlayerId === pid || confirmed[req.id] === pid;
+                      const isFilled = req.filledPlayerId === pid;
                       return (
                         <View
                           key={pid}

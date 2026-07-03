@@ -7,6 +7,7 @@ import {
   type WaiverGateState,
   type WaiverScopeKind,
 } from '@sports-yeti/mocks';
+import { useWaiverSignatures } from './waiver-signatures-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -41,10 +42,16 @@ export function useWaiverGate(
   userId: string = DEMO_USER_ID,
 ): UseWaiverGateResult {
   const navigation = useNavigation<Navigation>();
-  const gate = useMemo(
-    () => computeWaiverGate(userId, scopes),
-    [userId, scopes],
-  );
+  // Waivers signed this session clear the gate without mutating the
+  // immutable mock fixture — sign → return → proceed works end to end.
+  const signedWaiverIds = useWaiverSignatures((s) => s.signedWaiverIds);
+  const gate = useMemo(() => {
+    const computed = computeWaiverGate(userId, scopes);
+    return {
+      ...computed,
+      blocking: computed.blocking.filter((w) => !signedWaiverIds[w.id]),
+    };
+  }, [userId, scopes, signedWaiverIds]);
   const canProceed = gate.blocking.length === 0;
 
   const guard = useCallback(

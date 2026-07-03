@@ -120,7 +120,6 @@ export function FacilitiesScreen() {
           value={search}
           onChangeText={setSearch}
           placeholder="Search venues by name or city…"
-          onFilterPress={() => undefined}
         />
         <Tabs variant="pill" scrollable items={SPORT_TABS} value={sport} onChange={setSport} />
       </View>

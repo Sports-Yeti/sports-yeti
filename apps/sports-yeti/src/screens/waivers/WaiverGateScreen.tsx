@@ -15,6 +15,7 @@ import {
 } from '@sports-yeti/mocks';
 import { Text } from '../../ui';
 import { colors, radii, shadows, spacing } from '../../theme';
+import { useWaiverSignatures } from '../../features/waiver-gate/waiver-signatures-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -31,12 +32,18 @@ export function WaiverGateScreen() {
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
   const action = route.params?.action ?? 'continue';
-  const scopes = route.params?.scopes ?? [];
+  const routeScopes = route.params?.scopes;
 
-  const gate = useMemo(
-    () => computeWaiverGate(DEMO_USER_ID, scopes),
-    [scopes],
-  );
+  // Session signatures clear blocking waivers live — signing on the next
+  // screen and coming back flips this list (and the "all clear" state).
+  const signedWaiverIds = useWaiverSignatures((s) => s.signedWaiverIds);
+  const gate = useMemo(() => {
+    const computed = computeWaiverGate(DEMO_USER_ID, routeScopes ?? []);
+    return {
+      ...computed,
+      blocking: computed.blocking.filter((w) => !signedWaiverIds[w.id]),
+    };
+  }, [routeScopes, signedWaiverIds]);
 
   function scopeLabel(w: Waiver): string {
     if (w.scopeKind === 'organization') {

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -50,6 +50,8 @@ import {
 } from '../../mocks/teams';
 import { formatCurrency } from '../../lib/format';
 import { useTeamChat, SARAH_VOTER_ID } from '../../features/team-chat-store';
+import { useTeamMembership } from '../../features/team-membership-store';
+import { useCreatedSquadsStore } from '../../features/created-squads-store';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'Chat'>;
@@ -455,14 +457,37 @@ export function ChatScreen() {
   const subtitle = chat?.subtitle;
   const isOnline = chat?.online;
 
-  const teamId = deriveTeamIdFromChatId(route.params.chatId);
-  const team = teamId ? TEAM_DETAILS[teamId] : undefined;
+  // Resolve the owning team across the seeded fixtures and squads created
+  // in the wizard this session.
+  const createdTeams = useCreatedSquadsStore((s) => s.createdTeams);
+  const createdTeam = useMemo(
+    () => createdTeams.find((t) => `chat-${t.id}` === route.params.chatId),
+    [createdTeams, route.params.chatId],
+  );
+  const teamId =
+    deriveTeamIdFromChatId(route.params.chatId) ?? createdTeam?.id;
+  const team = teamId ? TEAM_DETAILS[teamId] ?? createdTeam : undefined;
+  // Live membership (seeded + session join/leave) so the chat gate agrees
+  // with what the player just did on TeamDetail.
+  const membership = useTeamMembership(teamId);
+
+  // Conversations without a seeded preview (fresh DMs, new locker rooms)
+  // register their metadata so MessagesScreen can list them.
+  const registerChatMeta = useTeamChat((s) => s.registerChatMeta);
+  useEffect(() => {
+    if (chat || team) return;
+    registerChatMeta(route.params.chatId, {
+      title,
+      kind: route.params.chatId.startsWith('dm-') ? 'direct' : 'event',
+      avatar: route.params.avatar,
+    });
+  }, [chat, team, registerChatMeta, route.params.chatId, route.params.avatar, title]);
   const upcomingGames = useMemo(
     () => team?.schedule.filter((g) => g.upcoming) ?? [],
     [team],
   );
   const isCaptain = !!team?.isCaptain;
-  const isMember = team?.membership === 'member' || team?.membership === 'captain';
+  const isMember = membership === 'member' || membership === 'captain';
   // Team chat is members-only and gated solely on approval: once the captain
   // approves a player onto the roster they get full chat access. Payment never
   // blocks chat. Non-team chats (DMs, events) are unaffected.
@@ -582,12 +607,12 @@ export function ChatScreen() {
             icon={<Lock size={28} color={colors.brand.primary} strokeWidth={2.25} />}
             title="Members only"
             description={
-              team.membership === 'pending'
+              membership === 'pending'
                 ? `Your request to join ${team.name} is pending. You'll get into chat as soon as the captain approves you.`
                 : `Team chat opens up once the captain approves you onto ${team.name}.`
             }
             primaryAction={{
-              label: team.membership === 'pending' ? 'View team' : 'Offer to join',
+              label: membership === 'pending' ? 'View team' : 'Offer to join',
               onPress: () =>
                 navigation.navigate('TeamDetails', { id: team.id }),
             }}
@@ -784,9 +809,8 @@ export function ChatScreen() {
                   ? 'Check who can make a fixture'
                   : 'No upcoming games scheduled'
               }
-              onPress={() => {
-                if (upcomingGames.length > 0) setPollMode('game');
-              }}
+              disabled={upcomingGames.length === 0}
+              onPress={() => setPollMode('game')}
             />
             <Button
               label="Cancel"
@@ -924,27 +948,39 @@ function ActionRow({
   title,
   description,
   onPress,
+  disabled = false,
 }: {
   Icon: typeof Trophy;
   title: string;
   description: string;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.actionRow,
         pressed ? styles.actionRowPressed : null,
+        disabled ? styles.actionRowDisabled : null,
       ]}
     >
       <View style={styles.cardIcon}>
-        <Icon size={18} color={colors.brand.primary} strokeWidth={2.25} />
+        <Icon
+          size={18}
+          color={disabled ? colors.text.muted : colors.brand.primary}
+          strokeWidth={2.25}
+        />
       </View>
       <View style={styles.actionRowBody}>
-        <Text variant="button" color={colors.text.primary}>
+        <Text
+          variant="button"
+          color={disabled ? colors.text.muted : colors.text.primary}
+        >
           {title}
         </Text>
         <Text variant="caption" color={colors.text.secondary}>
@@ -1266,6 +1302,9 @@ const styles = StyleSheet.create({
   },
   actionRowPressed: {
     opacity: 0.75,
+  },
+  actionRowDisabled: {
+    opacity: 0.55,
   },
   actionRowBody: {
     flex: 1,

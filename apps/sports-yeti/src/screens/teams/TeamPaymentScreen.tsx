@@ -18,7 +18,12 @@ import {
   Text,
   useToast,
 } from '../../ui';
-import { TEAM_DETAILS, type RosterMember } from '../../mocks/teams';
+import {
+  TEAM_DETAILS,
+  type PaymentStatus,
+  type RosterMember,
+} from '../../mocks/teams';
+import type { TagTone } from '../../ui/Tag';
 import { formatCurrency } from '../../lib/format';
 import { useCheckout } from '../../lib/checkout';
 import { useTeamChat } from '../../features/team-chat-store';
@@ -27,16 +32,18 @@ import type { RootStackParamList } from '../../navigation/MainNavigator';
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'TeamPayment'>;
 type Route = RouteProp<RootStackParamList, 'TeamPayment'>;
 
-const PAYMENT_TONE = {
-  paid: 'success' as const,
-  pending: 'warning' as const,
-  overdue: 'live' as const,
+const PAYMENT_TONE: Record<PaymentStatus, TagTone> = {
+  paid: 'success',
+  pending: 'warning',
+  overdue: 'live',
+  not_required: 'neutral',
 };
 
-const PAYMENT_LABEL = {
+const PAYMENT_LABEL: Record<PaymentStatus, string> = {
   paid: 'Paid',
   pending: 'Pending',
   overdue: 'Overdue',
+  not_required: 'No fee',
 };
 
 function MemberRow({
@@ -65,7 +72,9 @@ function MemberRow({
         size="sm"
         label={PAYMENT_LABEL[member.paymentStatus]}
       />
-      {isCaptainView && member.paymentStatus !== 'paid' && !member.isYou ? (
+      {isCaptainView &&
+      (member.paymentStatus === 'pending' || member.paymentStatus === 'overdue') &&
+      !member.isYou ? (
         <Pressable
           onPress={onNudge}
           accessibilityRole="button"

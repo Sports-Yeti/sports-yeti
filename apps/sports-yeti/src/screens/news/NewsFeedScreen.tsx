@@ -10,7 +10,7 @@ import {
   publishedArticlesForOrg,
   type NewsArticle,
 } from '@sports-yeti/mocks';
-import { Text } from '../../ui';
+import { EmptyState, Text } from '../../ui';
 import { OrgBrandingProvider } from '../../features/org-branding';
 import { colors, radii, shadows, spacing } from '../../theme';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
@@ -23,7 +23,17 @@ export function NewsFeedScreen() {
   const org = useMemo(() => organizationById(DEMO_ORG_ID), []);
   const articles = useMemo(() => publishedArticlesForOrg(DEMO_ORG_ID), []);
 
-  if (!org) return null;
+  if (!org) {
+    return (
+      <View style={styles.root}>
+        <EmptyState
+          title="Feed unavailable"
+          description="We couldn't load this organization's news."
+          primaryAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+        />
+      </View>
+    );
+  }
 
   return (
     <OrgBrandingProvider org={org}>
