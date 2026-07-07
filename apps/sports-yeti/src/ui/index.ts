@@ -9,7 +9,7 @@ export { SearchBar } from './SearchBar';
 export { FilterPill } from './FilterPill';
 export type { FilterPillProps } from './FilterPill';
 export { SectionHeader } from './SectionHeader';
-export { ScreenHeader } from './ScreenHeader';
+export { ScreenHeader, SearchHeader } from './ScreenHeader';
 
 export { Input } from './Input';
 export type { InputProps, InputRef, InputSize, InputVariant } from './Input';
@@ -41,6 +41,9 @@ export type {
 
 export { SportMultiSelectSheet } from './SportMultiSelectSheet';
 export type { SportMultiSelectSheetProps } from './SportMultiSelectSheet';
+
+export { OptionListSheet } from './OptionListSheet';
+export type { OptionListItem, OptionListSheetProps } from './OptionListSheet';
 
 export { SearchMultiSelect } from './SearchMultiSelect';
 export type { SearchMultiSelectProps } from './SearchMultiSelect';

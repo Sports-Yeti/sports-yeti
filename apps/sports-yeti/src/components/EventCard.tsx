@@ -86,7 +86,7 @@ export function EventCard({ game, onPress, onJoinPress }: EventCardProps) {
                   <Tag tone="neutral" size="sm" label="Closed" />
                 ) : null}
               </View>
-              <Text variant="h2" color={colors.text.primary}>
+              <Text variant="h2" color={colors.text.primary} numberOfLines={1}>
                 {game.title}
               </Text>
             </View>

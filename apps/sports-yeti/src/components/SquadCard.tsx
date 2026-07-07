@@ -1,17 +1,21 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import {
   CheckCircle2,
   ChevronRight,
   Clock,
   Crown,
+  Eye,
+  EyeOff,
   Lock,
   MapPin,
   Users,
 } from 'lucide-react-native';
 import { colors, radii, spacing } from '../theme';
-import { Button, Card, IconBadge, Tag, Text } from '../ui';
+import { Button, Card, IconBadge, Tag, Text, useToast } from '../ui';
 import { formatCurrency } from '../lib/format';
+import { useWatchStore } from '../stores';
 import type { Membership, Squad, TeamLevel } from '../mocks/teams';
 
 const LEVEL_LABEL: Record<TeamLevel, string> = {
@@ -66,11 +70,28 @@ export function SquadCard({
   onApply,
 }: SquadCardProps) {
   const Icon = squad.Icon;
+  const toast = useToast();
   const tone = LEVEL_TONE[squad.level];
   const isMine = variant === 'mine';
   const membershipTag =
     squad.membership !== 'none' ? MEMBERSHIP_TAG[squad.membership] : null;
   const rosterPct = Math.min(1, squad.rosterCount / squad.rosterMax);
+  const watching = useWatchStore((s) => s.watchedTeamIds.has(squad.id));
+  const toggleWatch = useWatchStore((s) => s.toggleTeam);
+
+  const handleWatch = useCallback(() => {
+    Haptics.selectionAsync();
+    const nowWatching = toggleWatch(squad.id);
+    toast.show({
+      variant: nowWatching ? 'success' : 'info',
+      title: nowWatching
+        ? `Watching ${squad.name}`
+        : `Stopped watching ${squad.name}`,
+      description: nowWatching
+        ? 'We’ll ping you when roster spots open or games post.'
+        : undefined,
+    });
+  }, [squad.id, squad.name, toast, toggleWatch]);
 
   return (
     <Pressable
@@ -86,7 +107,12 @@ export function SquadCard({
             </IconBadge>
             <View style={styles.titleColumn}>
               <View style={styles.titleLine}>
-                <Text variant="h2" color={colors.text.primary} style={styles.titleText}>
+                <Text
+                  variant="h2"
+                  color={colors.text.primary}
+                  style={styles.titleText}
+                  numberOfLines={1}
+                >
                   {squad.name}
                 </Text>
                 {chatLocked ? (
@@ -169,27 +195,57 @@ export function SquadCard({
             }
           />
         ) : (
-          <Button
-            label={
-              squad.membership === 'pending'
-                ? 'Application pending'
-                : 'Apply to Team'
-            }
-            variant={squad.membership === 'pending' ? 'soft' : 'gradient'}
-            fullWidth
-            size="md"
-            disabled={squad.membership === 'pending'}
-            onPress={onApply}
-            trailingIcon={
-              squad.membership === 'pending' ? undefined : (
-                <ChevronRight
-                  size={16}
-                  color={colors.text.inverse}
-                  strokeWidth={2.5}
-                />
-              )
-            }
-          />
+          <View style={styles.footerRow}>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: watching }}
+              accessibilityLabel={
+                watching
+                  ? `Stop watching ${squad.name}`
+                  : `Watch ${squad.name}`
+              }
+              hitSlop={8}
+              onPress={handleWatch}
+              style={({ pressed }) => [
+                styles.watchPill,
+                watching ? styles.watchPillOn : null,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              {watching ? (
+                <Eye size={16} color={colors.brand.primary} strokeWidth={2.5} />
+              ) : (
+                <EyeOff size={16} color={colors.text.secondary} strokeWidth={2.5} />
+              )}
+              <Text
+                variant="button"
+                color={watching ? colors.brand.primary : colors.text.secondary}
+              >
+                {watching ? 'Watching' : 'Watch'}
+              </Text>
+            </Pressable>
+            <Button
+              label={
+                squad.membership === 'pending'
+                  ? 'Application pending'
+                  : 'Apply to Team'
+              }
+              variant={squad.membership === 'pending' ? 'soft' : 'gradient'}
+              size="md"
+              disabled={squad.membership === 'pending'}
+              onPress={onApply}
+              style={styles.footerButton}
+              trailingIcon={
+                squad.membership === 'pending' ? undefined : (
+                  <ChevronRight
+                    size={16}
+                    color={colors.text.inverse}
+                    strokeWidth={2.5}
+                  />
+                )
+              }
+            />
+          </View>
         )}
       </Card>
     </Pressable>
@@ -276,5 +332,31 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.brand.accent,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  footerButton: {
+    flex: 1,
+  },
+  watchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    minHeight: 44,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface.chip,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  watchPillOn: {
+    backgroundColor: colors.brand.soft,
+    borderColor: colors.brand.primary,
+  },
+  pressed: {
+    opacity: 0.8,
   },
 });

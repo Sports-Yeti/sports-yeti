@@ -24,6 +24,7 @@ export { ProfileTabScreen } from './profile/ProfileTabScreen';
 export { GameDetailScreen } from './games/GameDetailScreen';
 export { CreateGameScreen } from './games/CreateGameScreen';
 export { CampDetailScreen } from './camps/CampDetailScreen';
+export { WatchlistScreen } from './discover/WatchlistScreen';
 
 // Teams stack
 export { TeamDetailScreen } from './teams/TeamDetailScreen';

@@ -12,6 +12,7 @@ import {
   FormControlsScreen,
   UIGalleryScreen,
   DiscoverScreen,
+  WatchlistScreen,
   FacilitiesScreen,
   FacilityDetailScreen,
   GameDetailScreen,
@@ -81,6 +82,7 @@ export type RootStackParamList = {
   GameDetails: { id: string };
   CreateGame: undefined;
   CampDetails: { id: string };
+  Watchlist: undefined;
   ScheduledEventDetail: { id: string };
   // Profile moved off the tab bar (Schedule took its slot) — reachable from
   // the avatar in every ScreenHeader.
@@ -296,6 +298,7 @@ export function MainNavigator() {
       <Stack.Screen name="GameDetails" component={GameDetailScreen} />
       <Stack.Screen name="CreateGame" component={CreateGameScreen} />
       <Stack.Screen name="CampDetails" component={CampDetailScreen} />
+      <Stack.Screen name="Watchlist" component={WatchlistScreen} />
       <Stack.Screen name="Profile" component={ProfileTabScreen} />
       <Stack.Screen
         name="ScheduledEventDetail"
