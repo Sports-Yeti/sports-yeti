@@ -18,6 +18,7 @@ export * from './organizations';
 export * from './leagues';
 export * from './seasons';
 export * from './divisions';
+export * from './tournaments';
 export * from './facilities';
 export * from './spaces';
 export * from './teams';

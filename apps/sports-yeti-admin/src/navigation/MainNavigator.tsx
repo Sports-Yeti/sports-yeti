@@ -16,6 +16,9 @@ import {
   DivisionDetailScreen,
   DivisionFormScreen,
   DivisionListScreen,
+  TournamentDetailScreen,
+  TournamentFormScreen,
+  TournamentListScreen,
   ExternalBookingRequestScreen,
   ExternalRentalListingScreen,
   FacilityDetailScreen,
@@ -80,6 +83,9 @@ export type MainStackParamList = {
   Divisions: undefined;
   DivisionDetail: { id: string };
   DivisionForm: { id?: string } | undefined;
+  Tournaments: undefined;
+  TournamentDetail: { id: string };
+  TournamentForm: { id?: string } | undefined;
   Teams: undefined;
   TeamDetail: { id: string };
   TeamForm: { id?: string } | undefined;
@@ -177,6 +183,9 @@ export function MainNavigator() {
         <Stack.Screen name="Divisions" component={DivisionListScreen} />
         <Stack.Screen name="DivisionDetail" component={DivisionDetailScreen} />
         <Stack.Screen name="DivisionForm" component={DivisionFormScreen} />
+        <Stack.Screen name="Tournaments" component={TournamentListScreen} />
+        <Stack.Screen name="TournamentDetail" component={TournamentDetailScreen} />
+        <Stack.Screen name="TournamentForm" component={TournamentFormScreen} />
         <Stack.Screen name="Teams" component={TeamListScreen} />
         <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
         <Stack.Screen name="TeamForm" component={TeamFormScreen} />

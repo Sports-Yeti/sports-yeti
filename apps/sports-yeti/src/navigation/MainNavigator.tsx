@@ -38,6 +38,7 @@ import {
   ScheduledEventDetailScreen,
   SettingsScreen,
   ChatInboxScreen,
+  TournamentDetailScreen,
   TeamDetailScreen,
   TeamPaymentScreen,
   WaiversScreen,
@@ -84,6 +85,7 @@ export type RootStackParamList = {
   GameDetails: { id: string };
   CreateGame: undefined;
   CampDetails: { id: string };
+  TournamentDetails: { id: string };
   Watchlist: undefined;
   ScheduledEventDetail: { id: string };
   // Profile moved off the tab bar (Schedule took its slot) — reachable from
@@ -300,6 +302,10 @@ export function MainNavigator() {
       <Stack.Screen name="GameDetails" component={GameDetailScreen} />
       <Stack.Screen name="CreateGame" component={CreateGameScreen} />
       <Stack.Screen name="CampDetails" component={CampDetailScreen} />
+      <Stack.Screen
+        name="TournamentDetails"
+        component={TournamentDetailScreen}
+      />
       <Stack.Screen name="Watchlist" component={WatchlistScreen} />
       <Stack.Screen name="Profile" component={ProfileTabScreen} />
       <Stack.Screen

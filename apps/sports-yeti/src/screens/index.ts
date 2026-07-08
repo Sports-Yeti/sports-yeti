@@ -26,6 +26,9 @@ export { CreateGameScreen } from './games/CreateGameScreen';
 export { CampDetailScreen } from './camps/CampDetailScreen';
 export { WatchlistScreen } from './join/WatchlistScreen';
 
+// Tournaments stack
+export { TournamentDetailScreen } from './tournaments/TournamentDetailScreen';
+
 // Teams stack
 export { TeamDetailScreen } from './teams/TeamDetailScreen';
 export { TeamPaymentScreen } from './teams/TeamPaymentScreen';

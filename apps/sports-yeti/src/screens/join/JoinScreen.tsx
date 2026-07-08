@@ -17,6 +17,7 @@ import {
   Plus,
   SlidersHorizontal,
   Star,
+  Swords,
   Tent,
   Trophy,
   UserPlus,
@@ -53,6 +54,7 @@ import { EventCard } from '../../components/EventCard';
 import { CampCard } from '../../components/CampCard';
 import { DiscoverLeagueCard } from '../../components/DiscoverLeagueCard';
 import { SquadCard } from '../../components/SquadCard';
+import { TournamentCard } from '../../components/TournamentCard';
 import { ShareToTeamSheet } from '../../components/ShareToTeamSheet';
 import {
   gameCoords,
@@ -64,6 +66,11 @@ import {
   type OpenStatusFilter,
 } from '../../mocks/games';
 import { DISCOVER_CAMPS, campCoords, type DiscoverCamp } from '../../mocks/camps';
+import {
+  DISCOVER_TOURNAMENTS,
+  tournamentCoords,
+  type DiscoverTournament,
+} from '../../mocks/tournaments';
 import {
   OPEN_LEAGUES,
   CITY_COORDS,
@@ -101,6 +108,7 @@ export type JoinContentType =
   | 'games'
   | 'camps'
   | 'leagues'
+  | 'tournaments'
   | 'teams'
   | 'players'
   | 'facilities';
@@ -116,6 +124,7 @@ const CONTENT_TYPE_OPTIONS: { key: ContentType; label: string }[] = [
   { key: 'games', label: 'Games' },
   { key: 'camps', label: 'Camps' },
   { key: 'leagues', label: 'Leagues' },
+  { key: 'tournaments', label: 'Tournaments' },
   { key: 'teams', label: 'Teams' },
   { key: 'players', label: 'Players' },
   { key: 'facilities', label: 'Facilities' },
@@ -187,6 +196,7 @@ const SEARCH_PLACEHOLDER: Record<ContentType, string> = {
   games: 'Search games, sports, locations…',
   camps: 'Search camps, coaches, cities…',
   leagues: 'Search leagues, sports, cities…',
+  tournaments: 'Search tournaments, sports, cities…',
   teams: 'Search teams, sports, positions…',
   players: 'Search players by name, position, city…',
   facilities: 'Search venues by name or city…',
@@ -256,6 +266,7 @@ const CONTENT_CONFIG: Record<ContentType, ContentConfig> = {
   games: { status: true, skill: true, date: true, time: true, availability: false, experience: false, position: false, level: false, cost: false },
   camps: { status: true, skill: true, date: true, time: false, availability: false, experience: false, position: false, level: false, cost: false },
   leagues: { status: false, skill: false, date: false, time: false, availability: false, experience: false, position: false, level: false, cost: false },
+  tournaments: { status: true, skill: false, date: true, time: false, availability: false, experience: false, position: false, level: false, cost: false },
   teams: { status: false, skill: false, date: false, time: false, availability: false, experience: false, position: true, level: true, cost: true },
   players: { status: false, skill: false, date: false, time: false, availability: true, experience: true, position: false, level: false, cost: false },
   facilities: { status: false, skill: false, date: false, time: false, availability: false, experience: false, position: false, level: false, cost: false },
@@ -265,7 +276,12 @@ const CONTENT_CONFIG: Record<ContentType, ContentConfig> = {
  *  team-domain surfaces (teams, players, facilities) only filter by radius once
  *  the user pins a center, since they span far-flung cities. */
 function usesDefaultCenter(content: ContentType): boolean {
-  return content === 'games' || content === 'camps' || content === 'leagues';
+  return (
+    content === 'games' ||
+    content === 'camps' ||
+    content === 'leagues' ||
+    content === 'tournaments'
+  );
 }
 
 function capitalize(value: string): string {
@@ -369,6 +385,34 @@ function filterLeagues(f: FilterState): OpenLeague[] {
       return false;
     if (search) {
       const hay = `${l.name} ${l.sport} ${l.city}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function filterTournaments(f: FilterState): DiscoverTournament[] {
+  const search = f.search.trim().toLowerCase();
+  const center = f.center ?? { ...DEFAULT_MAP_CENTER, label: 'Default' };
+  const allowed = resolveAllowedTeamSports(f.sports);
+  const rangeStart = f.dateRange.start
+    ? new Date(f.dateRange.start).setHours(0, 0, 0, 0)
+    : null;
+  const rangeEnd = f.dateRange.end
+    ? new Date(f.dateRange.end).setHours(23, 59, 59, 999)
+    : null;
+
+  return DISCOVER_TOURNAMENTS.filter((t) => {
+    if (f.status !== 'all' && t.status !== f.status) return false;
+    if (allowed && !allowed.has(t.sportKey)) return false;
+    if (rangeStart !== null || rangeEnd !== null) {
+      const startsAt = new Date(t.startsAt).getTime();
+      if (rangeStart !== null && startsAt < rangeStart) return false;
+      if (rangeEnd !== null && startsAt > rangeEnd) return false;
+    }
+    if (!withinRadius(tournamentCoords(t), center, f.radiusMiles)) return false;
+    if (search) {
+      const hay = `${t.name} ${t.city} ${t.sport} ${t.hostLeagueName}`.toLowerCase();
       if (!hay.includes(search)) return false;
     }
     return true;
@@ -699,6 +743,7 @@ export function JoinScreen() {
   const games = useMemo(() => filterGames(filters, allGames), [filters, allGames]);
   const camps = useMemo(() => filterCamps(filters), [filters]);
   const leagues = useMemo(() => filterLeagues(filters), [filters]);
+  const tournaments = useMemo(() => filterTournaments(filters), [filters]);
   const teams = useMemo(() => filterTeams(filters, squads), [filters, squads]);
   const players = useMemo(() => filterPlayers(filters), [filters]);
   const facilities = useMemo(() => filterFacilities(filters), [filters]);
@@ -734,6 +779,8 @@ export function JoinScreen() {
         return camps.length;
       case 'leagues':
         return leagues.length;
+      case 'tournaments':
+        return tournaments.length;
       case 'teams':
         return teams.length;
       case 'players':
@@ -805,6 +852,8 @@ export function JoinScreen() {
         return 'camp';
       case 'leagues':
         return 'league';
+      case 'tournaments':
+        return 'tournament';
       case 'teams':
         return 'team';
       case 'players':
@@ -833,6 +882,8 @@ export function JoinScreen() {
         return <Tent size={28} color={colors.brand.primary} strokeWidth={2.25} />;
       case 'leagues':
         return <Trophy size={28} color={colors.brand.primary} strokeWidth={2.25} />;
+      case 'tournaments':
+        return <Swords size={28} color={colors.brand.primary} strokeWidth={2.25} />;
       case 'teams':
         return <Users size={28} color={colors.brand.primary} strokeWidth={2.25} />;
       case 'players':
@@ -879,6 +930,16 @@ export function JoinScreen() {
               navigation.navigate('LeagueDetails', { leagueId: league.id })
             }
             onSharePress={() => setShareLeague(league)}
+          />
+        ));
+      case 'tournaments':
+        return tournaments.map((tournament) => (
+          <TournamentCard
+            key={tournament.id}
+            tournament={tournament}
+            onPress={() =>
+              navigation.navigate('TournamentDetails', { id: tournament.id })
+            }
           />
         ));
       case 'teams':

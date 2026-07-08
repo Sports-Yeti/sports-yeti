@@ -152,6 +152,36 @@ export interface Division {
   rosterMax?: number;
 }
 
+export type TournamentStatus =
+  | 'draft'
+  | 'registration_open'
+  | 'in_progress'
+  | 'completed';
+
+/**
+ * A one-off bracketed competition a league runs for teams to register into.
+ * Unlike a `Season` (recurring weekly play), a tournament is a bounded event
+ * with a single elimination-style `format` and a per-team entry fee.
+ */
+export interface Tournament {
+  id: string;
+  organizationId: string;
+  leagueId: string;
+  name: string;
+  format: LeagueFormat;
+  startIso: string;
+  endIso: string;
+  registrationClosesIso: string;
+  maxTeams: number;
+  registeredTeams: number;
+  /** Per-team entry fee in cents. */
+  feeCents: number;
+  status: TournamentStatus;
+  venue: string;
+  city: string;
+  description: string;
+}
+
 // ---------------------------------------------------------------------------
 // Team / Player
 // ---------------------------------------------------------------------------

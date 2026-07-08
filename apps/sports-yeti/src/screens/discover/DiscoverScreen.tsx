@@ -55,6 +55,7 @@ import {
 import { useNewsComments } from '../../features/news-comments-store';
 import { OPEN_LEAGUES, type SportKey } from '../../mocks/teams';
 import { DISCOVER_CAMPS } from '../../mocks/camps';
+import { DISCOVER_TOURNAMENTS } from '../../mocks/tournaments';
 import { HIGHLIGHT_REELS } from '../../mocks/highlights';
 import { useDiscoverGames } from '../../features/discover-store';
 import { useAllSquads } from '../../features/created-squads-store';
@@ -63,6 +64,7 @@ import { EventCard } from '../../components/EventCard';
 import { CampCard } from '../../components/CampCard';
 import { DiscoverLeagueCard } from '../../components/DiscoverLeagueCard';
 import { SquadCard } from '../../components/SquadCard';
+import { TournamentCard } from '../../components/TournamentCard';
 import { HighlightCard } from '../../components/HighlightCard';
 import type { JoinContentType } from '../join/JoinScreen';
 import type { RootStackParamList } from '../../navigation/MainNavigator';
@@ -196,6 +198,23 @@ export function DiscoverScreen() {
     const open = allGames.filter((g) => !g.featured && g.openStatus === 'open');
     return [...featured, ...open].slice(0, 6);
   }, [allGames]);
+
+  // Upcoming tournaments — open registrations, soonest first, sport-filtered
+  // to match the feed.
+  const upcomingTournaments = useMemo(() => {
+    const sportsFilter = filters.forYou ? userSportKeys : [...filters.sports];
+    return DISCOVER_TOURNAMENTS.filter(
+      (t) =>
+        t.status === 'open' &&
+        (sportsFilter.length === 0 || sportsFilter.includes(t.sportKey)),
+    )
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+      )
+      .slice(0, 6);
+  }, [filters.forYou, filters.sports, userSportKeys]);
 
   // Recommended teams — joinable squads (spots left, not already on) matching
   // the active sports, so the rail feels personalized like the rest of the feed.
@@ -427,6 +446,30 @@ export function DiscoverScreen() {
                     }
                     onJoinPress={() =>
                       navigation.navigate('GameDetails', { id: game.id })
+                    }
+                  />
+                </View>
+              ))}
+            </Rail>
+          </View>
+        ) : null}
+
+        {upcomingTournaments.length > 0 ? (
+          <View style={styles.section}>
+            <SectionHeader
+              title="Upcoming tournaments"
+              actionLabel="See all"
+              onActionPress={() => goToJoin('tournaments')}
+            />
+            <Rail itemWidth={railCardWidth}>
+              {upcomingTournaments.map((tournament) => (
+                <View key={tournament.id} style={{ width: railCardWidth }}>
+                  <TournamentCard
+                    tournament={tournament}
+                    onPress={() =>
+                      navigation.navigate('TournamentDetails', {
+                        id: tournament.id,
+                      })
                     }
                   />
                 </View>

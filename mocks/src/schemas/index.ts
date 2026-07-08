@@ -13,4 +13,5 @@ export * from './organization';
 export * from './league';
 export * from './season';
 export * from './division';
+export * from './tournament';
 export * from './space';

@@ -19,6 +19,7 @@ import {
   ScrollText,
   Settings,
   ShoppingBag,
+  Swords,
   Tent,
   Trophy,
   Users,
@@ -41,6 +42,9 @@ export type AdminRouteName =
   | 'Divisions'
   | 'DivisionDetail'
   | 'DivisionForm'
+  | 'Tournaments'
+  | 'TournamentDetail'
+  | 'TournamentForm'
   | 'Teams'
   | 'TeamDetail'
   | 'TeamForm'
@@ -189,6 +193,12 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Layers,
       },
       {
+        id: 'tournaments',
+        label: 'Tournaments',
+        route: 'Tournaments',
+        icon: Swords,
+      },
+      {
         id: 'teams',
         label: 'Teams',
         route: 'Teams',
@@ -324,6 +334,9 @@ export const ROUTE_TO_ITEM: Record<AdminRouteName, string> = {
   Divisions: 'divisions',
   DivisionDetail: 'divisions',
   DivisionForm: 'divisions',
+  Tournaments: 'tournaments',
+  TournamentDetail: 'tournaments',
+  TournamentForm: 'tournaments',
   Teams: 'teams',
   TeamDetail: 'teams',
   TeamForm: 'teams',
@@ -391,6 +404,9 @@ export const ROUTE_LABELS: Record<AdminRouteName, string> = {
   Divisions: 'Divisions',
   DivisionDetail: 'Division',
   DivisionForm: 'Division editor',
+  Tournaments: 'Tournaments',
+  TournamentDetail: 'Tournament',
+  TournamentForm: 'Tournament editor',
   Teams: 'Teams',
   TeamDetail: 'Team',
   TeamForm: 'Team editor',

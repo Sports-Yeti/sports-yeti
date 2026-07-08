@@ -44,6 +44,7 @@ import {
   type ChatCard,
   type ChatMessage,
 } from '../../mocks/messages';
+import { tournamentById } from '../../mocks/tournaments';
 import {
   TEAM_DETAILS,
   type CommitVote,
@@ -370,9 +371,13 @@ function LeagueRegistrationInline({
 function MessageBubble({
   msg,
   onOpenLeague,
+  onOpenRegistration,
 }: {
   msg: ChatMessage;
   onOpenLeague: (leagueId: string) => void;
+  onOpenRegistration: (
+    card: Extract<ChatCard, { kind: 'league_registration' }>,
+  ) => void;
 }) {
   const isYou = !!msg.isYou;
   const card = msg.card;
@@ -412,7 +417,7 @@ function MessageBubble({
         {card?.kind === 'league_registration' ? (
           <LeagueRegistrationInline
             card={card}
-            onOpen={() => onOpenLeague(card.leagueId)}
+            onOpen={() => onOpenRegistration(card)}
           />
         ) : null}
         <Text variant="caption" color={colors.text.muted}>
@@ -692,6 +697,14 @@ export function ChatScreen() {
                 onOpenLeague={(leagueId) => {
                   Haptics.selectionAsync();
                   navigation.navigate('LeagueDetails', { leagueId });
+                }}
+                onOpenRegistration={(card) => {
+                  Haptics.selectionAsync();
+                  if (tournamentById(card.leagueId)) {
+                    navigation.navigate('TournamentDetails', { id: card.leagueId });
+                    return;
+                  }
+                  navigation.navigate('LeagueDetails', { leagueId: card.leagueId });
                 }}
               />
             ))

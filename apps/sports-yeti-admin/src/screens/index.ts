@@ -19,6 +19,10 @@ export { DivisionListScreen } from './divisions/DivisionListScreen';
 export { DivisionDetailScreen } from './divisions/DivisionDetailScreen';
 export { DivisionFormScreen } from './divisions/DivisionFormScreen';
 
+export { TournamentListScreen } from './tournaments/TournamentListScreen';
+export { TournamentDetailScreen } from './tournaments/TournamentDetailScreen';
+export { TournamentFormScreen } from './tournaments/TournamentFormScreen';
+
 export { TeamListScreen } from './teams/TeamListScreen';
 export { TeamDetailScreen } from './teams/TeamDetailScreen';
 export { TeamFormScreen } from './teams/TeamFormScreen';
