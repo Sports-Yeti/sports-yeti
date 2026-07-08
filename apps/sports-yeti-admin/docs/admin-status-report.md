@@ -4,10 +4,19 @@ _Snapshot of `apps/sports-yeti-admin` as of 2026-06-21. Written to mirror
 `apps/sports-yeti/docs/mobile-status-report.md`. Reflects the actual code state
 after the "complete the admin portal on the mobile design, mock-only" pass._
 
+> **Update 2026-07-07:** a **Tournaments** module was added to the Competition
+> group (mock-driven, matching the mobile app's new tournament domain):
+> `TournamentListScreen`, `TournamentDetailScreen`, and `TournamentFormScreen`
+> (create/edit) with routes, sidebar entry (Swords icon), and ⌘K indexing —
+> bringing the portal to **63 screens / ~63 routes**. The underlying
+> `Tournament` type, zod form schema, and fixtures live in the shared
+> `@sports-yeti/mocks` package. Like everything else, it awaits real API
+> endpoints (none exist yet for tournaments — see §What's left).
+
 ## TL;DR
 
 The admin portal is a **feature-complete, high-fidelity React Native Web dashboard** —
-**60 screens across ~60 routes and 8 sidebar groups**, built entirely on a shared
+**63 screens across ~63 routes and 8 sidebar groups**, built entirely on a shared
 design system that matches the mobile app's brand (Glacier ethos: brand `#006495`,
 Plus Jakarta + Be Vietnam Pro type, tonal surface ladder, alpine-orange tertiary).
 **Every feature screen renders from local mock fixtures** (`src/mocks/*`) and the
@@ -77,8 +86,10 @@ Admin internals:
 - **Organization** — Organizations list/detail, Org pulse / money / people /
   integrations / branding.
 - **Competition** — Leagues (list/detail + 5-step creation wizard), Seasons,
-  Divisions, **Teams** (bento cards + table, approvals, bulk actions, **create/edit
-  form**), Schedule (week/list, drag-to-reschedule, fixture generator, game form).
+  Divisions, **Tournaments** (list/detail/form with registration stats and
+  status lifecycle), **Teams** (bento cards + table, approvals, bulk actions,
+  **create/edit form**), Schedule (week/list, drag-to-reschedule, fixture
+  generator, game form).
 - **People** — Players directory, Referee marketplace (bids, pending registrations,
   automation), Camps (list/detail/form), Waivers (list/detail/form), Invite people.
 - **Venues** — Facilities (portfolio + detail + form), Spaces, **Recurring
@@ -109,26 +120,35 @@ Admin internals:
 - Stores (`newsStore`, `scheduleStore`, `inviteStore`) hold in-memory mock state and need
   to become server-backed mutations.
 
-**2. Real money & integrations**
+**2. Tournaments backend (net-new endpoints)**
+
+- The Tournaments module (and the mobile app's tournament registration flow) is
+  built entirely on `@sports-yeti/mocks`. The Laravel API has **no tournament
+  resources at all** — CRUD, team registration/approval, entry-fee payments, and
+  brackets/standings all need contracts and endpoints before this module can be
+  wired.
+
+**3. Real money & integrations**
 
 - Refunds/booking charges are abstracted behind `lib/checkout.ts` (mock). Wire to real
   Stripe. CSV/PDF exports, "Stripe portal", receipt downloads are honest `(mock)` toasts.
 - Slack / SSO (Google Workspace, Microsoft Entra, SAML) are mock connect/handshake shells.
 
-**3. Cross-org & search**
+**4. Cross-org & search**
 
 - Org switcher performs a local mock switch; cross-org data binding pending.
 - Command palette searches the static nav; real cross-entity search pending.
 
-**4. Real-time & ops**
+**5. Real-time & ops**
 
 - Notifications panel + dashboard alerts are mock; no SSE/push.
 - Availability slot editor edits in-session state only (no persistence).
 
-**5. Testing**
+**6. Testing**
 
 - Two smoke tests exist (`App.spec`, `TeamFormScreen.spec`). No broad component /
-  integration / E2E (Playwright) coverage across the 60 screens.
+  integration / E2E (Playwright) coverage across the 63 screens; the new
+  Tournament screens have no tests.
 
 ## 🩹 Cleanup / risks
 

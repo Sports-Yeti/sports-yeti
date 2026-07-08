@@ -9,9 +9,32 @@ _Snapshot of `apps/sports-yeti` as of 2026-06-21. Reflects the actual code state
 > passes, and all mock journeys complete with session persistence. The API
 > wiring roadmap below is unchanged.
 
+> **Update 2026-07-07:** a navigation + discovery pass reshaped the top-level
+> IA and added tournaments (all still mock-driven):
+>
+> - **Tab renames & order** — the old *Discover* tab is now **Join** (search
+>   hub) and the old *News* tab is now **Discover** (feed). Tab bar order is
+>   Discover · Join · Highlights · Schedule · Chat (Chat replaced the Teams
+>   tab; teams are reachable through Chat and Discover).
+> - **Discover feed rails** — the Discover screen gained horizontal rails
+>   (recommended games, upcoming tournaments, open leagues, camps, teams,
+>   highlights), each deep-linking into the matching Join content type.
+> - **Search redesign** — unified search headers with filter sheets (radius
+>   map, sport, status, date) across Join content types, plus a reworked
+>   watching/watchlist experience.
+> - **Tournaments (new domain)** — `Tournament` type/zod schema/fixtures in
+>   `@sports-yeti/mocks`; mobile `DiscoverTournament` mocks, `TournamentCard`,
+>   a `Tournaments` content type in Join, an "Upcoming tournaments" Discover
+>   rail, and a `TournamentDetailScreen` (56th screen) where captains register
+>   a team — registration posts a card to team chat that now routes back to
+>   the tournament (or league) detail correctly.
+>
+> None of this is API-wired; the roadmap below still applies and tournaments
+> add net-new endpoints the backend doesn't expose yet.
+
 ## TL;DR
 
-The mobile app is a **feature-complete, high-fidelity UX** — 55 screens across 6 user
+The mobile app is a **feature-complete, high-fidelity UX** — 56 screens across 6 user
 roles, a full custom design system, real auth, Stripe, and Sentry wired in. The single
 biggest gap: **almost every feature screen renders from local mock fixtures, not the live
 API.** A complete `ApiService` (~820 lines, every endpoint) exists but is currently used
@@ -49,9 +72,10 @@ Monorepo with three apps:
 
 - 6 stackable roles with distinct tab sets: `player`, `team_captain`, `referee`, `facility_manager`, `org_admin`, `league_admin` (via `RoleStackProvider` + role switcher)
 
-**Feature surfaces (55 screens), all UI-complete:**
+**Feature surfaces (56 screens), all UI-complete:**
 
-- **Discover / News** — content-switcher discovery, news feed, article detail + community comments
+- **Discover (feed) / Join (search)** — Discover feed with news, comments, and horizontal rails (games, tournaments, leagues, camps, teams, highlights); Join search hub with 7 content types (games, camps, leagues, tournaments, teams, players, facilities), unified filter sheets, and watchlist
+- **Tournaments** — tournament cards in Join + Discover, tournament detail with captain team-registration flow that posts a status card into team chat
 - **Teams** — squads, team detail, multi-step team creation, league browse, player directory, join-flow with approval-gated chat, team payment
 - **Games / Schedule** — discovery, game detail, create game, schedule, join-game payment sheet
 - **Chat** — team chat with polls, share-backs (Zustand store)
@@ -80,11 +104,13 @@ Monorepo with three apps:
 
 **4. Geo / discovery** — distance filters are mock inputs; real `within_miles` geo queries pending (Phase A9).
 
-**5. Social cross-post & marketplace depth** — referee bid lifecycle, dual facility rental, news→social OAuth are UX-only against mocks (Phases A7/A8).
+**5. Tournaments backend** — the tournament domain is UI + mocks only. The Laravel API has no tournament endpoints (CRUD, registration, roster/bracket); the `Tournament` contract lives only in `@sports-yeti/mocks`. Team registration currently reuses the league-registration chat store (`leagueId` carries the tournament id) — worth a dedicated registration model when the API lands. Brackets/standings and payment of the entry fee are not built.
 
-**6. Testing** — only one mobile test exists (`App.spec.tsx`). No component/integration/E2E (Detox) coverage for the 55 screens.
+**6. Social cross-post & marketplace depth** — referee bid lifecycle, dual facility rental, news→social OAuth are UX-only against mocks (Phases A7/A8).
 
-**7. Launch items** — pilot launch is the last open box; backup/restore + staging load tests are flagged "needs runtime environment."
+**7. Testing** — only one mobile test exists (`App.spec.tsx`). No component/integration/E2E (Detox) coverage for the 56 screens; the new Join filters and tournament flows are untested.
+
+**8. Launch items** — pilot launch is the last open box; backup/restore + staging load tests are flagged "needs runtime environment."
 
 ## 🩹 Cleanup / risks
 
