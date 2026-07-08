@@ -1,6 +1,4 @@
 ---
-description: Routes every task through the project's agency agents in .cursor/rules/
-globs: ""
 alwaysApply: true
 ---
 
