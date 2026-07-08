@@ -11,6 +11,7 @@ import {
   CreateGameScreen,
   FormControlsScreen,
   UIGalleryScreen,
+  JoinScreen,
   DiscoverScreen,
   WatchlistScreen,
   FacilitiesScreen,
@@ -23,7 +24,6 @@ import {
   LeagueDetailScreen,
   MessagesScreen,
   MyHighlightsScreen,
-  NewsScreen,
   NewsArticleScreen,
   NotificationsScreen,
   PlayerDirectoryScreen,
@@ -62,10 +62,12 @@ import {
 import { colors } from '../theme';
 import { SportsYetiTabBar } from './SportsYetiTabBar';
 import { useRoleStack } from '../features/role-stack';
+import type { JoinContentType } from '../screens/join/JoinScreen';
 
 export type MainTabParamList = {
+  /** `content` preselects a content-type pill when deep-linked from Discover. */
+  Join: { content?: JoinContentType } | undefined;
   Discover: undefined;
-  News: undefined;
   Teams: undefined;
   /** `focusReelId` scrolls the feed to a specific reel (saved/bookmarks). */
   Highlights: { focusReelId?: string } | undefined;
@@ -74,7 +76,7 @@ export type MainTabParamList = {
 
 export type RootStackParamList = {
   // Tabs container — typed as a nested navigator so callers can do
-  // `navigation.navigate('MainTabs', { screen: 'News' })` from any
+  // `navigation.navigate('MainTabs', { screen: 'Discover' })` from any
   // sibling stack screen (GameDetail, HighlightDetail, etc.).
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
 
@@ -157,8 +159,8 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 /**
- * Player tab set — the existing default. Discover / News / Highlights /
- * Teams / Schedule.
+ * Player tab set — the existing default. Discover / Join / Highlights /
+ * Schedule / Chat.
  */
 function PlayerTabs() {
   return (
@@ -171,10 +173,10 @@ function PlayerTabs() {
       }}
     >
       <Tab.Screen name="Discover" component={DiscoverScreen} />
-      <Tab.Screen name="News" component={NewsScreen} />
+      <Tab.Screen name="Join" component={JoinScreen} />
       <Tab.Screen name="Highlights" component={HighlightsFeedScreen} />
-      <Tab.Screen name="Teams" component={ChatInboxScreen} />
       <Tab.Screen name="Schedule" component={ScheduleScreen} />
+      <Tab.Screen name="Teams" component={ChatInboxScreen} />
     </Tab.Navigator>
   );
 }
@@ -194,12 +196,12 @@ function CaptainTabs() {
         sceneStyle: { backgroundColor: colors.surface.bg },
       }}
     >
+      <Tab.Screen name="Discover" component={DiscoverScreen} />
       <Tab.Screen
-        name="Discover"
+        name="Join"
         component={CaptainHomeScreen}
         options={{ tabBarLabel: 'Home' }}
       />
-      <Tab.Screen name="News" component={NewsScreen} />
       <Tab.Screen name="Schedule" component={ScheduleScreen} />
     </Tab.Navigator>
   );
@@ -219,12 +221,12 @@ function RefereeTabs() {
         sceneStyle: { backgroundColor: colors.surface.bg },
       }}
     >
+      <Tab.Screen name="Discover" component={DiscoverScreen} />
       <Tab.Screen
-        name="Discover"
+        name="Join"
         component={RefereeHomeScreen}
         options={{ tabBarLabel: 'Home' }}
       />
-      <Tab.Screen name="News" component={NewsScreen} />
       <Tab.Screen name="Schedule" component={ScheduleScreen} />
     </Tab.Navigator>
   );
@@ -245,12 +247,12 @@ function makeRoleTabs(label: 'FM' | 'OrgAdmin' | 'LeagueAdmin') {
           sceneStyle: { backgroundColor: colors.surface.bg },
         }}
       >
+        <Tab.Screen name="Discover" component={DiscoverScreen} />
         <Tab.Screen
-          name="Discover"
+          name="Join"
           component={RoleHomeScreen}
           options={{ tabBarLabel: 'Home' }}
         />
-        <Tab.Screen name="News" component={NewsScreen} />
         <Tab.Screen name="Schedule" component={ScheduleScreen} />
       </Tab.Navigator>
     );

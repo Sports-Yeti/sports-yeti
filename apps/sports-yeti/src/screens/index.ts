@@ -11,8 +11,8 @@ export { FormControlsScreen } from './dev/FormControlsScreen';
 export { UIGalleryScreen } from './dev/UIGalleryScreen';
 
 // Tab screens (5 main navigation pages)
+export { JoinScreen } from './join/JoinScreen';
 export { DiscoverScreen } from './discover/DiscoverScreen';
-export { NewsScreen } from './news/NewsScreen';
 export { NewsArticleScreen } from './news/NewsArticleScreen';
 export { ScheduleScreen } from './schedule/ScheduleScreen';
 export { ScheduledEventDetailScreen } from './schedule/ScheduledEventDetailScreen';
@@ -20,11 +20,11 @@ export { ChatInboxScreen } from './chat/ChatInboxScreen';
 export { HighlightsFeedScreen } from './highlights/HighlightsFeedScreen';
 export { ProfileTabScreen } from './profile/ProfileTabScreen';
 
-// Discover stack
+// Join stack
 export { GameDetailScreen } from './games/GameDetailScreen';
 export { CreateGameScreen } from './games/CreateGameScreen';
 export { CampDetailScreen } from './camps/CampDetailScreen';
-export { WatchlistScreen } from './discover/WatchlistScreen';
+export { WatchlistScreen } from './join/WatchlistScreen';
 
 // Teams stack
 export { TeamDetailScreen } from './teams/TeamDetailScreen';

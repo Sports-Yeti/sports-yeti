@@ -76,7 +76,7 @@ export function WatchlistScreen() {
             title="You're not watching anything yet"
             description="Tap Watch on any game or team to follow spots, roster openings, and updates here."
             primaryAction={{
-              label: 'Browse Discover',
+              label: 'Browse the Join tab',
               onPress: () => navigation.goBack(),
             }}
           />

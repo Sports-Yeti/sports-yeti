@@ -657,7 +657,7 @@ export function ScheduledEventDetailScreen() {
               variant="ghost"
               size="md"
               onPress={() =>
-                navigation.navigate('MainTabs', { screen: 'Discover' })
+                navigation.navigate('MainTabs', { screen: 'Join' })
               }
             />
           </View>

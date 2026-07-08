@@ -191,7 +191,7 @@ export function ChatInboxScreen() {
               description={
                 query
                   ? 'Try a different search.'
-                  : 'Join a team on Discover or start your own squad to open a team chat.'
+                  : 'Join a team from the Join tab or start your own squad to open a team chat.'
               }
               primaryAction={
                 query
@@ -199,7 +199,7 @@ export function ChatInboxScreen() {
                   : {
                       label: 'Find a team',
                       onPress: () =>
-                        navigation.navigate('MainTabs', { screen: 'Discover' }),
+                        navigation.navigate('MainTabs', { screen: 'Join' }),
                     }
               }
             />

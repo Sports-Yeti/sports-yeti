@@ -725,10 +725,10 @@ export function ScheduleScreen() {
           <CalendarPlus size={28} color={colors.brand.primary} strokeWidth={2.25} />
         }
         title="Nothing scheduled this week"
-        description="Browse Discover to find games, camps, and scrimmages to join — or host your own."
+        description="Head to the Join tab to find games, camps, and scrimmages — or host your own."
         primaryAction={{
           label: 'Find a game',
-          onPress: () => navigation.navigate('MainTabs', { screen: 'Discover' }),
+          onPress: () => navigation.navigate('MainTabs', { screen: 'Join' }),
         }}
         secondaryAction={{
           label: 'Host one',
@@ -849,11 +849,11 @@ export function ScheduleScreen() {
                   ? 'Nothing coming up'
                   : `No upcoming ${KIND_CHIPS.find((c) => c.key === kind)?.label.toLowerCase() ?? 'events'}`
               }
-              description="Browse Discover to find something to join — or host your own game."
+              description="Head to the Join tab to find something to join — or host your own game."
               primaryAction={{
                 label: 'Find a game',
                 onPress: () =>
-                  navigation.navigate('MainTabs', { screen: 'Discover' }),
+                  navigation.navigate('MainTabs', { screen: 'Join' }),
               }}
               secondaryAction={
                 kind !== 'all'

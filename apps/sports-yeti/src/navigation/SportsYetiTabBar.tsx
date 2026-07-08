@@ -6,26 +6,26 @@ import {
   CalendarDays,
   Compass,
   MessageCircle,
-  Newspaper,
   PlaySquare,
+  Search,
 } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors, radii, shadows } from '../theme';
 import { Text } from '../ui/Text';
 
 const ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth?: number }>> = {
+  Join: Search,
   Discover: Compass,
   Highlights: PlaySquare,
   Teams: MessageCircle,
-  News: Newspaper,
   Schedule: CalendarDays,
 };
 
 const LABELS: Record<string, string> = {
+  Join: 'Join',
   Discover: 'Discover',
   Highlights: 'Highlights',
   Teams: 'Chat',
-  News: 'News',
   Schedule: 'Schedule',
 };
 
