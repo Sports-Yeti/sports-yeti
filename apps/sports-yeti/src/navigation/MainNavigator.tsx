@@ -37,7 +37,7 @@ import {
   ScheduleScreen,
   ScheduledEventDetailScreen,
   SettingsScreen,
-  SquadsScreen,
+  ChatInboxScreen,
   TeamDetailScreen,
   TeamPaymentScreen,
   WaiversScreen,
@@ -173,7 +173,7 @@ function PlayerTabs() {
       <Tab.Screen name="Discover" component={DiscoverScreen} />
       <Tab.Screen name="News" component={NewsScreen} />
       <Tab.Screen name="Highlights" component={HighlightsFeedScreen} />
-      <Tab.Screen name="Teams" component={SquadsScreen} />
+      <Tab.Screen name="Teams" component={ChatInboxScreen} />
       <Tab.Screen name="Schedule" component={ScheduleScreen} />
     </Tab.Navigator>
   );

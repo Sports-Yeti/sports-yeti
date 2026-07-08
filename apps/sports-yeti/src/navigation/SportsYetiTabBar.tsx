@@ -5,9 +5,9 @@ import { BlurView } from 'expo-blur';
 import {
   CalendarDays,
   Compass,
+  MessageCircle,
   Newspaper,
   PlaySquare,
-  Users,
 } from 'lucide-react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors, radii, shadows } from '../theme';
@@ -16,7 +16,7 @@ import { Text } from '../ui/Text';
 const ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth?: number }>> = {
   Discover: Compass,
   Highlights: PlaySquare,
-  Teams: Users,
+  Teams: MessageCircle,
   News: Newspaper,
   Schedule: CalendarDays,
 };
@@ -24,7 +24,7 @@ const ICONS: Record<string, React.ComponentType<{ size: number; color: string; s
 const LABELS: Record<string, string> = {
   Discover: 'Discover',
   Highlights: 'Highlights',
-  Teams: 'Teams',
+  Teams: 'Chat',
   News: 'News',
   Schedule: 'Schedule',
 };

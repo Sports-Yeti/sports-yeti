@@ -132,15 +132,17 @@ export function SearchHeader({
       ]}
     >
       <View style={searchStyles.row}>
-        <Pressable
-          onPress={onFilterPress}
-          style={searchStyles.iconBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Open all filters"
-          hitSlop={6}
-        >
-          <Menu size={22} color={colors.text.primary} strokeWidth={2.25} />
-        </Pressable>
+        {onFilterPress ? (
+          <Pressable
+            onPress={onFilterPress}
+            style={searchStyles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Open all filters"
+            hitSlop={6}
+          >
+            <Menu size={22} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
+        ) : null}
 
         <View style={searchStyles.field}>
           <Search size={18} color={colors.text.secondary} strokeWidth={2.5} />

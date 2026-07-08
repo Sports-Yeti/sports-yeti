@@ -16,7 +16,7 @@ export { NewsScreen } from './news/NewsScreen';
 export { NewsArticleScreen } from './news/NewsArticleScreen';
 export { ScheduleScreen } from './schedule/ScheduleScreen';
 export { ScheduledEventDetailScreen } from './schedule/ScheduledEventDetailScreen';
-export { SquadsScreen } from './teams/SquadsScreen';
+export { ChatInboxScreen } from './chat/ChatInboxScreen';
 export { HighlightsFeedScreen } from './highlights/HighlightsFeedScreen';
 export { ProfileTabScreen } from './profile/ProfileTabScreen';
 

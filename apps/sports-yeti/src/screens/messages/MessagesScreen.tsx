@@ -4,15 +4,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, MessageCircle } from 'lucide-react-native';
-import { colors, radii, shadows, spacing } from '../../theme';
-import {
-  Avatar,
-  EmptyState,
-  SearchBar,
-  Tabs,
-  Tag,
-  Text,
-} from '../../ui';
+import { colors, spacing } from '../../theme';
+import { EmptyState, SearchBar, Tabs, Text } from '../../ui';
+import { ChatListRow } from '../../components/ChatListRow';
 import { CHATS, type ChatPreview } from '../../mocks/messages';
 import { SARAH_AVATAR } from '../../mocks/avatars';
 import { useTeamChat } from '../../features/team-chat-store';
@@ -26,57 +20,6 @@ const TABS = [
   { key: 'direct', label: 'DMs' },
   { key: 'event', label: 'Events' },
 ];
-
-function ChatRow({
-  chat,
-  onPress,
-}: {
-  chat: ChatPreview;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${chat.title}, ${chat.unreadCount} unread`}
-      style={({ pressed }) => [
-        styles.row,
-        pressed ? styles.pressed : null,
-      ]}
-    >
-      <View style={styles.avatarShell}>
-        <Avatar uri={chat.avatar} initials={chat.title.charAt(0)} size={48} />
-        {chat.online ? <View style={styles.onlineDot} /> : null}
-      </View>
-      <View style={styles.rowBody}>
-        <View style={styles.headRow}>
-          <Text variant="button" color={colors.text.primary} style={styles.title}>
-            {chat.title}
-          </Text>
-          <Text variant="caption" color={colors.text.secondary}>
-            {chat.lastTimestamp}
-          </Text>
-        </View>
-        <Text
-          variant="bodySm"
-          color={colors.text.secondary}
-          numberOfLines={1}
-          style={styles.preview}
-        >
-          {chat.lastMessage}
-        </Text>
-        {chat.subtitle ? (
-          <Text variant="caption" color={colors.text.muted}>
-            {chat.subtitle}
-          </Text>
-        ) : null}
-      </View>
-      {chat.unreadCount > 0 ? (
-        <Tag tone="brand" size="sm" label={String(chat.unreadCount)} />
-      ) : null}
-    </Pressable>
-  );
-}
 
 export function MessagesScreen() {
   const navigation = useNavigation<Navigation>();
@@ -174,7 +117,7 @@ export function MessagesScreen() {
           />
         ) : (
           visible.map((c) => (
-            <ChatRow
+            <ChatListRow
               key={c.id}
               chat={c}
               onPress={() =>
@@ -215,48 +158,5 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface.card,
-    padding: spacing.md,
-    borderRadius: radii.lg,
-    minHeight: 64,
-    ...shadows.soft,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-  avatarShell: {
-    position: 'relative',
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#2E7D32',
-    borderWidth: 2,
-    borderColor: colors.surface.card,
-  },
-  rowBody: {
-    flex: 1,
-    gap: 2,
-  },
-  headRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  title: {
-    flex: 1,
-  },
-  preview: {
-    marginRight: spacing.md,
   },
 });

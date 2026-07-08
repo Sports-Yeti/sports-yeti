@@ -22,11 +22,12 @@ import {
   Chip,
   EmptyState,
   FilterPill,
-  ScreenHeader,
-  SearchBar,
+  OptionListSheet,
+  SearchHeader,
   SectionHeader,
   SportCombobox,
   type SportComboboxOption,
+  SportMultiSelectSheet,
   Tag,
   Text,
 } from '../../ui';
@@ -100,6 +101,9 @@ export function NewsScreen() {
 
   const [filters, setFilters] = useState<NewsFilters>(initialFilters);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sportSheetOpen, setSportSheetOpen] = useState(false);
+  const [typeSheetOpen, setTypeSheetOpen] = useState(false);
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false);
 
   const activeSports: SportKey[] = filters.forYou
     ? userSportKeys
@@ -169,6 +173,14 @@ export function NewsScreen() {
     setFilters((p) => ({ ...p, forYou: true, sports: new Set<SportKey>() }));
   const setAllSports = () =>
     setFilters((p) => ({ ...p, forYou: false, sports: new Set<SportKey>() }));
+  // Sport sheet apply: an empty selection reverts to the personalized "For You"
+  // stream; any explicit pick switches to that sport set.
+  const applySports = (next: Set<string>) =>
+    setFilters((p) =>
+      next.size === 0
+        ? { ...p, forYou: true, sports: new Set<SportKey>() }
+        : { ...p, forYou: false, sports: next as Set<SportKey> },
+    );
 
   const firstType = [...filters.types][0];
   const typeLabel =
@@ -190,9 +202,13 @@ export function NewsScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader
+      <SearchHeader
         initials={initials}
         hasNotifications
+        searchValue={filters.search}
+        onSearchChange={(v) => setFilters((p) => ({ ...p, search: v }))}
+        searchPlaceholder="Search stories, players, leagues…"
+        onFilterPress={() => setSheetOpen(true)}
         onAvatarPress={() => navigation.navigate('Profile' as never)}
         onBellPress={() => navigation.navigate('Notifications')}
       />
@@ -204,25 +220,23 @@ export function NewsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <SearchBar
-          value={filters.search}
-          onChangeText={(v) => setFilters((p) => ({ ...p, search: v }))}
-          placeholder="Search stories, players, leagues…"
-          onFilterPress={() => setSheetOpen(true)}
-        />
-
-        <View style={styles.pillRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.pillRow}
+        >
           {filters.forYou || filters.sports.size === 0 ? (
             <FilterPill
               label={`Sports · ${filters.forYou ? 'For You' : 'All'}`}
-              onPress={() => setSheetOpen(true)}
+              onPress={() => setSportSheetOpen(true)}
             />
           ) : (
             [...filters.sports].map((k) => (
               <FilterPill
                 key={k}
                 label={SPORT_META_BY_KEY[k].short}
-                onPress={() => setSheetOpen(true)}
+                onPress={() => setSportSheetOpen(true)}
                 onClose={() => toggleSport(k)}
                 accessibilityLabel={`${SPORT_META_BY_KEY[k].label} filter`}
               />
@@ -230,12 +244,12 @@ export function NewsScreen() {
           )}
           <FilterPill
             label={`Show · ${typeLabel}`}
-            onPress={() => setSheetOpen(true)}
+            onPress={() => setTypeSheetOpen(true)}
           />
           {showType('story') ? (
             <FilterPill
               label={`Category · ${categoryLabel}`}
-              onPress={() => setSheetOpen(true)}
+              onPress={() => setCategorySheetOpen(true)}
             />
           ) : null}
           {!isDefault ? (
@@ -251,7 +265,7 @@ export function NewsScreen() {
               </Text>
             </Pressable>
           ) : null}
-        </View>
+        </ScrollView>
 
         {!hasAnything ? (
           <EmptyState
@@ -461,6 +475,48 @@ export function NewsScreen() {
           </View>
         </ScrollView>
       </BottomSheet>
+
+      {/* ---------- Per-pill option sheets ---------- */}
+      <SportMultiSelectSheet
+        visible={sportSheetOpen}
+        onRequestClose={() => setSportSheetOpen(false)}
+        value={filters.sports}
+        onApply={applySports}
+        options={SPORT_OPTIONS}
+      />
+
+      <OptionListSheet
+        visible={typeSheetOpen}
+        onRequestClose={() => setTypeSheetOpen(false)}
+        title="Show"
+        multiple
+        options={CONTENT_TYPES.map((t) => ({
+          key: t,
+          label: NEWS_CONTENT_TYPE_LABEL[t],
+        }))}
+        selectedKeys={filters.types}
+        onApply={(types) =>
+          setFilters((p) => ({ ...p, types: types as Set<NewsContentType> }))
+        }
+      />
+
+      <OptionListSheet
+        visible={categorySheetOpen}
+        onRequestClose={() => setCategorySheetOpen(false)}
+        title="Story category"
+        multiple
+        options={CATEGORIES.map((c) => ({
+          key: c,
+          label: NEWS_CATEGORY_LABEL[c],
+        }))}
+        selectedKeys={filters.categories}
+        onApply={(categories) =>
+          setFilters((p) => ({
+            ...p,
+            categories: categories as Set<NewsCategory>,
+          }))
+        }
+      />
     </View>
   );
 }
@@ -814,8 +870,8 @@ const styles = StyleSheet.create({
   pillRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
     gap: spacing.xs,
+    paddingRight: spacing.lg,
   },
   clearBtn: {
     paddingHorizontal: spacing.sm,

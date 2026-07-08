@@ -1,5 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,11 +22,14 @@ import { useAuthStore } from '../../stores';
 import { colors, radii, shadows, spacing } from '../../theme';
 import {
   AvatarStack,
+  BottomSheet,
+  Button,
   Card,
-  Chip,
   EmptyState,
+  FilterPill,
   IconBadge,
-  ScreenHeader,
+  OptionListSheet,
+  SearchHeader,
   Tabs,
   Tag,
   Text,
@@ -44,13 +53,7 @@ import type { RootStackParamList } from '../../navigation/MainNavigator';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
-type ViewMode = 'week' | 'upcoming';
 type KindFilter = 'all' | ScheduleEventKind;
-
-const VIEW_TABS: { key: ViewMode; label: string }[] = [
-  { key: 'week', label: 'Week' },
-  { key: 'upcoming', label: 'Upcoming' },
-];
 
 const KIND_CHIPS: { key: KindFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -545,6 +548,36 @@ function filterByKind(
   return events.filter((e) => e.kind === kind);
 }
 
+/** Case-insensitive substring match across each event kind's key fields. */
+function matchesEventSearch(event: ScheduledEvent, query: string): boolean {
+  if (!query) return true;
+  const parts: string[] = [event.location, event.sportLabel];
+  switch (event.kind) {
+    case 'game':
+      parts.push(event.title, event.league, event.homeTeam.name, event.awayTeam.name);
+      break;
+    case 'camp':
+      parts.push(event.campTitle, event.sessionLabel);
+      break;
+    case 'scrimmage':
+      parts.push(event.title, event.hostName);
+      break;
+    default: {
+      const _exhaustive: never = event;
+      return _exhaustive;
+    }
+  }
+  return parts.join(' ').toLowerCase().includes(query);
+}
+
+function filterEvents(
+  events: ScheduledEvent[],
+  kind: KindFilter,
+  query: string,
+): ScheduledEvent[] {
+  return filterByKind(events, kind).filter((e) => matchesEventSearch(e, query));
+}
+
 /**
  * Best day to preselect when landing on a week: today (current week), else
  * the first day with events, else the first day of the week.
@@ -565,6 +598,7 @@ function defaultDayForWeek(
 export function ScheduleScreen() {
   const navigation = useNavigation<Navigation>();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { user } = useAuthStore();
   const initials = (user?.name?.charAt(0) || 'S').toUpperCase();
 
@@ -573,15 +607,19 @@ export function ScheduleScreen() {
   const todayKey = dayKey(new Date());
   const currentWeekStart = useMemo(() => startOfWeek(new Date()), [todayKey]);
 
-  const [view, setView] = useState<ViewMode>('week');
   const [kind, setKind] = useState<KindFilter>('all');
+  const [search, setSearch] = useState('');
   const [weekOffset, setWeekOffset] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [typeSheetOpen, setTypeSheetOpen] = useState(false);
+
+  const query = search.trim().toLowerCase();
 
   // Seeded fixture + everything joined/registered/cancelled this session.
   const events = useMySchedule();
   const filteredAll = useMemo(
-    () => filterByKind(events, kind),
-    [events, kind],
+    () => filterEvents(events, kind, query),
+    [events, kind, query],
   );
   const eventDays = useMemo(() => eventDayKeys(filteredAll), [filteredAll]);
 
@@ -613,7 +651,7 @@ export function ScheduleScreen() {
   const changeKind = (next: KindFilter) => {
     setKind(next);
     // Keep the user's day selection unless the new filter empties it out.
-    const nextDays = eventDayKeys(filterByKind(events, next));
+    const nextDays = eventDayKeys(filterEvents(events, next, query));
     setSelectedDayKey((prev) =>
       nextDays.has(prev) ? prev : defaultDayForWeek(weekStart, nextDays, todayKey),
     );
@@ -640,8 +678,8 @@ export function ScheduleScreen() {
   );
 
   const upcoming = useMemo(
-    () => filterByKind(upcomingEvents(events), kind),
-    [events, kind],
+    () => filterEvents(upcomingEvents(events), kind, query),
+    [events, kind, query],
   );
   const upcomingGroups = useMemo(() => {
     const groups: { key: string; date: Date; events: ScheduledEvent[] }[] = [];
@@ -667,6 +705,15 @@ export function ScheduleScreen() {
           day: 'numeric',
         })} Lineup`
     : 'Lineup';
+
+  const kindLabel = KIND_CHIPS.find((c) => c.key === kind)?.label ?? 'All';
+
+  // The day's lineup scrolls horizontally when there's more than one event,
+  // leaving a peek of the next card. A single event fills the row.
+  const multiDayEvents = dayEvents.length > 1;
+  const dayCardWidth = multiDayEvents
+    ? width - spacing.lg * 2 - spacing.xxl * 2.5
+    : width - spacing.lg * 2;
 
   const openEvent = (event: ScheduledEvent) =>
     navigation.navigate('ScheduledEventDetail', { id: event.id });
@@ -700,10 +747,13 @@ export function ScheduleScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader
+      <SearchHeader
         initials={initials}
-        title="Schedule"
         hasNotifications
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search games, camps, scrimmages…"
+        onFilterPress={() => setFilterOpen(true)}
         onAvatarPress={() => navigation.navigate('Profile')}
         onBellPress={() => navigation.navigate('Notifications')}
       />
@@ -715,131 +765,124 @@ export function ScheduleScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Tabs
-          variant="segmented"
-          items={VIEW_TABS.map((t) =>
-            t.key === 'upcoming'
-              ? {
-                  ...t,
-                  badge: String(upcoming.length),
-                  accessibilityLabel: `Upcoming, ${upcoming.length} event${upcoming.length === 1 ? '' : 's'}`,
-                }
-              : t,
-          )}
-          value={view}
-          onChange={(k) => setView(k as ViewMode)}
+        <View style={styles.pillRow}>
+          <FilterPill
+            label={`Type · ${kindLabel}`}
+            onPress={() => setTypeSheetOpen(true)}
+          />
+        </View>
+
+        <WeekPager
+          weekStart={weekStart}
+          offset={weekOffset}
+          onStep={(delta) => goToWeek(weekOffset + delta)}
+          onToday={() => goToWeek(0)}
+          eventCount={weekEvents.length}
         />
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
-        >
-          {KIND_CHIPS.map((chip) => (
-            <Chip
-              key={chip.key}
-              label={chip.label}
-              selected={kind === chip.key}
-              onPress={() => changeKind(chip.key)}
-            />
-          ))}
-        </ScrollView>
-
-        {view === 'week' ? (
-          <>
-            <WeekPager
-              weekStart={weekStart}
-              offset={weekOffset}
-              onStep={(delta) => goToWeek(weekOffset + delta)}
-              onToday={() => goToWeek(0)}
-              eventCount={weekEvents.length}
-            />
-
-            <View style={styles.dayStrip}>
-              {weekDates.map((date) => {
-                const key = dayKey(date);
-                return (
-                  <DayPill
-                    key={key}
-                    date={date}
-                    selected={key === selectedDayKey}
-                    hasEvent={eventDays.has(key)}
-                    isPast={key < todayKey}
-                    isToday={key === todayKey}
-                    onPress={() => setSelectedDayKey(key)}
-                  />
-                );
-              })}
-            </View>
-
-            <View style={styles.section}>
-              <Text variant="h1" color={colors.text.primary}>
-                {lineupTitle}
-              </Text>
-              <View style={styles.cardsColumn}>
-                {dayEvents.length === 0
-                  ? emptyLineup
-                  : dayEvents.map((event) => (
-                      <EventCardSwitch
-                        key={event.id}
-                        event={event}
-                        onPress={() => openEvent(event)}
-                      />
-                    ))}
-              </View>
-            </View>
-          </>
-        ) : (
-          <View style={styles.section}>
-            {upcomingGroups.length === 0 ? (
-              <EmptyState
-                icon={
-                  <CalendarPlus
-                    size={28}
-                    color={colors.brand.primary}
-                    strokeWidth={2.25}
-                  />
-                }
-                title={
-                  kind === 'all'
-                    ? 'Nothing coming up'
-                    : `No upcoming ${KIND_CHIPS.find((c) => c.key === kind)?.label.toLowerCase() ?? 'events'}`
-                }
-                description="Browse Discover to find something to join — or host your own game."
-                primaryAction={{
-                  label: 'Find a game',
-                  onPress: () =>
-                    navigation.navigate('MainTabs', { screen: 'Discover' }),
-                }}
-                secondaryAction={
-                  kind !== 'all'
-                    ? { label: 'Show all kinds', onPress: () => changeKind('all') }
-                    : {
-                        label: 'Host one',
-                        onPress: () => navigation.navigate('CreateGame'),
-                      }
-                }
+        <View style={styles.dayStrip}>
+          {weekDates.map((date) => {
+            const key = dayKey(date);
+            return (
+              <DayPill
+                key={key}
+                date={date}
+                selected={key === selectedDayKey}
+                hasEvent={eventDays.has(key)}
+                isPast={key < todayKey}
+                isToday={key === todayKey}
+                onPress={() => setSelectedDayKey(key)}
               />
-            ) : (
-              upcomingGroups.map((group) => (
-                <View key={group.key} style={styles.agendaGroup}>
-                  <Text variant="h2" color={colors.text.primary}>
-                    {dayHeading(group.date, todayKey)}
-                  </Text>
-                  <View style={styles.cardsColumn}>
-                    {group.events.map((event) => (
-                      <EventCardSwitch
-                        key={event.id}
-                        event={event}
-                        onPress={() => openEvent(event)}
-                      />
-                    ))}
-                  </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.section}>
+          <Text variant="h1" color={colors.text.primary}>
+            {lineupTitle}
+          </Text>
+          {dayEvents.length === 0 ? (
+            emptyLineup
+          ) : multiDayEvents ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={dayCardWidth + spacing.md}
+              snapToAlignment="start"
+              contentContainerStyle={styles.dayRail}
+            >
+              {dayEvents.map((event) => (
+                <View key={event.id} style={{ width: dayCardWidth }}>
+                  <EventCardSwitch event={event} onPress={() => openEvent(event)} />
                 </View>
-              ))
-            )}
-          </View>
-        )}
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.cardsColumn}>
+              {dayEvents.map((event) => (
+                <EventCardSwitch
+                  key={event.id}
+                  event={event}
+                  onPress={() => openEvent(event)}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text variant="h1" color={colors.text.primary}>
+            Upcoming
+          </Text>
+          {upcomingGroups.length === 0 ? (
+            <EmptyState
+              icon={
+                <CalendarPlus
+                  size={28}
+                  color={colors.brand.primary}
+                  strokeWidth={2.25}
+                />
+              }
+              title={
+                kind === 'all'
+                  ? 'Nothing coming up'
+                  : `No upcoming ${KIND_CHIPS.find((c) => c.key === kind)?.label.toLowerCase() ?? 'events'}`
+              }
+              description="Browse Discover to find something to join — or host your own game."
+              primaryAction={{
+                label: 'Find a game',
+                onPress: () =>
+                  navigation.navigate('MainTabs', { screen: 'Discover' }),
+              }}
+              secondaryAction={
+                kind !== 'all'
+                  ? { label: 'Show all kinds', onPress: () => changeKind('all') }
+                  : {
+                      label: 'Host one',
+                      onPress: () => navigation.navigate('CreateGame'),
+                    }
+              }
+            />
+          ) : (
+            upcomingGroups.map((group) => (
+              <View key={group.key} style={styles.agendaGroup}>
+                <Text variant="h2" color={colors.text.primary}>
+                  {dayHeading(group.date, todayKey)}
+                </Text>
+                <View style={styles.cardsColumn}>
+                  {group.events.map((event) => (
+                    <EventCardSwitch
+                      key={event.id}
+                      event={event}
+                      onPress={() => openEvent(event)}
+                    />
+                  ))}
+                </View>
+              </View>
+            ))
+          )}
+        </View>
       </ScrollView>
 
       <Pressable
@@ -853,6 +896,60 @@ export function ScheduleScreen() {
           Host a game
         </Text>
       </Pressable>
+
+      {/* ---------- Full filter sheet (hamburger) ---------- */}
+      <BottomSheet
+        visible={filterOpen}
+        onRequestClose={() => setFilterOpen(false)}
+        title="Filter schedule"
+        snapPoints={['50%']}
+      >
+        <ScrollView
+          contentContainerStyle={styles.sheetContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.sheetGroup}>
+            <Text variant="eyebrow" color={colors.text.secondary}>
+              Type
+            </Text>
+            <Tabs
+              variant="segmented"
+              items={KIND_CHIPS.map((c) => ({ key: c.key, label: c.label }))}
+              value={kind}
+              onChange={(k) => changeKind(k as KindFilter)}
+            />
+          </View>
+
+          <View style={styles.sheetActions}>
+            <Button
+              label="Reset"
+              variant="ghost"
+              fullWidth
+              onPress={() => {
+                setSearch('');
+                changeKind('all');
+              }}
+            />
+            <Button
+              label="Done"
+              variant="gradient"
+              fullWidth
+              onPress={() => setFilterOpen(false)}
+            />
+          </View>
+        </ScrollView>
+      </BottomSheet>
+
+      {/* ---------- Type pill sheet ---------- */}
+      <OptionListSheet
+        visible={typeSheetOpen}
+        onRequestClose={() => setTypeSheetOpen(false)}
+        title="Type"
+        options={KIND_CHIPS}
+        selectedKey={kind}
+        onSelect={(k) => changeKind(k as KindFilter)}
+      />
     </View>
   );
 }
@@ -870,13 +967,30 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     gap: spacing.lg,
   },
-  chipRow: {
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  sheetContent: {
+    gap: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
+  sheetGroup: {
+    gap: spacing.md,
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
   dayStrip: {
     flexDirection: 'row',
     gap: spacing.xs,
+  },
+  dayRail: {
+    flexDirection: 'row',
+    gap: spacing.md,
   },
   section: {
     gap: spacing.lg,

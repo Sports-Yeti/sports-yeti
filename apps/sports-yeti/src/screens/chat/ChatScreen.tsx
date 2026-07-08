@@ -18,6 +18,7 @@ import {
   Check,
   ChevronLeft,
   Clock,
+  Info,
   Lock,
   PencilLine,
   Plus,
@@ -652,7 +653,19 @@ export function ChatScreen() {
             ) : null}
           </View>
         </Pressable>
-        <View style={styles.backBtn} />
+        {team ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`View ${team.name} details`}
+            hitSlop={8}
+            onPress={() => navigation.navigate('TeamDetails', { id: team.id })}
+            style={styles.backBtn}
+          >
+            <Info size={22} color={colors.text.primary} strokeWidth={2.25} />
+          </Pressable>
+        ) : (
+          <View style={styles.backBtn} />
+        )}
       </View>
 
       <KeyboardAvoidingView

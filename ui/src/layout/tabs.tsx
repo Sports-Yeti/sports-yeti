@@ -44,36 +44,7 @@ export function Tabs({
 }: TabsProps) {
   const { colors, spacing, radii } = useTheme();
 
-  const Container = scrollable ? ScrollView : View;
-  const containerProps = scrollable
-    ? {
-        horizontal: true as const,
-        showsHorizontalScrollIndicator: false,
-        contentContainerStyle: {
-          flexDirection: 'row' as const,
-          gap: spacing.xs,
-        },
-      }
-    : {};
-
-  return (
-    <View
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      accessibilityRole={'tablist' as any}
-      style={[
-        styles.outer,
-        variant === 'segmented'
-          ? {
-              backgroundColor: colors.surface.chip,
-              borderRadius: radii.pill,
-              padding: spacing['2xs'] + 2,
-            }
-          : null,
-        style,
-      ]}
-    >
-      <Container {...containerProps} style={styles.row}>
-        {items.map((item) => {
+  const tabNodes = items.map((item) => {
           const selected = item.key === value;
           return (
             <Pressable
@@ -153,8 +124,35 @@ export function Tabs({
               ) : null}
             </Pressable>
           );
-        })}
-      </Container>
+        });
+
+  return (
+    <View
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      accessibilityRole={'tablist' as any}
+      style={[
+        styles.outer,
+        variant === 'segmented'
+          ? {
+              backgroundColor: colors.surface.chip,
+              borderRadius: radii.pill,
+              padding: spacing['2xs'] + 2,
+            }
+          : null,
+        style,
+      ]}
+    >
+      {scrollable ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.row, { gap: spacing.xs }]}
+        >
+          {tabNodes}
+        </ScrollView>
+      ) : (
+        <View style={styles.row}>{tabNodes}</View>
+      )}
     </View>
   );
 }
